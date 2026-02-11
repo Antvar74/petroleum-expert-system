@@ -1,0 +1,73 @@
+# Petroleum Expert System Configuration
+
+# Agent Configuration
+agents:
+  drilling_engineer:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 4000
+    temperature: 0.3
+    
+  mud_engineer:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 3500
+    temperature: 0.3
+    
+  geologist:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 3500
+    temperature: 0.3
+    
+  well_engineer:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 3500
+    temperature: 0.3
+    
+  hydrologist:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 3000
+    temperature: 0.2  # More deterministic for calculations
+
+# Workflow Definitions
+workflows:
+  standard:
+    description: "Complete analysis with all specialists"
+    agents:
+      - drilling_engineer
+      - hydrologist
+      - geologist
+      - mud_engineer
+      - well_engineer
+  
+  quick_differential:
+    description: "Rapid analysis for differential sticking"
+    agents:
+      - hydrologist
+      - mud_engineer
+  
+  quick_mechanical:
+    description: "Rapid analysis for mechanical problems"
+    agents:
+      - drilling_engineer
+      - well_engineer
+      - geologist
+  
+  lost_circulation:
+    description: "Analysis focused on losses"
+    agents:
+      - hydrologist
+      - geologist
+      - mud_engineer
+  
+  wellbore_stability:
+    description: "Stability-focused analysis"
+    agents:
+      - geologist
+      - hydrologist
+      - mud_engineer
+
+# Output Configuration
+output:
+  export_json: true
+  export_markdown: true
+  include_raw_responses: false
+  results_directory: "analysis_results"
