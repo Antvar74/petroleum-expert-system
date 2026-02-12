@@ -6,7 +6,11 @@ import os
 
 # Base directory for database
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "petroleum_expert.db")
+
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/petroleum_expert.db"
+else:
+    DB_PATH = os.path.join(BASE_DIR, "petroleum_expert.db")
 
 Base = declarative_base()
 
