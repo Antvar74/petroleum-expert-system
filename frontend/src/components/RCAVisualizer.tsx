@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import FiveWhysEditor from './FiveWhysEditor';
 import FishboneEditor from './FishboneEditor';
+import { API_BASE_URL } from '../config';
 
 interface RCAVisualizerProps {
     analysisData: any;
@@ -29,7 +30,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ analysisId, onGenerateRep
         setIsGenerating(true);
         try {
             // Call API to audit and generate report
-            const response = await axios.post(`http://localhost:8000/analysis/${analysisId}/rca/generate`, {
+            const response = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/rca/generate`, {
                 methodology,
                 data
             });

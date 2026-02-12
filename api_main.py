@@ -18,7 +18,10 @@ from models import init_db, get_db, Well, Problem, Analysis, Program, Operationa
 from orchestrator.api_coordinator import APICoordinator
 from utils.optimization_engine import OptimizationEngine
 
-app = FastAPI(title="Petroleum Expert System API")
+app = FastAPI(
+    title="Petroleum Expert System API",
+    root_path="/api" if os.environ.get("VERCEL") else ""
+)
 
 # Enable CORS for React frontend
 app.add_middleware(

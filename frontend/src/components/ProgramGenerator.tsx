@@ -12,12 +12,13 @@ import {
     ChevronRight,
     HardDrive
 } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface ProgramGeneratorProps {
     wellId: number;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+
 
 const ProgramGenerator: React.FC<ProgramGeneratorProps> = ({ wellId }) => {
     const [type, setType] = useState<'drilling' | 'completion' | 'workover'>('drilling');
@@ -70,8 +71,8 @@ const ProgramGenerator: React.FC<ProgramGeneratorProps> = ({ wellId }) => {
                                 key={pType}
                                 onClick={() => setType(pType as any)}
                                 className={`p-6 rounded-2xl border transition-all flex flex-col items-center gap-4 ${type === pType
-                                        ? 'bg-industrial-600/20 border-industrial-500 text-white shadow-lg shadow-industrial-900/40'
-                                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                                    ? 'bg-industrial-600/20 border-industrial-500 text-white shadow-lg shadow-industrial-900/40'
+                                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
                                     }`}
                             >
                                 <div className={`p-3 rounded-xl ${type === pType ? 'bg-industrial-500 text-white' : 'bg-white/5'}`}>

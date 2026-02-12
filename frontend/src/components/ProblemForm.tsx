@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Info, Send } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface ProblemFormProps {
     onSubmit: (data: any) => void;
@@ -23,7 +24,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
 
     React.useEffect(() => {
         // Fetch available PDF files from backend
-        fetch('http://localhost:8000/files')
+        fetch(`${API_BASE_URL}/files`)
             .then(res => res.json())
             .then(files => setAvailableFiles(files))
             .catch(err => console.error("Error fetching files:", err));

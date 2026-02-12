@@ -11,8 +11,9 @@ import {
     AlertTriangle,
     Upload
 } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
-const API_BASE_URL = 'http://localhost:8000';
+
 
 const OptimizationTools: React.FC = () => {
     const [tab, setTab] = useState<'hydraulics' | 'torque' | 'ingestion'>('hydraulics');

@@ -12,8 +12,9 @@ import {
     Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../config';
 
-const API_BASE_URL = 'http://localhost:8000';
+
 
 interface AnalysisDashboardProps {
     analysisId: number;

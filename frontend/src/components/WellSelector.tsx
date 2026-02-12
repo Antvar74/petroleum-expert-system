@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Database, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
+import { API_BASE_URL } from '../config';
 
 interface WellSelectorProps {
     onSelect: (well: any) => void;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+
 
 const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
     const [wells, setWells] = useState<any[]>([]);
