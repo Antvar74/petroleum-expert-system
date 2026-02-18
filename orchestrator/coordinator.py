@@ -15,6 +15,8 @@ from agents.rca_lead import RCALeadAgent
 from agents.cementing_engineer import CementingEngineerAgent
 from agents.optimization_engineer import OptimizationEngineerAgent
 from agents.hse_engineer import HSEEngineerAgent
+from agents.geomechanic_engineer import GeomechanicsEngineerAgent
+from agents.directional_engineer import DirectionalEngineerAgent
 from models import OperationalProblem, AnalysisResult
 from utils.interactive_helper import (
     print_header, print_separator, print_query_box,
@@ -38,7 +40,9 @@ class StuckPipeCoordinator:
             "rca_lead": RCALeadAgent(),
             "cementing_engineer": CementingEngineerAgent(),
             "optimization_engineer": OptimizationEngineerAgent(),
-            "hse_engineer": HSEEngineerAgent()
+            "hse_engineer": HSEEngineerAgent(),
+            "geomechanic_engineer": GeomechanicsEngineerAgent(),
+            "directional_engineer": DirectionalEngineerAgent()
         }
         
         # Standard workflow for stuck pipe analysis
@@ -208,18 +212,23 @@ class StuckPipeCoordinator:
             "agents_consulted": agents_to_consult
         }
     
-    def _generate_synthesis_query(self, problem: OperationalProblem, analyses: List[Dict]) -> str:
+    def _generate_synthesis_query(self, problem: OperationalProblem, analyses: List[Dict], leader_id: str = "drilling_engineer") -> str:
         """
-        Generate query for final synthesis by Drilling Engineer
+        Generate query for final synthesis by the Leader Agent
         
         Args:
             problem: The operational problem
             analyses: List of all specialist analyses
+            leader_id: The ID of the agent leading the investigation
             
         Returns:
             Formatted query string for synthesis
         """
-        query = f"""Como Drilling Engineer y líder del análisis, genera una síntesis ejecutiva integrando los hallazgos de todo el equipo.
+        leader_agent = self.agents.get(leader_id, self.agents["drilling_engineer"])
+        leader_role = leader_agent.role
+        
+        query = f"""Como {leader_role} y LÍDER OFICIAL del análisis, genera una síntesis ejecutiva integrando los hallazgos de todo el equipo.
+Tu responsabilidad es dirigir la conclusión final y establecer el plan de acción definitivo.
 
 # PROBLEMA ANALIZADO:
 {problem.description}
@@ -236,7 +245,7 @@ class StuckPipeCoordinator:
         query += """
 # ESTRUCTURA DE LA SÍNTESIS:
 
-1. **Executive Summary**: Diagnóstico principal en 2-3 líneas
+1. **Executive Summary**: Diagnóstico principal en 2-3 líneas (Redactado como Líder)
 2. **Root Cause Analysis**: Causa raíz identificada con confianza
 3. **Contributing Factors**: Factores secundarios por disciplina
 4. **Integrated Assessment**: Cómo interactúan los factores

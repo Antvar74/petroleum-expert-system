@@ -6,7 +6,10 @@ import {
     GitBranch,
     Box,
     ChevronRight,
-    Calculator
+    ArrowUpDown,
+    Droplets,
+    Lock,
+    Shield
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,8 +21,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'analysis', label: 'Agent Pipeline', icon: Activity },
-        { id: 'optimization', label: 'Optimization', icon: Calculator },
         { id: 'rca', label: 'RCA Tool', icon: GitBranch },
+        { id: 'torque-drag', label: 'Torque & Drag', icon: ArrowUpDown },
+        { id: 'hydraulics', label: 'Hydraulics/ECD', icon: Droplets },
+        { id: 'stuck-pipe', label: 'Stuck Pipe', icon: Lock },
+        { id: 'well-control', label: 'Well Control', icon: Shield },
         { id: 'settings', label: 'Settings', icon: Settings },
     ];
 

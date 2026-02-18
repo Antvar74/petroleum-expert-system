@@ -7,10 +7,27 @@ import os
 # Base directory for database
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-if os.environ.get("VERCEL"):
-    DB_PATH = "/tmp/petroleum_expert.db"
-else:
-    DB_PATH = os.path.join(BASE_DIR, "petroleum_expert.db")
+
+def _build_database_url() -> str:
+    """Resolve database URL from environment or defaults.
+
+    Priority:
+    1. DATABASE_URL env var (supports PostgreSQL, MySQL, SQLite, etc.)
+    2. VERCEL env var → ephemeral SQLite in /tmp
+    3. Local SQLite file in project root
+    """
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        return url
+    if os.environ.get("VERCEL"):
+        return "sqlite:////tmp/petroleum_expert.db"
+    return f"sqlite:///{os.path.join(BASE_DIR, 'petroleum_expert.db')}"
+
+
+DATABASE_URL = _build_database_url()
+
+# SQLite requires check_same_thread=False for FastAPI; other DBs don't need it
+_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 Base = declarative_base()
 
@@ -69,12 +86,13 @@ class Analysis(Base):
     overall_confidence = Column(String, nullable=True)
     individual_analyses = Column(JSON, nullable=True) # List of dicts
     final_synthesis = Column(JSON, nullable=True)
+    leader_agent_id = Column(String, nullable=True) # ID of the agent leading the investigation
     created_at = Column(DateTime, default=datetime.utcnow)
     
     problem = relationship("Problem", back_populates="analyses")
 
 # Database connection
-engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():

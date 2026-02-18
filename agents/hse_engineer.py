@@ -14,7 +14,7 @@ class HSEEngineerAgent(BaseAgent):
     def __init__(self):
         # Load system prompt from the documentation file
         try:
-            with open("docs/hse-safety-specialist.md", "r", encoding="utf-8") as f:
+            with open("data/prompts/hse-safety-specialist.md", "r", encoding="utf-8") as f:
                 system_prompt = f.read()
         except FileNotFoundError:
             system_prompt = "You are an elite HSE & Process Safety Specialist."

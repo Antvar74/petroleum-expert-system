@@ -1,0 +1,57 @@
+# Version control
+.git
+.gitignore
+
+# Environment
+.env
+.env.local
+.venv
+venv
+ENV
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+
+# Testing
+tests/
+.coverage
+htmlcov/
+
+# Database files
+*.db
+
+# Node modules (rebuilt in Stage 1)
+node_modules
+frontend/node_modules
+frontend/dist
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug and temp files
+debug_*.py
+reproduce_*.py
+verify_*.py
+temp_*
+*.log
+
+# Documentation (not needed in image)
+Docs/
+*.md
+
+# Deployment configs (not needed in Docker)
+vercel.json
+
+# Analysis results
+analysis_results/

@@ -1,6 +1,7 @@
 from agents.base_agent import BaseAgent
 from typing import Dict, List, Optional, Any
 import json
+from utils.llm_gateway import LLMGateway
 
 class RCALeadAgent(BaseAgent):
     """
@@ -17,7 +18,7 @@ class RCALeadAgent(BaseAgent):
     def __init__(self):
         # Load system prompt from the documentation file
         try:
-            with open("docs/rca-investigation-lead.md", "r", encoding="utf-8") as f:
+            with open("data/prompts/rca-investigation-lead.md", "r", encoding="utf-8") as f:
                 system_prompt = f.read()
         except FileNotFoundError:
             # Fallback if file not found (should be there in prod)
@@ -29,6 +30,7 @@ class RCALeadAgent(BaseAgent):
             system_prompt=system_prompt,
             knowledge_base_path="knowledge_base/rca/"
         )
+        self.gateway = LLMGateway()
 
     def classify_incident(self, incident_description: str, severity_data: Dict) -> Dict:
         """
@@ -142,3 +144,93 @@ class RCALeadAgent(BaseAgent):
         """
         
         return self.analyze_interactive(problem, context=incident_context)
+
+    async def perform_structured_rca(self, event_details: Dict, parameters: Dict, physics_results: Dict) -> Dict:
+        """
+        Executes a structured Root Cause Analysis based on quantitative evidence.
+        
+        Args:
+            event_details: Phase, Family, Description
+            parameters: Extracted technical parameters (MD, MW, etc.)
+            physics_results: Calculated physics indicators (ECD, CCI, Risk)
+            
+        Returns:
+            JSON Dict matching RCAReport schema (5 Whys, Fishbone, etc.)
+        """
+        
+        # 1. Construct Evidence-Based Prompt
+        system_prompt = """You are the Lead RCA Investigator. 
+Your goal is to determine the ROOT CAUSE of a drilling event using the API RP 585 methodology.
+You must rely on the provided EVIDENCE (Parameters & Physics) to justify your conclusions.
+
+OUTPUT FORMAT (Strict JSON):
+{
+  "root_cause_category": "Equipment | Procedures | Personnel | Design | External",
+  "root_cause_description": "Concise technical explanation of the failure.",
+  "five_whys": [
+    "1. Why did the event occur? ...",
+    "2. Why did that happen? ...",
+    "3. ...",
+    "4. ...",
+    "5. Root Cause ..."
+  ],
+  "fishbone_factors": {
+    "Equipment": ["item1", "item2"],
+    "People": ["item1"],
+    "Methods": ["item1"],
+    "Materials": ["item1"],
+    "Environment": ["item1"]
+  },
+  "corrective_actions": [
+    "Immediate: ...",
+    "Preventive: ..."
+  ],
+  "confidence_score": 0.0 to 1.0 (float)
+}
+"""
+
+        user_prompt = f"""
+ANALYZE THIS EVENT:
+
+1. CONTEXT
+- Phase: {event_details.get('phase')}
+- Family: {event_details.get('family')}
+- Type: {event_details.get('event_type')}
+- Description: {event_details.get('description')}
+
+2. TECHNICAL EVIDENCE (MEASURED)
+{json.dumps(parameters, indent=2)}
+
+3. PHYSICS ANALYSIS (CALCULATED)
+{json.dumps(physics_results, indent=2)}
+
+INSTRUCTIONS:
+- If ECD is High, consider hole cleaning or geometry issues.
+- If CCI is Poor, consider flow rate or rheology.
+- If Mechanical Risk is High, consider tortuosity or BHA design.
+- Connect the 'Physics' findings to the 'Parameters' to form the logical chain.
+- Generate the JSON output.
+"""
+        
+        try:
+            # Call LLM
+            response_text = await self.gateway.generate_analysis(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                mode="reasoning"  # Use smarter model for RCA
+            )
+            
+            # Clean and Parse JSON
+            clean_text = response_text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+            
+        except Exception as e:
+            print(f"❌ RCA Generation Error: {e}")
+            return {
+                "root_cause_category": "Unclassified",
+                "root_cause_description": f"Analysis failed: {str(e)}",
+                "five_whys": ["Analysis Error"],
+                "fishbone_factors": {},
+                "corrective_actions": [],
+                "confidence_score": 0.0
+            }

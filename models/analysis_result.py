@@ -20,6 +20,7 @@ class AnalysisResult:
     individual_analyses: List[Dict[str, Any]]
     final_synthesis: Dict[str, Any]
     workflow_used: List[str]
+    leader_agent_id: str = None
     timestamp: datetime = field(default_factory=datetime.now)
     
     def get_confidence_summary(self) -> Dict[str, int]:

@@ -9,6 +9,10 @@ from .mud_engineer import MudEngineerAgent
 from .geologist import GeologistAgent
 from .well_engineer import WellEngineerAgent
 from .hydrologist import HydrologistAgent
+from .rca_lead import RCALeadAgent
+from .cementing_engineer import CementingEngineerAgent
+from .geomechanic_engineer import GeomechanicsEngineerAgent
+from .directional_engineer import DirectionalEngineerAgent
 
 __all__ = [
     'BaseAgent',
@@ -16,5 +20,9 @@ __all__ = [
     'MudEngineerAgent',
     'GeologistAgent',
     'WellEngineerAgent',
-    'HydrologistAgent'
+    'HydrologistAgent',
+    'RCALeadAgent',
+    'CementingEngineerAgent',
+    'GeomechanicsEngineerAgent',
+    'DirectionalEngineerAgent'
 ]

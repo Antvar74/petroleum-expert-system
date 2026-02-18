@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Info, Send } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import AgentSelector from './AgentSelector';
 
 interface ProblemFormProps {
     onSubmit: (data: any) => void;
@@ -18,6 +19,8 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
         torque: '',
         overpull: ''
     });
+
+    const [workflow, setWorkflow] = useState<string[]>([]);
 
     // New state for dynamic file list
     const [availableFiles, setAvailableFiles] = useState<string[]>([]);
@@ -43,7 +46,8 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
             mud_weight: parseFloat(formData.mud_weight) || null,
             inclination: parseFloat(formData.inclination) || null,
             torque: parseFloat(formData.torque) || null,
-            overpull: parseFloat(formData.overpull) || null
+            overpull: parseFloat(formData.overpull) || null,
+            workflow: workflow.length > 0 ? workflow : undefined // Use custom workflow
         });
     };
 
@@ -90,7 +94,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
                         }}
                         className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-ibm-blue-300 focus:outline-none focus:border-ibm-blue-500 cursor-pointer"
                     >
-                        <option value="">Select a PDF...</option>
+                        <option value="">Select a Data File...</option>
                         {availableFiles.map(file => (
                             <option key={file} value={file}>{file}</option>
                         ))}
@@ -148,7 +152,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
                 />
                 <p className="text-[10px] text-white/20 flex items-center gap-1">
                     <Info size={12} />
-                    To use real PDPs/Reports, place the PDF in the 'data/' folder and reference it here (e.g. [REAL_DATA:filename.pdf]).
+                    To use real data, place the file (.pdf, .csv, .md, .txt) in the 'data/' folder and reference it here.
                 </p>
             </div>
 
@@ -171,7 +175,12 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit }) => {
                 </div>
             </div>
 
-            <button type="submit" className="w-full btn-primary justify-center h-12 text-base shadow-lg shadow-industrial-900/20">
+            {/* Agent Selection Component */}
+            <div className="pt-4 border-t border-white/5">
+                <AgentSelector onSelectionChange={setWorkflow} />
+            </div>
+
+            <button type="submit" disabled={workflow.length === 0} className="w-full btn-primary justify-center h-12 text-base shadow-lg shadow-industrial-900/20 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Send size={18} />
                 Initiate Specialist Analysis
             </button>

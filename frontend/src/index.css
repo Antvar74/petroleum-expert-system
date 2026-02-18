@@ -46,3 +46,218 @@ body {
     @apply w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-industrial-500 transition-colors;
   }
 }
+
+/* ── Executive Report Styles (for html2pdf.js capture) ── */
+.executive-report {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1a1a1a;
+  background: white;
+  padding: 40px;
+  max-width: 800px;
+}
+.executive-report-header {
+  border-bottom: 3px solid #1e40af;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.executive-report-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1e3a5f;
+  letter-spacing: 2px;
+}
+.executive-report-meta {
+  text-align: right;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.6;
+}
+.executive-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 16px 0 28px;
+}
+.executive-kpi-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 8px;
+  text-align: center;
+  background: #f8fafc;
+}
+.executive-kpi-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e40af;
+}
+.executive-kpi-label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+.executive-section {
+  margin: 24px 0;
+  break-inside: avoid;
+}
+.executive-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  letter-spacing: 0.5px;
+}
+.executive-section.summary {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+}
+.executive-section.alert {
+  border-left: 4px solid #ef4444;
+  padding-left: 16px;
+}
+.executive-section.recommendation {
+  border-left: 4px solid #22c55e;
+  padding-left: 16px;
+}
+.executive-footer {
+  margin-top: 40px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+@media print {
+  /* Hide all UI elements by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Reset body styles for print */
+  body {
+    background-color: white !important;
+    color: black !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 20px !important;
+  }
+
+  /* Ensure the report container and its children are visible */
+  .print-report-container,
+  .print-report-container * {
+    visibility: visible !important;
+  }
+
+  /* Position the report container at the top */
+  .print-report-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Styling for the report content */
+  .prose {
+    max-width: 100% !important;
+    background-color: transparent !important;
+    color: black !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Hide scrollbars */
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Print Header specific styling */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .print-header-logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .print-header-meta {
+    text-align: right;
+    font-size: 10pt;
+    color: #666;
+  }
+
+  /* Hide buttons explicitly if they are inside the container */
+  .print-no-show {
+    display: none !important;
+  }
+
+  /* ── Chart print styles (Recharts SVG) ── */
+  .print-chart,
+  .print-chart * {
+    visibility: visible !important;
+  }
+
+  .print-chart svg {
+    background: white !important;
+  }
+
+  .print-chart text {
+    fill: #333 !important;
+  }
+
+  .print-chart line,
+  .print-chart .recharts-cartesian-grid line {
+    stroke: #999 !important;
+  }
+
+  .print-chart .recharts-reference-line line {
+    stroke: #666 !important;
+  }
+
+  .print-chart .recharts-tooltip-wrapper {
+    display: none !important;
+  }
+
+  /* Glass panels become white cards in print */
+  .print-chart .glass-panel {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Gauge charts: white background for arcs */
+  .print-chart .gauge-arc {
+    opacity: 0.8;
+  }
+
+  /* Ensure chart containers break properly across pages */
+  .print-chart {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+  }
+}

@@ -1,16 +1,15 @@
 import os
 import httpx
 import google.generativeai as genai
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 class LLMGateway:
     """
     Gateway to route LLM requests to the best available provider:
-    - Gemini 2.0 Flash (Speed)
-    - Gemini 1.5 Pro (Reasoning)
-    - Ollama (Local Fallback)
+    - Gemini 2.5 Flash (Primary)
+    - Ollama (Local Fallback — only if running)
     """
-    
+
     def __init__(self):
         self._setup_gemini()
         self.ollama_base_url = "http://localhost:11434"
@@ -21,40 +20,78 @@ class LLMGateway:
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         if self.gemini_key:
             genai.configure(api_key=self.gemini_key)
-            # Using gemini-2.5-flash for BOTH modes as it's the only one currently passing quota checks
+            # Using gemini-2.5-flash for BOTH modes — it's the only model currently passing quota checks
             self.gemini_flash = genai.GenerativeModel('gemini-2.5-flash')
-            self.gemini_pro = genai.GenerativeModel('gemini-2.5-flash') 
+            self.gemini_pro = genai.GenerativeModel('gemini-2.5-flash')
             print("✅ Gemini API Configured (Using Gemini 2.5 Flash)")
         else:
-            print("⚠️ Gemini API Key not found. Using Local Fallback.")
+            print("⚠️ Gemini API Key not found.")
 
-    async def generate_analysis(self, prompt: str, system_prompt: Optional[str] = None, mode: str = "fast") -> str:
+    async def get_available_providers(self) -> List[Dict[str, str]]:
+        """Return list of available LLM providers. Ollama only shown if running."""
+        providers = [{"id": "auto", "name": "Auto (Best Available)", "name_es": "Auto (Mejor Disponible)"}]
+        if self.gemini_key:
+            providers.append({"id": "gemini", "name": "Google Gemini", "name_es": "Google Gemini"})
+        # Check if Ollama is actually running
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                await client.get(self.ollama_base_url)
+            providers.append({"id": "ollama", "name": "Ollama (Local)", "name_es": "Ollama (Local)"})
+        except Exception:
+            pass  # Ollama not running — don't show it
+        return providers
+
+    async def generate_analysis(self, prompt: str, system_prompt: Optional[str] = None, mode: str = "fast", provider: str = "auto") -> str:
         """
-        Generates analysis using the appropriate model based on 'mode'.
-        mode: 'fast' (Flash), 'reasoning' (Pro), 'local' (Ollama)
+        Generates analysis using the specified or best available provider.
+        provider: "auto" | "gemini" | "ollama"
+        Priority (auto): Gemini → Ollama
         """
-        
-        # 1. Try Gemini if configured and mode is not forced local
-        if self.gemini_key and mode != "local":
+
+        # Helper to try Gemini
+        async def try_gemini():
+            if not self.gemini_key: return None, "Gemini Key Missing"
             try:
                 full_prompt = f"System: {system_prompt}\n\nUser: {prompt}" if system_prompt else prompt
-                
-                if mode == "reasoning":
-                    response = await self.gemini_pro.generate_content_async(full_prompt)
-                else:
-                    response = await self.gemini_flash.generate_content_async(full_prompt)
-                    
-                return response.text
+                model = self.gemini_pro if mode == "reasoning" else self.gemini_flash
+                response = await model.generate_content_async(full_prompt)
+                return response.text, None
             except Exception as e:
-                if "429" in str(e):
-                    # Rate Limit Hit - Do NOT fallback to Ollama if user likely doesn't have it
-                    print("🚦 Rate Limit Hit (429). Advise user to wait.")
-                    return "⚠️ **API RATE LIMIT EXCEEDED** (Gemini Free Tier).\n\nPlease wait **30-60 seconds** and try again.\n(The system paused to prevent spamming the API).\n\nDetails: Quota exceeded for 'gemini-2.5-flash'."
-                
-                print(f"❌ Gemini Error: {e}. Falling back to Local LLM.")
+                return None, str(e)
 
-        # 2. Fallback to Ollama (Only if not rate limited or explicit local mode)
-        return await self._call_ollama(prompt, system_prompt)
+        # Helper to try Ollama
+        async def try_ollama():
+            try:
+                res = await self._call_ollama(prompt, system_prompt)
+                if "Error" in res or "⚠️" in res: return None, res
+                return res, None
+            except Exception as e:
+                return None, str(e)
+
+        # --- EXPLICIT PROVIDER SELECTION ---
+        if provider == "gemini":
+            res, err = await try_gemini()
+            if res: return res
+            return f"❌ **Gemini Failed**: {err}"
+
+        if provider == "ollama":
+            return await self._call_ollama(prompt, system_prompt)
+
+        # --- AUTO MODE (CASCADE): Gemini → Ollama ---
+        errors = []
+
+        # 1. Gemini (Primary)
+        if self.gemini_key and mode != "local":
+            res, err = await try_gemini()
+            if res: return res
+            errors.append(f"Gemini: {err}")
+
+        # 2. Ollama (Fallback)
+        res, err = await try_ollama()
+        if res: return res
+        errors.append(f"Ollama: {err}")
+
+        return f"⚠️ **All Providers Failed**\n\nDetails:\n- " + "\n- ".join(errors)
 
     async def _call_ollama(self, prompt: str, system_prompt: Optional[str]) -> str:
         # Check if Ollama is even running first
@@ -62,22 +99,22 @@ class LLMGateway:
             async with httpx.AsyncClient(timeout=2.0) as client:
                 await client.get(self.ollama_base_url)
         except:
-             return "⚠️ **Connection Error**: Could not connect to Gemini (Rate Limited?) and Local LLM (Ollama) is not running.\n\n**Solution**: update your API Key or wait 60 seconds."
+             return "⚠️ **Ollama Not Running**: Could not connect to local Ollama server.\n\n**Solution**: Start Ollama with `ollama serve` or select a different provider."
 
         url = f"{self.ollama_base_url}/api/chat"
-        # ... Rest of Ollama logic
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        
+
         payload = {
             "model": self.ollama_model,
             "messages": messages,
             "stream": False,
             "options": {"temperature": 0.7, "num_predict": 2048}
         }
-        
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(url, json=payload)

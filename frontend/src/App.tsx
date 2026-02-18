@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Activity, GitBranch } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import WellSelector from './components/WellSelector';
-import ProblemForm from './components/ProblemForm';
+import EventWizard from './components/EventWizard'; // Changed from ProblemForm
 import AnalysisDashboard from './components/AnalysisDashboard';
 import RCAVisualizer from './components/RCAVisualizer';
+import TorqueDragModule from './components/TorqueDragModule';
+import HydraulicsModule from './components/HydraulicsModule';
+import StuckPipeAnalyzer from './components/StuckPipeAnalyzer';
+import WellControlModule from './components/WellControlModule';
+import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
-import OptimizationTools from './components/OptimizationTools';
+
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -21,15 +26,37 @@ function App() {
     setCurrentView('dashboard');
   };
 
-  const handleProblemSubmit = async (problemData: any) => {
+  const handleEventSubmit = async (eventData: any) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/wells/${selectedWell.id}/problems`, problemData);
+      // 1. Create the Structured Event record
+      const payload = {
+        ...eventData,
+        well_id: selectedWell.id
+      };
 
-      const analysisResponse = await axios.post(`${API_BASE_URL}/problems/${response.data.id}/analysis/init`);
+      const response = await axios.post(`${API_BASE_URL}/events`, payload);
+      const { id: eventId, problem_id: legacyProblemId } = response.data;
+
+      // 2. Trigger Physics Calculation (Async)
+      // We don't block the UI for this, but we fire it off.
+      try {
+        await axios.post(`${API_BASE_URL}/events/${eventId}/calculate`);
+      } catch (calcError) {
+        console.warn("Physics calculation failed:", calcError);
+      }
+
+      // 3. Initialize analysis using legacy pipeline (for now)
+      // We use the legacy_problem_id to bridge to the existing Agents
+      const analysisResponse = await axios.post(`${API_BASE_URL}/problems/${legacyProblemId}/analysis/init`, {
+        workflow: eventData.workflow || "standard",
+        leader: eventData.leader
+      });
+
       setActiveAnalysis(analysisResponse.data);
       setCurrentView('analysis');
     } catch (error) {
-      console.error("Error creating analysis:", error);
+      console.error("Error creating event/analysis:", error);
+      alert(`Failed to start analysis: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -43,10 +70,13 @@ function App() {
         return (
           <div className="max-w-4xl mx-auto py-12">
             <div className="mb-12">
-              <h2 className="text-3xl font-bold mb-2">Well Operation: {selectedWell?.name}</h2>
-              <p className="text-white/40">Enter the operational parameters to initiate the specialist agent pipeline.</p>
+              <h2 className="text-3xl font-bold mb-2">New Event Analysis: {selectedWell?.name}</h2>
+              <p className="text-white/40">Use the AI Wizard to identify the event and extract technical parameters.</p>
             </div>
-            <ProblemForm onSubmit={handleProblemSubmit} />
+            <EventWizard
+              onComplete={handleEventSubmit}
+              onCancel={() => setSelectedWell(null)}
+            />
           </div>
         );
       case 'analysis':
@@ -59,12 +89,53 @@ function App() {
             />
           </div>
         ) : (
-          <div className="text-center py-20 text-white/20">No active analysis. Go to Dashboard to start.</div>
+          <div className="flex flex-col items-center justify-center h-full text-center p-12 animate-fadeIn">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+              <Activity className="text-white/20" size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">No Analysis in Progress</h3>
+            <p className="text-white/40 mb-6 max-w-md">
+              Start a new event analysis from the Dashboard to see the Agent Pipeline in action.
+            </p>
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="px-6 py-2 bg-industrial-600 hover:bg-industrial-700 text-white rounded-lg transition-colors font-medium"
+            >
+              Go to Dashboard
+            </button>
+          </div>
         );
-      case 'optimization':
-        return <div className="py-12"><OptimizationTools /></div>;
+
       case 'rca':
-        return <div className="py-12"><RCAVisualizer analysisData={activeAnalysis} analysisId={activeAnalysis?.id} /></div>;
+        return activeAnalysis ? (
+          <div className="py-12"><RCAVisualizer report={activeAnalysis} /></div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center p-12 animate-fadeIn">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+              <GitBranch className="text-white/20" size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">No Root Cause Analysis</h3>
+            <p className="text-white/40 mb-6 max-w-md">
+              Complete an event analysis to generate an RCA report.
+            </p>
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="px-6 py-2 bg-industrial-600 hover:bg-industrial-700 text-white rounded-lg transition-colors font-medium"
+            >
+              Start New Analysis
+            </button>
+          </div>
+        );
+      case 'module-dashboard':
+        return <ModuleDashboard onNavigate={setCurrentView} wellId={selectedWell?.id} />;
+      case 'torque-drag':
+        return <TorqueDragModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'hydraulics':
+        return <HydraulicsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'stuck-pipe':
+        return <StuckPipeAnalyzer wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'well-control':
+        return <WellControlModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'settings':
         return <div className="p-12 text-center text-white/40 italic">Settings module coming soon in v3.1</div>;
       default:
@@ -91,8 +162,12 @@ function App() {
             <div className="p-2 bg-industrial-600/10 rounded-lg text-industrial-500">
               {currentView === 'dashboard' && <span className="font-bold">Operational Problem Report</span>}
               {currentView === 'analysis' && <span className="font-bold">Multi-Agent Specialist Pipeline</span>}
-              {currentView === 'optimization' && <span className="font-bold">Technical Optimization Engine</span>}
               {currentView === 'rca' && <span className="font-bold">Elite Root Cause Analysis</span>}
+              {currentView === 'module-dashboard' && <span className="font-bold">Engineering Dashboard</span>}
+              {currentView === 'torque-drag' && <span className="font-bold">Torque & Drag Real-Time</span>}
+              {currentView === 'hydraulics' && <span className="font-bold">Hydraulics / ECD Dynamic</span>}
+              {currentView === 'stuck-pipe' && <span className="font-bold">Stuck Pipe Analyzer</span>}
+              {currentView === 'well-control' && <span className="font-bold">Well Control / Kill Sheet</span>}
             </div>
           </div>
           <div className="flex items-center gap-6">

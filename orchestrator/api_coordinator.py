@@ -13,22 +13,23 @@ class APICoordinator(StuckPipeCoordinator):
         super().__init__()
         self.gateway = LLMGateway()
 
-    async def run_automated_step(self, agent_id: str, problem_description: str, context: Optional[Dict] = None) -> Dict[str, Any]:
+    async def run_automated_step(self, agent_id: str, problem_description: str, context: Optional[Dict] = None, provider: str = "auto") -> Dict[str, Any]:
         """
         Run a single analysis step automatically using the LLM Gateway (Mode: Fast).
         """
         if agent_id not in self.agents:
             raise ValueError(f"Agent {agent_id} not found")
-        
+
         agent = self.agents[agent_id]
         # Generate the prompt
         analysis = agent.analyze_interactive(problem_description, context)
-        
+
         # Call the LLM Gateway (Fast Mode for individual agents)
         response_text = await self.gateway.generate_analysis(
             prompt=analysis["query"],
             system_prompt=None,
-            mode="fast"
+            mode="fast",
+            provider=provider
         )
         
         # Process and set response
@@ -55,20 +56,21 @@ class APICoordinator(StuckPipeCoordinator):
         agent.set_response(analysis, response_text)
         return analysis
 
-    async def run_automated_synthesis(self, problem: OperationalProblem, analyses: List[Dict]) -> Dict[str, Any]:
+    async def run_automated_synthesis(self, problem: OperationalProblem, analyses: List[Dict], leader_agent_id: str = "drilling_engineer") -> Dict[str, Any]:
         """
         Run the final synthesis automatically using the LLM Gateway.
         """
-        query = self.get_synthesis_query(problem, analyses)
+        query = self.get_synthesis_query(problem, analyses, leader_agent_id)
         
         # Reasoning mode for final synthesis
         response_text = await self.gateway.generate_analysis(prompt=query, mode="reasoning")
         
-        confidence = self.agents["drilling_engineer"]._extract_confidence(response_text)
+        leader_agent = self.agents.get(leader_agent_id, self.agents["drilling_engineer"])
+        confidence = leader_agent._extract_confidence(response_text)
         
         return {
-            "agent": "drilling_engineer",
-            "role": "Drilling Engineer / Company Man (Synthesis)",
+            "agent": leader_agent_id,
+            "role": f"{leader_agent.role} (Synthesis Leader)",
             "analysis": response_text,
             "confidence": confidence
         }
@@ -134,9 +136,9 @@ class APICoordinator(StuckPipeCoordinator):
         agent.set_response(analysis, response_text)
         return analysis
 
-    def get_synthesis_query(self, problem: OperationalProblem, analyses: List[Dict]) -> str:
+    def get_synthesis_query(self, problem: OperationalProblem, analyses: List[Dict], leader_id: str = "drilling_engineer") -> str:
         """Expose the internal synthesis query generator"""
-        return self._generate_synthesis_query(problem, analyses)
+        return self._generate_synthesis_query(problem, analyses, leader_id)
         
     def get_workflow(self, workflow_type: str = "standard") -> List[str]:
         """Return the list of agent IDs for a workflow"""

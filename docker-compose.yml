@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/petroleum_expert.db
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+  # ================================================================
+  # Futuro: Descomentar para migrar a PostgreSQL
+  # ================================================================
+  # 1. Descomentar el servicio postgres abajo
+  # 2. Cambiar DATABASE_URL arriba a:
+  #    DATABASE_URL=postgresql://petrouser:changeme@postgres:5432/petroleum_expert
+  # 3. Agregar psycopg2-binary a requirements.txt
+  # 4. docker compose up --build
+  # ================================================================
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: petroleum_expert
+  #     POSTGRES_USER: petrouser
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pg-data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  app-data:
+  # pg-data:
