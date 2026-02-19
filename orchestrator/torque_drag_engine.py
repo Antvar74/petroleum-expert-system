@@ -109,7 +109,8 @@ class TorqueDragEngine:
         mud_weight: float,
         wob: float = 0.0,
         rpm: float = 0.0,
-        casing_shoe_md: float = 0.0
+        casing_shoe_md: float = 0.0,
+        ecd_profile: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Johancsik Soft-String Model for Torque & Drag.
@@ -123,6 +124,9 @@ class TorqueDragEngine:
         - wob: weight on bit (klb) — only for rotating/sliding
         - rpm: rotary speed (only for rotating)
         - casing_shoe_md: casing shoe depth for friction factor selection
+        - ecd_profile: optional list of {tvd, ecd} from HydraulicsEngine for
+          local buoyancy correction. If provided, uses ECD at each station
+          instead of constant mud_weight for buoyancy factor.
         """
         if len(survey) < 2:
             return {"error": "Need at least 2 survey stations"}
@@ -166,8 +170,26 @@ class TorqueDragEngine:
             # If beyond drillstring, use last section
             return ds_map[-1] if ds_map else {"weight": 20.0, "od": 5.0, "id_inner": 4.276}
 
-        # Buoyancy factor
+        # Buoyancy factor (base — may be overridden per-station with ECD profile)
         bf = 1.0 - (mud_weight / 65.5)  # 65.5 ppg = steel SG
+        use_ecd_buoyancy = ecd_profile is not None and len(ecd_profile) >= 2
+
+        def _interpolate_ecd(tvd_val):
+            """Linearly interpolate ECD at a given TVD from the ECD profile."""
+            if not ecd_profile or len(ecd_profile) < 2:
+                return mud_weight
+            # Sort by TVD ascending
+            sorted_prof = sorted(ecd_profile, key=lambda p: p.get("tvd", 0))
+            if tvd_val <= sorted_prof[0]["tvd"]:
+                return sorted_prof[0]["ecd"]
+            if tvd_val >= sorted_prof[-1]["tvd"]:
+                return sorted_prof[-1]["ecd"]
+            for j in range(len(sorted_prof) - 1):
+                t0, t1 = sorted_prof[j]["tvd"], sorted_prof[j + 1]["tvd"]
+                if t0 <= tvd_val <= t1:
+                    frac = (tvd_val - t0) / (t1 - t0) if (t1 - t0) > 0 else 0
+                    return sorted_prof[j]["ecd"] + frac * (sorted_prof[j + 1]["ecd"] - sorted_prof[j]["ecd"])
+            return mud_weight
 
         # Process from bit to surface (bottom-up for trip_out/rotating)
         # or surface to bit (top-down for trip_in), but Johancsik always goes bottom-up
@@ -206,8 +228,15 @@ class TorqueDragEngine:
             mid_md = (md_lower + md_upper) / 2.0
             ds = get_ds_at_md(mid_md)
 
-            # Buoyed weight of this interval
-            w = ds["weight"] * bf * delta_md  # total buoyed weight of segment
+            # Buoyed weight: use local ECD for buoyancy if profile available
+            if use_ecd_buoyancy:
+                # Estimate TVD at midpoint (using average inclination for MD->TVD)
+                est_tvd_mid = mid_md * math.cos(avg_inc)
+                ecd_local = _interpolate_ecd(est_tvd_mid)
+                bf_local = 1.0 - (ecd_local / 65.5)
+            else:
+                bf_local = bf
+            w = ds["weight"] * bf_local * delta_md  # total buoyed weight of segment
 
             # Friction factor selection
             mu = friction_open

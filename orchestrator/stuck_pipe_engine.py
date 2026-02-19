@@ -715,3 +715,198 @@ class StuckPipeEngine:
                 + len(mech_actions["contingency"])
             )
         }
+
+    # ============================================================
+    # Cross-Engine Integration: Differential Sticking Force
+    # ============================================================
+    @staticmethod
+    def calculate_differential_sticking_force(
+        ecd_ppg: float,
+        pore_pressure_ppg: float,
+        contact_length_ft: float,
+        pipe_od_in: float,
+        filter_cake_thickness_in: float = 0.25,
+        friction_coefficient_cake: float = 0.10,
+        tvd_ft: float = 10000.0
+    ) -> Dict[str, Any]:
+        """
+        Calculate differential sticking force using ECD from hydraulics engine.
+
+        This quantifies the risk of differential sticking when the drillstring
+        rests against a permeable formation with overbalanced pressure.
+
+        Args:
+            ecd_ppg: equivalent circulating density (ppg) — from HydraulicsEngine
+            pore_pressure_ppg: formation pore pressure (ppg)
+            contact_length_ft: length of pipe in contact with formation (ft)
+            pipe_od_in: outer diameter of pipe (in)
+            filter_cake_thickness_in: filter cake thickness (in, typical 0.125-0.50)
+            friction_coefficient_cake: friction between pipe and filter cake (typical 0.05-0.20)
+            tvd_ft: true vertical depth of stuck zone (ft)
+
+        Returns:
+            Dict with differential pressure, contact area, sticking force,
+            estimated pull-free force, and risk assessment.
+        """
+        # Differential pressure (psi) = overbalance converted to pressure
+        overbalance_ppg = ecd_ppg - pore_pressure_ppg
+        differential_pressure_psi = overbalance_ppg * 0.052 * tvd_ft
+
+        # Guard: if underbalanced, no differential sticking risk
+        if differential_pressure_psi <= 0:
+            return {
+                "differential_pressure_psi": 0.0,
+                "overbalance_ppg": round(overbalance_ppg, 2),
+                "contact_area_sqin": 0.0,
+                "sticking_force_lbs": 0.0,
+                "pull_free_force_lbs": 0.0,
+                "risk_level": "NONE",
+                "detail": "Underbalanced or balanced — no differential sticking risk"
+            }
+
+        # Contact area: pipe resting against wall, embedded in filter cake
+        # Arc of contact depends on filter cake thickness and pipe OD
+        # Simplified: contact_width ~ 2 * sqrt(OD * cake_thickness)  (Hertz contact)
+        contact_width_in = 2.0 * math.sqrt(pipe_od_in * filter_cake_thickness_in)
+        # Limit contact width to ~30% of circumference max
+        max_width = 0.3 * math.pi * pipe_od_in
+        contact_width_in = min(contact_width_in, max_width)
+
+        contact_area_sqin = contact_width_in * contact_length_ft * 12.0  # ft -> in
+
+        # Sticking force = differential pressure × contact area
+        sticking_force_lbs = differential_pressure_psi * contact_area_sqin
+
+        # Pull-free force = sticking_force × friction coefficient
+        # The force needed to slide pipe free laterally
+        pull_free_force_lbs = sticking_force_lbs * friction_coefficient_cake
+
+        # Risk assessment
+        if sticking_force_lbs > 500000:
+            risk_level = "CRITICAL"
+        elif sticking_force_lbs > 200000:
+            risk_level = "HIGH"
+        elif sticking_force_lbs > 50000:
+            risk_level = "MODERATE"
+        elif sticking_force_lbs > 10000:
+            risk_level = "LOW"
+        else:
+            risk_level = "MINIMAL"
+
+        return {
+            "differential_pressure_psi": round(differential_pressure_psi, 0),
+            "overbalance_ppg": round(overbalance_ppg, 2),
+            "contact_area_sqin": round(contact_area_sqin, 1),
+            "contact_width_in": round(contact_width_in, 2),
+            "sticking_force_lbs": round(sticking_force_lbs, 0),
+            "pull_free_force_lbs": round(pull_free_force_lbs, 0),
+            "risk_level": risk_level,
+            "ecd_ppg": ecd_ppg,
+            "pore_pressure_ppg": pore_pressure_ppg,
+            "pipe_od_in": pipe_od_in,
+            "contact_length_ft": contact_length_ft,
+            "filter_cake_thickness_in": filter_cake_thickness_in
+        }
+
+    # ============================================================
+    # Cross-Engine Integration: Pack-Off Early Warning
+    # ============================================================
+    @staticmethod
+    def assess_packoff_risk(
+        hci: float,
+        cuttings_concentration_pct: float,
+        inclination: float = 0.0,
+        annular_velocity_ftmin: float = 150.0
+    ) -> Dict[str, Any]:
+        """
+        Assess pack-off / bridge risk using hole cleaning indicators
+        from WellboreCleanupEngine.
+
+        Args:
+            hci: Hole Cleaning Index from cleanup engine (0-1, 1=perfect)
+            cuttings_concentration_pct: cuttings vol% from cleanup engine
+            inclination: wellbore inclination (degrees)
+            annular_velocity_ftmin: annular velocity (ft/min)
+
+        Returns:
+            Dict with pack-off probability, risk factors, and recommendations.
+        """
+        risk_factors = []
+        prob_score = 0.0
+        n_factors = 0
+
+        # HCI threshold: < 0.7 indicates poor cleaning
+        if hci < 0.5:
+            risk_factors.append({"factor": "Very Poor Hole Cleaning", "score": 0.9,
+                                  "detail": f"HCI={hci:.2f} (target >0.85)"})
+            prob_score += 0.9
+            n_factors += 1
+        elif hci < 0.7:
+            risk_factors.append({"factor": "Poor Hole Cleaning", "score": 0.6,
+                                  "detail": f"HCI={hci:.2f} (target >0.85)"})
+            prob_score += 0.6
+            n_factors += 1
+
+        # Cuttings concentration: > 4% is warning, > 7% is critical
+        if cuttings_concentration_pct > 7.0:
+            risk_factors.append({"factor": "Critical Cuttings Concentration", "score": 0.9,
+                                  "detail": f"{cuttings_concentration_pct:.1f}% (max 4%)"})
+            prob_score += 0.9
+            n_factors += 1
+        elif cuttings_concentration_pct > 4.0:
+            risk_factors.append({"factor": "High Cuttings Concentration", "score": 0.6,
+                                  "detail": f"{cuttings_concentration_pct:.1f}% (target <4%)"})
+            prob_score += 0.6
+            n_factors += 1
+
+        # High inclination compounds pack-off risk (cuttings beds)
+        if inclination > 60:
+            risk_factors.append({"factor": "High Angle Cuttings Bed Risk", "score": 0.7,
+                                  "detail": f"Inclination {inclination:.0f}°"})
+            prob_score += 0.7
+            n_factors += 1
+        elif inclination > 30:
+            risk_factors.append({"factor": "Intermediate Angle", "score": 0.3,
+                                  "detail": f"Inclination {inclination:.0f}°"})
+            prob_score += 0.3
+            n_factors += 1
+
+        # Low annular velocity
+        if annular_velocity_ftmin < 100:
+            risk_factors.append({"factor": "Low Annular Velocity", "score": 0.7,
+                                  "detail": f"{annular_velocity_ftmin:.0f} ft/min (min 120)"})
+            prob_score += 0.7
+            n_factors += 1
+
+        # Calculate overall probability (0-5 scale, compatible with risk matrix)
+        avg_score = prob_score / n_factors if n_factors > 0 else 0.1
+        probability = min(5, max(1, round(avg_score * 5)))
+
+        # Severity for Pack-Off is 3 (from MECHANISMS table)
+        severity = 3
+        risk_score = probability * severity
+
+        if risk_score >= 12:
+            risk_level = "HIGH"
+            recommendation = "STOP drilling — circulate bottoms up, increase RPM and flow rate"
+        elif risk_score >= 6:
+            risk_level = "MODERATE"
+            recommendation = "Increase flow rate and RPM, pump hi-vis sweeps, monitor SPP trends"
+        else:
+            risk_level = "LOW"
+            recommendation = "Continue monitoring — current hole cleaning is adequate"
+
+        return {
+            "packoff_probability": probability,
+            "severity": severity,
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "recommendation": recommendation,
+            "risk_factors": risk_factors,
+            "inputs": {
+                "hci": hci,
+                "cuttings_concentration_pct": cuttings_concentration_pct,
+                "inclination": inclination,
+                "annular_velocity_ftmin": annular_velocity_ftmin
+            }
+        }
