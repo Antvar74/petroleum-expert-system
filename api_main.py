@@ -1421,6 +1421,136 @@ def calculate_bullhead(data: Dict[str, Any] = Body(...)):
 
 
 # ============================================================
+# ELITE PHASE 1-4: ADVANCED CALCULATION ENDPOINTS
+# ============================================================
+
+@app.post("/well-control/kick-tolerance")
+def calculate_kick_tolerance(data: Dict[str, Any] = Body(...)):
+    """Calculate kick tolerance (max influx volume before shoe fracture)."""
+    return WellControlEngine.calculate_kick_tolerance(
+        mud_weight=data.get("mud_weight", 10.0),
+        shoe_tvd=data.get("shoe_tvd", 5000),
+        lot_emw=data.get("lot_emw", 14.0),
+        well_depth_tvd=data.get("well_depth_tvd", 10000),
+        gas_gravity=data.get("gas_gravity", 0.65),
+        bht=data.get("bht", 150.0),
+        annular_capacity=data.get("annular_capacity", 0.05),
+        influx_type=data.get("influx_type", "gas")
+    )
+
+
+@app.post("/well-control/barite-requirements")
+def calculate_barite_requirements(data: Dict[str, Any] = Body(...)):
+    """Calculate barite weighting material requirements."""
+    return WellControlEngine.calculate_barite_requirements(
+        current_mud_weight=data.get("current_mud_weight", 10.0),
+        target_mud_weight=data.get("target_mud_weight", 12.0),
+        system_volume_bbl=data.get("system_volume_bbl", 500),
+        barite_sg=data.get("barite_sg", 4.20),
+        sack_weight_lbs=data.get("sack_weight_lbs", 100.0)
+    )
+
+
+@app.post("/well-control/z-factor")
+def calculate_z_factor(data: Dict[str, Any] = Body(...)):
+    """Calculate real gas Z-factor (Dranchuk-Abou-Kassem)."""
+    return WellControlEngine.calculate_z_factor(
+        pressure=data.get("pressure", 5000),
+        temperature=data.get("temperature", 200),
+        gas_gravity=data.get("gas_gravity", 0.65)
+    )
+
+
+@app.post("/hydraulics/bha-breakdown")
+def calculate_bha_breakdown(data: Dict[str, Any] = Body(...)):
+    """Calculate pressure loss breakdown for individual BHA tools."""
+    return HydraulicsEngine.calculate_bha_pressure_breakdown(
+        bha_tools=data.get("bha_tools", []),
+        flow_rate=data.get("flow_rate", 400),
+        mud_weight=data.get("mud_weight", 12.0),
+        pv=data.get("pv", 20),
+        yp=data.get("yp", 12),
+        rheology_model=data.get("rheology_model", "bingham_plastic"),
+        n=data.get("n", 0.5),
+        k=data.get("k", 300.0),
+        tau_0=data.get("tau_0", 0.0),
+        k_hb=data.get("k_hb", 0.0),
+        n_hb=data.get("n_hb", 0.5)
+    )
+
+
+@app.post("/hydraulics/pressure-waterfall")
+def generate_pressure_waterfall(data: Dict[str, Any] = Body(...)):
+    """Generate pressure waterfall from circuit results."""
+    circuit_result = data.get("circuit_result", {})
+    bha_breakdown = data.get("bha_breakdown", None)
+    return HydraulicsEngine.generate_pressure_waterfall(circuit_result, bha_breakdown)
+
+
+@app.post("/hydraulics/fit-herschel-bulkley")
+def fit_herschel_bulkley(data: Dict[str, Any] = Body(...)):
+    """Fit Herschel-Bulkley model from FANN viscometer readings."""
+    return HydraulicsEngine.fit_herschel_bulkley(
+        fann_readings=data.get("fann_readings", {})
+    )
+
+
+@app.post("/stuck-pipe/differential-sticking")
+def calculate_differential_sticking(data: Dict[str, Any] = Body(...)):
+    """Calculate differential sticking force from ECD and formation pressure."""
+    return StuckPipeEngine.calculate_differential_sticking_force(
+        ecd_ppg=data.get("ecd_ppg", 12.5),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 10.0),
+        contact_length_ft=data.get("contact_length_ft", 30),
+        pipe_od_in=data.get("pipe_od_in", 5.0),
+        filter_cake_thickness_in=data.get("filter_cake_thickness_in", 0.25),
+        friction_coefficient_cake=data.get("friction_coefficient_cake", 0.10),
+        tvd_ft=data.get("tvd_ft", 10000)
+    )
+
+
+@app.post("/stuck-pipe/packoff-risk")
+def assess_packoff_risk(data: Dict[str, Any] = Body(...)):
+    """Assess pack-off risk from hole cleaning indicators."""
+    return StuckPipeEngine.assess_packoff_risk(
+        hci=data.get("hci", 0.8),
+        cuttings_concentration_pct=data.get("cuttings_concentration_pct", 3.0),
+        inclination=data.get("inclination", 0.0),
+        annular_velocity_ftmin=data.get("annular_velocity_ftmin", 150.0)
+    )
+
+
+@app.post("/workover/ct-elongation")
+def calculate_ct_elongation(data: Dict[str, Any] = Body(...)):
+    """Calculate coiled tubing elongation (weight, temp, ballooning, Bourdon)."""
+    from orchestrator.workover_hydraulics_engine import WorkoverHydraulicsEngine
+    return WorkoverHydraulicsEngine.calculate_ct_elongation(
+        ct_od=data.get("ct_od", 2.0),
+        ct_id=data.get("ct_id", 1.688),
+        ct_length=data.get("ct_length", 15000),
+        weight_per_ft=data.get("weight_per_ft", 3.24),
+        mud_weight=data.get("mud_weight", 8.6),
+        delta_p_internal=data.get("delta_p_internal", 3000),
+        delta_t=data.get("delta_t", 100),
+        wellhead_pressure=data.get("wellhead_pressure", 500)
+    )
+
+
+@app.post("/workover/ct-fatigue")
+def calculate_ct_fatigue(data: Dict[str, Any] = Body(...)):
+    """Calculate coiled tubing fatigue life (API RP 5C7, Miner's rule)."""
+    from orchestrator.workover_hydraulics_engine import WorkoverHydraulicsEngine
+    return WorkoverHydraulicsEngine.calculate_ct_fatigue(
+        ct_od=data.get("ct_od", 2.0),
+        wall_thickness=data.get("wall_thickness", 0.156),
+        reel_diameter=data.get("reel_diameter", 72),
+        internal_pressure=data.get("internal_pressure", 5000),
+        yield_strength_psi=data.get("yield_strength_psi", 80000),
+        trips_history=data.get("trips_history", None)
+    )
+
+
+# ============================================================
 # MODULE AI ANALYSIS ENDPOINTS
 # ============================================================
 
