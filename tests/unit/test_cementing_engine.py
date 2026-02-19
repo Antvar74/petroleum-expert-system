@@ -256,14 +256,14 @@ class TestFreeFall:
         )
         assert result["free_fall_occurs"] is False
 
-    def test_free_fall_independent_of_density_ratio(self, engine):
-        """In the simplified model h_ff = TVD/(1+vol_ratio), density cancels out.
-        So both light and heavy cement yield the same free-fall height."""
+    def test_free_fall_heavier_cement_falls_more(self, engine):
+        """Corrected model: heavier cement should free-fall further (more driving force).
+        Unlike the old simplified model where density cancelled out."""
         common = dict(casing_shoe_tvd_ft=9500, mud_weight_ppg=10.0,
                       casing_id_in=8.681, hole_id_in=12.25, casing_od_in=9.625)
         light = engine.calculate_free_fall(**common, cement_density_ppg=12.0)
         heavy = engine.calculate_free_fall(**common, cement_density_ppg=18.0)
-        assert light["free_fall_height_ft"] == heavy["free_fall_height_ft"]
+        assert heavy["free_fall_height_ft"] > light["free_fall_height_ft"]
         assert light["free_fall_occurs"] is True
 
     def test_gradients_correct(self, engine):

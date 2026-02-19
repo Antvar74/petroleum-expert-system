@@ -628,6 +628,613 @@ class CasingDesignEngine:
         }
 
     # ===================================================================
+    # 10. Multi-Scenario Burst (5 scenarios)
+    # ===================================================================
+    @staticmethod
+    def calculate_burst_scenarios(
+        tvd_ft: float,
+        mud_weight_ppg: float,
+        pore_pressure_ppg: float,
+        gas_gradient_psi_ft: float = 0.1,
+        cement_top_tvd_ft: float = 0.0,
+        cement_density_ppg: float = 16.0,
+        tubing_pressure_psi: float = 0.0,
+        injection_pressure_psi: float = 0.0,
+        injection_fluid_gradient: float = 0.433,
+        dst_pressure_psi: float = 0.0,
+        num_points: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        Multi-scenario burst analysis (API TR 5C3 / ISO 10400).
+
+        Scenarios:
+        1. Gas-to-surface — worst case for surface casing
+        2. Displacement to gas — tubing full of gas, annulus with mud
+        3. Tubing leak — tubing head pressure applied to casing
+        4. Injection — injection pressure + fluid gradient
+        5. DST — reservoir pressure at surface during drill stem test
+        """
+        if tvd_ft <= 0:
+            return {"error": "TVD must be > 0"}
+
+        p_reservoir = pore_pressure_ppg * 0.052 * tvd_ft
+
+        scenarios = {}
+        step = tvd_ft / max(num_points - 1, 1)
+
+        # Helper: external pressure at depth
+        def p_external(depth):
+            if depth <= cement_top_tvd_ft or cement_top_tvd_ft <= 0:
+                return mud_weight_ppg * 0.052 * depth
+            return (mud_weight_ppg * 0.052 * cement_top_tvd_ft +
+                    cement_density_ppg * 0.052 * (depth - cement_top_tvd_ft))
+
+        # Scenario 1: Gas-to-surface
+        profile_gts = []
+        for i in range(num_points):
+            d = i * step
+            p_int = max(p_reservoir - gas_gradient_psi_ft * (tvd_ft - d), 0.0)
+            p_ext = p_external(d)
+            profile_gts.append({"tvd_ft": round(d, 0), "burst_load_psi": round(p_int - p_ext, 0)})
+        scenarios["gas_to_surface"] = {
+            "profile": profile_gts,
+            "max_burst_psi": max(p["burst_load_psi"] for p in profile_gts),
+        }
+
+        # Scenario 2: Displacement to gas
+        profile_dtg = []
+        for i in range(num_points):
+            d = i * step
+            p_int = max(p_reservoir - gas_gradient_psi_ft * (tvd_ft - d), 0.0)
+            p_ext = mud_weight_ppg * 0.052 * d  # annulus = mud (no cement backup)
+            profile_dtg.append({"tvd_ft": round(d, 0), "burst_load_psi": round(p_int - p_ext, 0)})
+        scenarios["displacement_to_gas"] = {
+            "profile": profile_dtg,
+            "max_burst_psi": max(p["burst_load_psi"] for p in profile_dtg),
+        }
+
+        # Scenario 3: Tubing leak
+        p_tubing = tubing_pressure_psi if tubing_pressure_psi > 0 else 0.5 * p_reservoir
+        profile_tl = []
+        for i in range(num_points):
+            d = i * step
+            p_int = p_tubing + mud_weight_ppg * 0.052 * d
+            p_ext = p_external(d)
+            profile_tl.append({"tvd_ft": round(d, 0), "burst_load_psi": round(p_int - p_ext, 0)})
+        scenarios["tubing_leak"] = {
+            "profile": profile_tl,
+            "max_burst_psi": max(p["burst_load_psi"] for p in profile_tl),
+        }
+
+        # Scenario 4: Injection
+        p_inj = injection_pressure_psi if injection_pressure_psi > 0 else 0.0
+        profile_inj = []
+        for i in range(num_points):
+            d = i * step
+            p_int = p_inj + injection_fluid_gradient * d
+            p_ext = p_external(d)
+            profile_inj.append({"tvd_ft": round(d, 0), "burst_load_psi": round(p_int - p_ext, 0)})
+        scenarios["injection"] = {
+            "profile": profile_inj,
+            "max_burst_psi": max(p["burst_load_psi"] for p in profile_inj),
+        }
+
+        # Scenario 5: DST
+        p_dst = dst_pressure_psi if dst_pressure_psi > 0 else p_reservoir
+        profile_dst = []
+        for i in range(num_points):
+            d = i * step
+            p_int = max(p_dst - gas_gradient_psi_ft * (tvd_ft - d), 0.0)
+            p_ext = p_external(d)
+            profile_dst.append({"tvd_ft": round(d, 0), "burst_load_psi": round(p_int - p_ext, 0)})
+        scenarios["dst"] = {
+            "profile": profile_dst,
+            "max_burst_psi": max(p["burst_load_psi"] for p in profile_dst),
+        }
+
+        # Governing scenario
+        governing = max(scenarios.items(), key=lambda x: x[1]["max_burst_psi"])
+
+        return {
+            "scenarios": scenarios,
+            "governing_scenario": governing[0],
+            "governing_burst_psi": governing[1]["max_burst_psi"],
+            "num_scenarios": len(scenarios),
+        }
+
+    # ===================================================================
+    # 11. Multi-Scenario Collapse (4 scenarios)
+    # ===================================================================
+    @staticmethod
+    def calculate_collapse_scenarios(
+        tvd_ft: float,
+        mud_weight_ppg: float,
+        pore_pressure_ppg: float,
+        cement_top_tvd_ft: float = 0.0,
+        cement_density_ppg: float = 16.0,
+        partial_evacuation_ft: float = 0.0,
+        depleted_pressure_ppg: float = 0.0,
+        cement_slurry_density_ppg: float = 16.5,
+        num_points: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        Multi-scenario collapse analysis.
+
+        Scenarios:
+        1. Full evacuation — worst case drilling
+        2. Partial evacuation — fluid level drops to partial_evacuation_ft
+        3. Cementing collapse — fresh cement outside, reduced inside
+        4. Production collapse — reservoir depletion over life
+        """
+        if tvd_ft <= 0:
+            return {"error": "TVD must be > 0"}
+
+        scenarios = {}
+        step = tvd_ft / max(num_points - 1, 1)
+
+        # External pressure helper
+        def p_external(depth):
+            if depth <= cement_top_tvd_ft or cement_top_tvd_ft <= 0:
+                return mud_weight_ppg * 0.052 * depth
+            return (mud_weight_ppg * 0.052 * cement_top_tvd_ft +
+                    cement_density_ppg * 0.052 * (depth - cement_top_tvd_ft))
+
+        # Scenario 1: Full evacuation
+        profile_fe = []
+        for i in range(num_points):
+            d = i * step
+            p_ext = p_external(d)
+            p_int = 0.0  # empty
+            profile_fe.append({"tvd_ft": round(d, 0), "collapse_load_psi": round(p_ext - p_int, 0)})
+        scenarios["full_evacuation"] = {
+            "profile": profile_fe,
+            "max_collapse_psi": max(p["collapse_load_psi"] for p in profile_fe),
+        }
+
+        # Scenario 2: Partial evacuation
+        evac_ft = partial_evacuation_ft if partial_evacuation_ft > 0 else tvd_ft * 0.5
+        profile_pe = []
+        for i in range(num_points):
+            d = i * step
+            p_ext = p_external(d)
+            p_int = 0.0 if d <= evac_ft else mud_weight_ppg * 0.052 * (d - evac_ft)
+            profile_pe.append({"tvd_ft": round(d, 0), "collapse_load_psi": round(p_ext - p_int, 0)})
+        scenarios["partial_evacuation"] = {
+            "profile": profile_pe,
+            "max_collapse_psi": max(p["collapse_load_psi"] for p in profile_pe),
+        }
+
+        # Scenario 3: Cementing collapse
+        profile_cc = []
+        for i in range(num_points):
+            d = i * step
+            # External: fresh cement (heavier) outside casing during cementing
+            if d <= cement_top_tvd_ft or cement_top_tvd_ft <= 0:
+                p_ext_cc = mud_weight_ppg * 0.052 * d
+            else:
+                p_ext_cc = (mud_weight_ppg * 0.052 * cement_top_tvd_ft +
+                            cement_slurry_density_ppg * 0.052 * (depth - cement_top_tvd_ft)
+                            if 'depth' in dir() else
+                            mud_weight_ppg * 0.052 * cement_top_tvd_ft +
+                            cement_slurry_density_ppg * 0.052 * (d - cement_top_tvd_ft))
+            # Internal: reduced pressure (partial lost returns)
+            p_int_cc = mud_weight_ppg * 0.052 * d * 0.85  # 85% of original MW
+            profile_cc.append({"tvd_ft": round(d, 0), "collapse_load_psi": round(p_ext_cc - p_int_cc, 0)})
+        scenarios["cementing_collapse"] = {
+            "profile": profile_cc,
+            "max_collapse_psi": max(p["collapse_load_psi"] for p in profile_cc),
+        }
+
+        # Scenario 4: Production collapse (depletion)
+        depleted_ppg = depleted_pressure_ppg if depleted_pressure_ppg > 0 else pore_pressure_ppg * 0.5
+        profile_pd = []
+        for i in range(num_points):
+            d = i * step
+            p_ext = p_external(d)
+            # Internal: depleted reservoir pressure gradient
+            p_int = depleted_ppg * 0.052 * d
+            profile_pd.append({"tvd_ft": round(d, 0), "collapse_load_psi": round(p_ext - p_int, 0)})
+        scenarios["production_depletion"] = {
+            "profile": profile_pd,
+            "max_collapse_psi": max(p["collapse_load_psi"] for p in profile_pd),
+        }
+
+        governing = max(scenarios.items(), key=lambda x: x[1]["max_collapse_psi"])
+
+        return {
+            "scenarios": scenarios,
+            "governing_scenario": governing[0],
+            "governing_collapse_psi": governing[1]["max_collapse_psi"],
+            "num_scenarios": len(scenarios),
+        }
+
+    # ===================================================================
+    # 12. Temperature Derating (API TR 5C3 Annex G)
+    # ===================================================================
+    @staticmethod
+    def derate_for_temperature(
+        grade: str,
+        yield_strength_psi: float,
+        temperature_f: float,
+        ambient_temperature_f: float = 70.0,
+    ) -> Dict[str, Any]:
+        """
+        Derate yield strength for temperature (critical for HPHT).
+
+        API TR 5C3 Annex G:
+        sigma_y(T) = sigma_y_ambient * [1 - alpha * (T - T_ambient)]
+        alpha depends on steel grade (~0.00035-0.0005 /°F for T > 200°F)
+        """
+        # Alpha coefficients by grade family (empirical, API TR 5C3)
+        alpha_map = {
+            "H40": 0.0003, "J55": 0.00035, "K55": 0.00035,
+            "L80": 0.0004, "N80": 0.0004, "C90": 0.00042,
+            "T95": 0.00045, "C110": 0.00045, "P110": 0.00045,
+            "Q125": 0.0005, "V150": 0.00055,
+        }
+        alpha = alpha_map.get(grade, 0.0004)
+
+        dT = temperature_f - ambient_temperature_f
+        if dT <= 0:
+            # No derating for temperatures at or below ambient
+            return {
+                "yield_derated_psi": yield_strength_psi,
+                "derate_factor": 1.0,
+                "temperature_f": temperature_f,
+                "alpha": alpha,
+                "grade": grade,
+            }
+
+        # Only apply derating above threshold (typically 200°F)
+        threshold_f = 200.0
+        if temperature_f < threshold_f:
+            effective_dT = 0.0
+        else:
+            effective_dT = temperature_f - threshold_f
+
+        derate_factor = 1.0 - alpha * effective_dT
+        derate_factor = max(derate_factor, 0.5)  # minimum 50% derating
+
+        yield_derated = yield_strength_psi * derate_factor
+
+        return {
+            "yield_derated_psi": round(yield_derated, 0),
+            "derate_factor": round(derate_factor, 4),
+            "temperature_f": temperature_f,
+            "effective_dT": round(effective_dT, 1),
+            "alpha": alpha,
+            "grade": grade,
+        }
+
+    # ===================================================================
+    # 13. Expanded Casing Catalog (API 5CT)
+    # ===================================================================
+    CASING_CATALOG = {
+        "4.500": [
+            {"weight": 9.50, "id": 4.090, "wall": 0.205, "grade": "J55", "burst": 4380, "collapse": 2760},
+            {"weight": 11.60, "id": 3.920, "wall": 0.290, "grade": "J55", "burst": 6230, "collapse": 5430},
+            {"weight": 11.60, "id": 3.920, "wall": 0.290, "grade": "N80", "burst": 9060, "collapse": 8600},
+            {"weight": 13.50, "id": 3.810, "wall": 0.345, "grade": "N80", "burst": 10790, "collapse": 11080},
+            {"weight": 15.10, "id": 3.680, "wall": 0.410, "grade": "P110", "burst": 17530, "collapse": 17350},
+        ],
+        "5.500": [
+            {"weight": 14.00, "id": 5.012, "wall": 0.244, "grade": "J55", "burst": 4270, "collapse": 2870},
+            {"weight": 15.50, "id": 4.950, "wall": 0.275, "grade": "J55", "burst": 4810, "collapse": 3660},
+            {"weight": 17.00, "id": 4.892, "wall": 0.304, "grade": "N80", "burst": 7740, "collapse": 6070},
+            {"weight": 20.00, "id": 4.778, "wall": 0.361, "grade": "N80", "burst": 9190, "collapse": 8440},
+            {"weight": 23.00, "id": 4.670, "wall": 0.415, "grade": "P110", "burst": 14510, "collapse": 13680},
+        ],
+        "7.000": [
+            {"weight": 17.00, "id": 6.538, "wall": 0.231, "grade": "J55", "burst": 3180, "collapse": 1420},
+            {"weight": 23.00, "id": 6.366, "wall": 0.317, "grade": "J55", "burst": 4360, "collapse": 3270},
+            {"weight": 26.00, "id": 6.276, "wall": 0.362, "grade": "N80", "burst": 7250, "collapse": 5410},
+            {"weight": 29.00, "id": 6.184, "wall": 0.408, "grade": "N80", "burst": 8160, "collapse": 6980},
+            {"weight": 32.00, "id": 6.094, "wall": 0.453, "grade": "L80", "burst": 9070, "collapse": 8240},
+            {"weight": 35.00, "id": 6.004, "wall": 0.498, "grade": "C90", "burst": 11210, "collapse": 10520},
+            {"weight": 38.00, "id": 5.920, "wall": 0.540, "grade": "P110", "burst": 14850, "collapse": 13290},
+        ],
+        "9.625": [
+            {"weight": 36.00, "id": 8.921, "wall": 0.352, "grade": "J55", "burst": 3520, "collapse": 2020},
+            {"weight": 40.00, "id": 8.835, "wall": 0.395, "grade": "J55", "burst": 3950, "collapse": 2570},
+            {"weight": 43.50, "id": 8.755, "wall": 0.435, "grade": "N80", "burst": 6330, "collapse": 4130},
+            {"weight": 47.00, "id": 8.681, "wall": 0.472, "grade": "N80", "burst": 6870, "collapse": 4760},
+            {"weight": 53.50, "id": 8.535, "wall": 0.545, "grade": "C90", "burst": 8930, "collapse": 7040},
+            {"weight": 53.50, "id": 8.535, "wall": 0.545, "grade": "P110", "burst": 10910, "collapse": 9120},
+        ],
+        "10.750": [
+            {"weight": 32.75, "id": 10.192, "wall": 0.279, "grade": "J55", "burst": 2500, "collapse": 920},
+            {"weight": 40.50, "id": 10.050, "wall": 0.350, "grade": "J55", "burst": 3140, "collapse": 1580},
+            {"weight": 45.50, "id": 9.950, "wall": 0.400, "grade": "N80", "burst": 5210, "collapse": 2710},
+            {"weight": 51.00, "id": 9.850, "wall": 0.450, "grade": "N80", "burst": 5860, "collapse": 3480},
+            {"weight": 55.50, "id": 9.760, "wall": 0.495, "grade": "P110", "burst": 8890, "collapse": 5210},
+        ],
+        "13.375": [
+            {"weight": 48.00, "id": 12.715, "wall": 0.330, "grade": "J55", "burst": 2380, "collapse": 870},
+            {"weight": 54.50, "id": 12.615, "wall": 0.380, "grade": "J55", "burst": 2740, "collapse": 1180},
+            {"weight": 61.00, "id": 12.515, "wall": 0.430, "grade": "N80", "burst": 4510, "collapse": 1900},
+            {"weight": 68.00, "id": 12.415, "wall": 0.480, "grade": "N80", "burst": 5030, "collapse": 2420},
+            {"weight": 72.00, "id": 12.347, "wall": 0.514, "grade": "P110", "burst": 7430, "collapse": 3340},
+        ],
+        "20.000": [
+            {"weight": 94.00, "id": 19.124, "wall": 0.438, "grade": "J55", "burst": 2110, "collapse": 520},
+            {"weight": 106.50, "id": 18.936, "wall": 0.532, "grade": "K55", "burst": 2560, "collapse": 870},
+            {"weight": 133.00, "id": 18.730, "wall": 0.635, "grade": "K55", "burst": 3060, "collapse": 1370},
+        ],
+    }
+
+    @staticmethod
+    def lookup_casing_catalog(
+        casing_od_in: float,
+        min_weight_ppf: float = 0.0,
+        grade_filter: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Look up casing options from expanded API 5CT catalog.
+
+        Parameters:
+        - casing_od_in: nominal OD (e.g., 9.625)
+        - min_weight_ppf: minimum weight filter
+        - grade_filter: filter by grade (e.g., 'N80')
+        """
+        od_key = f"{casing_od_in:.3f}"
+        entries = CasingDesignEngine.CASING_CATALOG.get(od_key, [])
+
+        if not entries:
+            # Try nearest OD
+            available = list(CasingDesignEngine.CASING_CATALOG.keys())
+            return {"error": f"OD {casing_od_in} not in catalog. Available: {available}"}
+
+        results = []
+        for e in entries:
+            if e["weight"] < min_weight_ppf:
+                continue
+            if grade_filter and e["grade"] != grade_filter:
+                continue
+            results.append(e.copy())
+
+        return {
+            "od_in": casing_od_in,
+            "options": results,
+            "count": len(results),
+        }
+
+    # ===================================================================
+    # 14. Combination String Design
+    # ===================================================================
+    @staticmethod
+    def design_combination_string(
+        tvd_ft: float,
+        casing_od_in: float,
+        burst_profile: List[Dict[str, Any]],
+        collapse_profile: List[Dict[str, Any]],
+        tension_at_surface_lbs: float,
+        casing_length_ft: float,
+        mud_weight_ppg: float,
+        sf_burst: float = 1.10,
+        sf_collapse: float = 1.00,
+        sf_tension: float = 1.60,
+        cost_per_lb: float = 0.50,
+    ) -> Dict[str, Any]:
+        """
+        Design combination string with multiple weights/grades to optimize cost.
+
+        Divides the string into sections by depth and selects minimum
+        weight/grade that satisfies all safety factors.
+        """
+        od_key = f"{casing_od_in:.3f}"
+        catalog = CasingDesignEngine.CASING_CATALOG.get(od_key, [])
+        if not catalog:
+            return {"error": f"No catalog data for OD {casing_od_in}"}
+
+        # Sort catalog by weight (lightest = cheapest first)
+        catalog_sorted = sorted(catalog, key=lambda c: c["weight"])
+
+        # Divide string into sections (top, middle, bottom)
+        num_sections = 3
+        section_length = casing_length_ft / num_sections
+
+        sections = []
+        total_cost = 0.0
+        total_weight_lbs = 0.0
+
+        for sec_idx in range(num_sections):
+            depth_from = sec_idx * section_length
+            depth_to = (sec_idx + 1) * section_length
+            depth_mid = (depth_from + depth_to) / 2.0
+
+            # TVD fraction for this section
+            tvd_frac = depth_mid / casing_length_ft if casing_length_ft > 0 else 0
+            section_tvd = tvd_frac * tvd_ft
+
+            # Find max burst load in this depth range
+            max_burst_sec = 0
+            for p in burst_profile:
+                if depth_from <= p.get("tvd_ft", 0) <= depth_to:
+                    max_burst_sec = max(max_burst_sec, p.get("burst_load_psi", 0))
+
+            # Find max collapse load in this depth range
+            max_collapse_sec = 0
+            for p in collapse_profile:
+                if depth_from <= p.get("tvd_ft", 0) <= depth_to:
+                    max_collapse_sec = max(max_collapse_sec, p.get("collapse_load_psi", 0))
+
+            # Tension at this depth (weight below)
+            remaining_length = casing_length_ft - depth_from
+            bf = 1.0 - mud_weight_ppg / 65.4
+            tension_at_depth = tension_at_surface_lbs * (remaining_length / casing_length_ft) if casing_length_ft > 0 else 0
+
+            # Select lightest option that satisfies all criteria
+            selected = None
+            for opt in catalog_sorted:
+                wall = opt["wall"]
+                yp = CasingDesignEngine.CASING_GRADES.get(opt["grade"], {}).get("yield_psi", 80000)
+
+                burst_ok = opt["burst"] >= max_burst_sec * sf_burst if max_burst_sec > 0 else True
+                collapse_ok = opt["collapse"] >= max_collapse_sec * sf_collapse if max_collapse_sec > 0 else True
+                area = math.pi / 4.0 * (casing_od_in ** 2 - opt["id"] ** 2)
+                tension_rating = yp * area
+                tension_ok = tension_rating >= tension_at_depth * sf_tension if tension_at_depth > 0 else True
+
+                if burst_ok and collapse_ok and tension_ok:
+                    selected = opt
+                    break
+
+            if selected is None:
+                # Use heaviest available
+                selected = catalog_sorted[-1]
+
+            sec_weight = selected["weight"] * section_length
+            sec_cost = sec_weight * cost_per_lb
+            total_weight_lbs += sec_weight
+            total_cost += sec_cost
+
+            sections.append({
+                "section": sec_idx + 1,
+                "depth_from_ft": round(depth_from, 0),
+                "depth_to_ft": round(depth_to, 0),
+                "grade": selected["grade"],
+                "weight_ppf": selected["weight"],
+                "id_in": selected["id"],
+                "wall_in": selected["wall"],
+                "burst_rating_psi": selected["burst"],
+                "collapse_rating_psi": selected["collapse"],
+                "length_ft": round(section_length, 0),
+                "section_weight_lbs": round(sec_weight, 0),
+                "section_cost": round(sec_cost, 0),
+            })
+
+        return {
+            "sections": sections,
+            "total_weight_lbs": round(total_weight_lbs, 0),
+            "total_cost": round(total_cost, 0),
+            "num_sections": num_sections,
+            "casing_od_in": casing_od_in,
+        }
+
+    # ===================================================================
+    # 15. Running Loads (API)
+    # ===================================================================
+    @staticmethod
+    def calculate_running_loads(
+        casing_weight_ppf: float,
+        casing_length_ft: float,
+        casing_od_in: float,
+        casing_id_in: float,
+        mud_weight_ppg: float,
+        survey: Optional[List[Dict[str, float]]] = None,
+        friction_factor: float = 0.30,
+    ) -> Dict[str, Any]:
+        """
+        Calculate running loads (hookload during casing run).
+
+        Components:
+        - Weight: casing weight in mud (buoyed)
+        - Drag: friction × normal force (from survey)
+        - Shock: F_shock = 3200 * W_ppf (API formula for sudden stops)
+        - Bending: F_bend = 64 * W_ppf * OD * DLS/100 (Lubinski)
+        """
+        bf = 1.0 - mud_weight_ppg / 65.4
+        buoyed_weight = casing_weight_ppf * casing_length_ft * bf
+
+        # Shock load (API)
+        shock = 3200.0 * casing_weight_ppf
+
+        # Drag from survey
+        drag = 0.0
+        max_dls = 0.0
+        if survey and len(survey) >= 2:
+            for i in range(1, len(survey)):
+                md1 = survey[i - 1].get("md", 0)
+                md2 = survey[i].get("md", 0)
+                inc1 = math.radians(survey[i - 1].get("inclination", 0))
+                inc2 = math.radians(survey[i].get("inclination", 0))
+                dL = md2 - md1
+                if dL <= 0:
+                    continue
+                avg_inc = (inc1 + inc2) / 2.0
+                # Normal force = weight * sin(inc)
+                w_section = casing_weight_ppf * dL * bf
+                normal_force = w_section * math.sin(avg_inc)
+                drag += friction_factor * abs(normal_force)
+
+                # DLS for bending
+                dl_rad = abs(inc2 - inc1)
+                dls_100 = (dl_rad * 180.0 / math.pi) / dL * 100.0 if dL > 0 else 0
+                max_dls = max(max_dls, dls_100)
+
+        # Bending
+        bending = 64.0 * casing_weight_ppf * casing_od_in * max_dls / 100.0
+
+        # Total hookload
+        total_hookload = buoyed_weight + drag + shock + bending
+
+        # Cross-sectional area and stress
+        area = math.pi / 4.0 * (casing_od_in ** 2 - casing_id_in ** 2)
+        axial_stress = total_hookload / area if area > 0 else 0
+
+        return {
+            "buoyed_weight_lbs": round(buoyed_weight, 0),
+            "drag_lbs": round(drag, 0),
+            "shock_load_lbs": round(shock, 0),
+            "bending_load_lbs": round(bending, 0),
+            "total_hookload_lbs": round(total_hookload, 0),
+            "axial_stress_psi": round(axial_stress, 0),
+            "buoyancy_factor": round(bf, 4),
+            "max_dls_deg_100ft": round(max_dls, 2),
+            "friction_factor": friction_factor,
+        }
+
+    # ===================================================================
+    # 16. Wear / Corrosion Allowance
+    # ===================================================================
+    @staticmethod
+    def apply_wear_allowance(
+        casing_od_in: float,
+        wall_thickness_in: float,
+        yield_strength_psi: float,
+        wear_pct: float = 0.0,
+        corrosion_rate_in_yr: float = 0.0,
+        design_life_years: float = 20.0,
+    ) -> Dict[str, Any]:
+        """
+        Reduce wall thickness for wear and corrosion, then recalculate ratings.
+
+        - Wear: wall_remaining = wall * (1 - wear_pct/100)
+        - Corrosion: wall_remaining -= corrosion_rate * design_life
+        - Recalculate burst (Barlow) and collapse (API 5C3) with remaining wall
+        """
+        wall_worn = wall_thickness_in * (1.0 - wear_pct / 100.0)
+        wall_corroded = wall_worn - corrosion_rate_in_yr * design_life_years
+        wall_remaining = max(wall_corroded, 0.05)  # minimum wall
+
+        remaining_pct = (wall_remaining / wall_thickness_in * 100) if wall_thickness_in > 0 else 0
+
+        # Original ratings
+        burst_orig = CasingDesignEngine.calculate_burst_rating(casing_od_in, wall_thickness_in, yield_strength_psi)
+        collapse_orig = CasingDesignEngine.calculate_collapse_rating(casing_od_in, wall_thickness_in, yield_strength_psi)
+
+        # Derated ratings
+        burst_derated = CasingDesignEngine.calculate_burst_rating(casing_od_in, wall_remaining, yield_strength_psi)
+        collapse_derated = CasingDesignEngine.calculate_collapse_rating(casing_od_in, wall_remaining, yield_strength_psi)
+
+        return {
+            "original_wall_in": wall_thickness_in,
+            "remaining_wall_in": round(wall_remaining, 4),
+            "remaining_wall_pct": round(remaining_pct, 1),
+            "wear_loss_in": round(wall_thickness_in - wall_worn, 4),
+            "corrosion_loss_in": round(corrosion_rate_in_yr * design_life_years, 4),
+            "original_burst_psi": burst_orig.get("burst_rating_psi", 0),
+            "derated_burst_psi": burst_derated.get("burst_rating_psi", 0),
+            "burst_reduction_pct": round(
+                (1 - burst_derated.get("burst_rating_psi", 0) / max(burst_orig.get("burst_rating_psi", 1), 1)) * 100, 1),
+            "original_collapse_psi": collapse_orig.get("collapse_rating_psi", 0),
+            "derated_collapse_psi": collapse_derated.get("collapse_rating_psi", 0),
+            "collapse_reduction_pct": round(
+                (1 - collapse_derated.get("collapse_rating_psi", 0) / max(collapse_orig.get("collapse_rating_psi", 1), 1)) * 100, 1),
+            "design_life_years": design_life_years,
+        }
+
+    # ===================================================================
     # MASTER: Full Casing Design
     # ===================================================================
     @staticmethod
