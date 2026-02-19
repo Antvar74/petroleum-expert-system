@@ -2427,5 +2427,358 @@ async def analyze_casing_design(well_id: int, data: Dict[str, Any] = Body(...), 
     )
 
 
+# ============================================================
+# PHASE 9: CROSS-ENGINE BRIDGES + ELITE STANDALONE ENDPOINTS
+# ============================================================
+
+# --- Cross-Engine Bridges ---
+
+@app.post("/cross-engine/cement-ecd-to-collapse")
+def cross_cementing_ecd_to_casing_collapse(data: Dict[str, Any] = Body(...)):
+    """Bridge: Cementing ECD → Casing collapse scenario (external pressure from fresh cement)."""
+    from orchestrator.cementing_engine import CementingEngine
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    cem = CementingEngine.calculate_ecd_during_job(
+        casing_shoe_tvd_ft=data.get("casing_shoe_tvd_ft", 10000),
+        hole_id_in=data.get("hole_id_in", 12.25),
+        casing_od_in=data.get("casing_od_in", 9.625),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.0),
+        spacer_density_ppg=data.get("spacer_density_ppg", 12.0),
+        lead_cement_density_ppg=data.get("lead_cement_density_ppg", 13.5),
+        tail_cement_density_ppg=data.get("tail_cement_density_ppg", 16.0),
+        pump_rate_bbl_min=data.get("pump_rate_bbl_min", 5.0),
+        pv_mud=data.get("pv_mud", 25), yp_mud=data.get("yp_mud", 12),
+    )
+    ecd_ppg = cem.get("ecd_ppg", data.get("tail_cement_density_ppg", 16.0))
+    tvd = data.get("casing_shoe_tvd_ft", 10000)
+    external_p = ecd_ppg * 0.052 * tvd
+    csg = CasingDesignEngine.calculate_collapse_rating(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        wall_thickness_in=data.get("wall_thickness_in", 0.472),
+        yield_strength_psi=data.get("yield_strength_psi", 80000),
+    )
+    collapse_rating = csg.get("collapse_rating_psi", 5000)
+    sf = collapse_rating / external_p if external_p > 0 else 99
+    return {
+        "ecd_ppg": round(ecd_ppg, 2),
+        "external_pressure_psi": round(external_p, 0),
+        "collapse_rating_psi": collapse_rating,
+        "collapse_sf_during_cementing": round(sf, 2),
+        "cement_ecd_detail": cem,
+        "casing_collapse_detail": csg,
+    }
+
+
+@app.post("/cross-engine/casing-id-to-completion")
+def cross_casing_id_to_completion(data: Dict[str, Any] = Body(...)):
+    """Bridge: Casing ID → Completion gun selection (diameter restriction)."""
+    from orchestrator.completion_design_engine import CompletionDesignEngine
+    casing_id = data.get("casing_id_in", 8.681)
+    max_pressure = data.get("max_pressure_psi", 15000)
+    max_temp = data.get("max_temperature_f", 350)
+    gun_type = data.get("gun_type_filter", None)
+    guns = CompletionDesignEngine.select_gun_from_catalog(
+        casing_id_in=casing_id,
+        max_pressure_psi=max_pressure,
+        max_temperature_f=max_temp,
+        gun_type_filter=gun_type,
+    )
+    return {
+        "casing_id_in": casing_id,
+        "compatible_guns": guns,
+        "num_compatible": len(guns.get("compatible_guns", [])) if "compatible_guns" in guns else 0,
+    }
+
+
+@app.post("/cross-engine/ipr-skin-to-shot")
+def cross_ipr_skin_to_shot(data: Dict[str, Any] = Body(...)):
+    """Bridge: IPR + Skin → Shot Efficiency (kh from intervals as IPR input)."""
+    from orchestrator.completion_design_engine import CompletionDesignEngine
+    from orchestrator.shot_efficiency_engine import ShotEfficiencyEngine
+    kh = data.get("kh_md_ft", 5000)
+    h = data.get("net_pay_ft", 50)
+    k = kh / h if h > 0 else 100
+    ipr = CompletionDesignEngine.calculate_ipr_darcy(
+        permeability_md=k, net_pay_ft=h,
+        Bo=data.get("Bo", 1.2), mu_oil_cp=data.get("mu_oil_cp", 1.0),
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4000),
+        drainage_radius_ft=data.get("drainage_radius_ft", 660),
+        wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+        skin=data.get("skin", 0),
+    )
+    return {"kh_md_ft": kh, "permeability_md": round(k, 1), "net_pay_ft": h, "ipr": ipr}
+
+
+@app.post("/cross-engine/vibrations-to-td")
+def cross_vibrations_to_td(data: Dict[str, Any] = Body(...)):
+    """Bridge: Vibrations drag → T&D (extra lateral contact from whirl)."""
+    from orchestrator.vibrations_engine import VibrationsEngine
+    from orchestrator.torque_drag_engine import TorqueDragEngine
+    vib = VibrationsEngine.calculate_full_vibration_analysis(
+        wob_klb=data.get("wob_klb", 25), rpm=data.get("rpm", 120),
+        rop_fph=data.get("rop_fph", 60), torque_ftlb=data.get("torque_ftlb", 15000),
+        bit_diameter_in=data.get("bit_diameter_in", 8.5),
+        bha_od_in=data.get("bha_od_in", 6.75), bha_id_in=data.get("bha_id_in", 2.813),
+        bha_weight_lbft=data.get("bha_weight_lbft", 83), bha_length_ft=data.get("bha_length_ft", 300),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10), hole_diameter_in=data.get("hole_diameter_in", 8.5),
+    )
+    ss_severity = vib.get("stick_slip", {}).get("severity_index", 0)
+    stability = vib.get("stability", {}).get("stability_index", 50)
+    friction_increase = 0.05 * (1.0 - stability / 100.0)
+    base_friction = data.get("base_friction_factor", 0.25)
+    effective_friction = base_friction + friction_increase
+    return {
+        "vibration_summary": vib.get("summary", {}),
+        "stick_slip_severity": ss_severity,
+        "stability_index": stability,
+        "base_friction_factor": base_friction,
+        "vibration_friction_increase": round(friction_increase, 4),
+        "effective_friction_factor": round(effective_friction, 4),
+        "recommendation": "Use effective_friction_factor in T&D calculations for more realistic drag estimates",
+    }
+
+
+@app.post("/cross-engine/packer-apb-to-casing")
+def cross_packer_apb_to_casing(data: Dict[str, Any] = Body(...)):
+    """Bridge: Packer APB → Casing burst (APB as additional load on casing)."""
+    from orchestrator.packer_forces_engine import PackerForcesEngine
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    apb = PackerForcesEngine.calculate_apb(
+        annular_fluid_type=data.get("annular_fluid_type", "OBM"),
+        delta_t_avg=data.get("delta_t_avg", 150),
+        annular_volume_bbl=data.get("annular_volume_bbl", 200),
+        casing_od=data.get("casing_od", 9.625),
+        casing_id=data.get("casing_id", 8.681),
+        tubing_od=data.get("tubing_od", 3.5),
+        tubing_id=data.get("tubing_id", 2.992),
+        annular_length_ft=data.get("annular_length_ft", 10000),
+    )
+    csg = CasingDesignEngine.calculate_burst_rating(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        wall_thickness_in=data.get("wall_thickness_in", 0.472),
+        yield_strength_psi=data.get("yield_strength_psi", 80000),
+    )
+    burst_rating = csg.get("burst_rating_psi", 6000)
+    apb_psi = apb.get("apb_psi", 0)
+    sf = burst_rating / apb_psi if apb_psi > 0 else 99
+    return {
+        "apb_psi": apb_psi,
+        "casing_burst_rating_psi": burst_rating,
+        "burst_sf_with_apb": round(sf, 2),
+        "apb_detail": apb,
+        "casing_burst_detail": csg,
+    }
+
+
+@app.post("/cross-engine/td-to-packer-landing")
+def cross_td_to_packer_landing(data: Dict[str, Any] = Body(...)):
+    """Bridge: T&D drag → Packer landing conditions (drag for tubing run-in)."""
+    from orchestrator.packer_forces_engine import PackerForcesEngine
+    tubing_sections = data.get("tubing_sections", [
+        {"od": 3.5, "id_inner": 2.992, "length_ft": 10000, "weight_ppf": 9.3}
+    ])
+    survey = data.get("survey_stations", None)
+    landing = PackerForcesEngine.calculate_landing_conditions(
+        tubing_sections=tubing_sections,
+        survey_stations=survey,
+        mud_weight_ppg=data.get("mud_weight_ppg", 8.34),
+        friction_factor=data.get("friction_factor", 0.30),
+        packer_depth_tvd_ft=data.get("packer_depth_tvd_ft", 10000),
+        set_down_weight_lbs=data.get("set_down_weight_lbs", 5000),
+    )
+    return landing
+
+
+# --- Phase 8 Elite Standalone Endpoints ---
+
+@app.post("/cementing/gas-migration")
+def calculate_gas_migration(data: Dict[str, Any] = Body(...)):
+    """Assess gas migration risk post-cementacion (API RP 65-2)."""
+    from orchestrator.cementing_engine import CementingEngine
+    return CementingEngine.calculate_gas_migration_risk(
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 5000),
+        cement_top_tvd_ft=data.get("cement_top_tvd_ft", 5000),
+        cement_base_tvd_ft=data.get("cement_base_tvd_ft", 10000),
+        slurry_density_ppg=data.get("slurry_density_ppg", 16.0),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
+        sgs_time_hr=data.get("sgs_time_hr", 4.0),
+        thickening_time_hr=data.get("thickening_time_hr", 6.0),
+    )
+
+
+@app.post("/cementing/centralizer-design")
+def design_centralizers(data: Dict[str, Any] = Body(...)):
+    """Design centralizer spacing and standoff (API RP 10D-2)."""
+    from orchestrator.cementing_engine import CementingEngine
+    return CementingEngine.design_centralizers(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        hole_id_in=data.get("hole_id_in", 12.25),
+        casing_weight_ppf=data.get("casing_weight_ppf", 47),
+        inclination_profile=data.get("inclination_profile", [0, 15, 30, 45, 60]),
+        centralizer_type=data.get("centralizer_type", "bow_spring"),
+    )
+
+
+@app.post("/casing-design/combination-string")
+def design_combination_string(data: Dict[str, Any] = Body(...)):
+    """Design combination casing string (multi-grade/weight optimization)."""
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    return CasingDesignEngine.design_combination_string(
+        casing_od=data.get("casing_od", 9.625),
+        tvd_ft=data.get("tvd_ft", 12000),
+        mud_weight_ppg=data.get("mud_weight_ppg", 12.0),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
+        frac_gradient_ppg=data.get("frac_gradient_ppg", 15.0),
+        sf_burst=data.get("sf_burst", 1.1),
+        sf_collapse=data.get("sf_collapse", 1.0),
+        sf_tension=data.get("sf_tension", 1.6),
+    )
+
+
+@app.post("/casing-design/running-loads")
+def calculate_running_loads(data: Dict[str, Any] = Body(...)):
+    """Calculate casing running loads (hookload, shock, bending)."""
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    return CasingDesignEngine.calculate_running_loads(
+        casing_od=data.get("casing_od", 9.625),
+        casing_weight_ppf=data.get("casing_weight_ppf", 47),
+        grade=data.get("grade", "L-80"),
+        total_length_ft=data.get("total_length_ft", 10000),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.0),
+        max_dls_deg_100ft=data.get("max_dls_deg_100ft", 3.0),
+    )
+
+
+@app.post("/completion/ipr")
+def calculate_ipr(data: Dict[str, Any] = Body(...)):
+    """Calculate IPR curve (Vogel, Fetkovich, or Darcy)."""
+    from orchestrator.completion_design_engine import CompletionDesignEngine
+    model = data.get("model", "vogel")
+    if model == "vogel":
+        return CompletionDesignEngine.calculate_ipr_vogel(
+            reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4000),
+            bubble_point_psi=data.get("bubble_point_psi", 2500),
+            productivity_index_above_pb=data.get("productivity_index", 5.0),
+        )
+    elif model == "fetkovich":
+        return CompletionDesignEngine.calculate_ipr_fetkovich(
+            reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4000),
+            C_coefficient=data.get("C_coefficient", 0.001),
+            n_exponent=data.get("n_exponent", 0.8),
+        )
+    else:
+        return CompletionDesignEngine.calculate_ipr_darcy(
+            permeability_md=data.get("permeability_md", 100),
+            net_pay_ft=data.get("net_pay_ft", 50),
+            Bo=data.get("Bo", 1.2), mu_oil_cp=data.get("mu_oil_cp", 1.0),
+            reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4000),
+            drainage_radius_ft=data.get("drainage_radius_ft", 660),
+            wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+            skin=data.get("skin", 0),
+        )
+
+
+@app.post("/completion/nodal-analysis")
+def calculate_nodal(data: Dict[str, Any] = Body(...)):
+    """Calculate nodal analysis (IPR-VLP intersection)."""
+    from orchestrator.completion_design_engine import CompletionDesignEngine
+    ipr = data.get("ipr_data", {})
+    vlp = data.get("vlp_data", {})
+    return CompletionDesignEngine.calculate_nodal_analysis(
+        ipr_Pwf=ipr.get("Pwf", []),
+        ipr_q=ipr.get("q", []),
+        vlp_q_range=vlp.get("q_range", []),
+        vlp_Pwf=vlp.get("Pwf", []),
+    )
+
+
+@app.post("/vibrations/3d-map")
+def calculate_vibrations_3d_map(data: Dict[str, Any] = Body(...)):
+    """Generate 3D vibration risk map (MD vs RPM heatmap)."""
+    return VibrationsEngine.calculate_vibration_map_3d(
+        survey_stations=data.get("survey_stations", []),
+        bha_od_in=data.get("bha_od_in", 6.75),
+        bha_id_in=data.get("bha_id_in", 2.813),
+        bha_weight_lbft=data.get("bha_weight_lbft", 83),
+        bha_length_ft=data.get("bha_length_ft", 300),
+        hole_diameter_in=data.get("hole_diameter_in", 8.5),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10),
+        rpm_range=data.get("rpm_range", None),
+        wob_klb=data.get("wob_klb", 20),
+    )
+
+
+@app.post("/vibrations/bha-modal")
+def calculate_bha_modal(data: Dict[str, Any] = Body(...)):
+    """Multi-component BHA modal analysis (Transfer Matrix Method)."""
+    return VibrationsEngine.calculate_critical_rpm_lateral_multi(
+        bha_components=data.get("bha_components", []),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10),
+        hole_diameter_in=data.get("hole_diameter_in", 8.5),
+        boundary_conditions=data.get("boundary_conditions", "pinned-pinned"),
+    )
+
+
+@app.post("/vibrations/fatigue")
+def calculate_vibrations_fatigue(data: Dict[str, Any] = Body(...)):
+    """Calculate drillstring fatigue damage (Miner's rule)."""
+    return VibrationsEngine.calculate_fatigue_damage(
+        drillstring_od=data.get("drillstring_od", 5.0),
+        drillstring_id=data.get("drillstring_id", 4.276),
+        drillstring_grade=data.get("drillstring_grade", "S-135"),
+        survey_stations=data.get("survey_stations", None),
+        rpm=data.get("rpm", 120),
+        hours_per_stand=data.get("hours_per_stand", 0.5),
+        vibration_severity=data.get("vibration_severity", 0.3),
+        total_rotating_hours=data.get("total_rotating_hours", 100),
+    )
+
+
+@app.post("/packer/apb")
+def calculate_packer_apb(data: Dict[str, Any] = Body(...)):
+    """Calculate Annular Pressure Buildup (APB) for trapped annulus."""
+    from orchestrator.packer_forces_engine import PackerForcesEngine
+    return PackerForcesEngine.calculate_apb(
+        annular_fluid_type=data.get("annular_fluid_type", "WBM"),
+        delta_t_avg=data.get("delta_t_avg", 100),
+        annular_volume_bbl=data.get("annular_volume_bbl", 200),
+        casing_od=data.get("casing_od", 9.625),
+        casing_id=data.get("casing_id", 8.681),
+        tubing_od=data.get("tubing_od", 3.5),
+        tubing_id=data.get("tubing_id", 2.992),
+        annular_length_ft=data.get("annular_length_ft", 10000),
+        initial_pressure_psi=data.get("initial_pressure_psi", 0),
+    )
+
+
+@app.post("/packer/landing-conditions")
+def calculate_packer_landing(data: Dict[str, Any] = Body(...)):
+    """Calculate tubing landing conditions for packer installation."""
+    from orchestrator.packer_forces_engine import PackerForcesEngine
+    return PackerForcesEngine.calculate_landing_conditions(
+        tubing_sections=data.get("tubing_sections", []),
+        survey_stations=data.get("survey_stations", None),
+        mud_weight_ppg=data.get("mud_weight_ppg", 8.34),
+        friction_factor=data.get("friction_factor", 0.30),
+        packer_depth_tvd_ft=data.get("packer_depth_tvd_ft", 10000),
+        set_down_weight_lbs=data.get("set_down_weight_lbs", 5000),
+    )
+
+
+@app.post("/packer/buckling-length")
+def calculate_packer_buckling_length(data: Dict[str, Any] = Body(...)):
+    """Calculate tubing buckling length and effects."""
+    from orchestrator.packer_forces_engine import PackerForcesEngine
+    return PackerForcesEngine.calculate_buckling_length(
+        axial_force=data.get("axial_force", -50000),
+        tubing_od=data.get("tubing_od", 3.5),
+        tubing_id=data.get("tubing_id", 2.992),
+        tubing_weight_ppf=data.get("tubing_weight_ppf", 9.3),
+        casing_id=data.get("casing_id", 6.276),
+        inclination_deg=data.get("inclination_deg", 0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 8.34),
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
