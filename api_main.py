@@ -2119,5 +2119,183 @@ async def analyze_vibrations(well_id: int, data: Dict[str, Any] = Body(...), db:
     )
 
 
+# ============================================================
+# MODULE 12: Cementing Simulation Endpoints
+# ============================================================
+
+@app.post("/wells/{well_id}/cementing")
+def calculate_cementing(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run cementing simulation calculations."""
+    from orchestrator.cementing_engine import CementingEngine
+    from models.models_v2 import CementingResult
+
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = CementingEngine.calculate_full_cementing(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        casing_id_in=data.get("casing_id_in", 8.681),
+        hole_id_in=data.get("hole_id_in", 12.25),
+        casing_shoe_md_ft=data.get("casing_shoe_md_ft", 10000.0),
+        casing_shoe_tvd_ft=data.get("casing_shoe_tvd_ft", 9500.0),
+        toc_md_ft=data.get("toc_md_ft", 5000.0),
+        toc_tvd_ft=data.get("toc_tvd_ft", 4750.0),
+        float_collar_md_ft=data.get("float_collar_md_ft", 9900.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.5),
+        spacer_density_ppg=data.get("spacer_density_ppg", 11.5),
+        lead_cement_density_ppg=data.get("lead_cement_density_ppg", 13.5),
+        tail_cement_density_ppg=data.get("tail_cement_density_ppg", 16.0),
+        tail_length_ft=data.get("tail_length_ft", 500.0),
+        spacer_volume_bbl=data.get("spacer_volume_bbl", 25.0),
+        excess_pct=data.get("excess_pct", 50.0),
+        rat_hole_ft=data.get("rat_hole_ft", 50.0),
+        pump_rate_bbl_min=data.get("pump_rate_bbl_min", 5.0),
+        pv_mud=data.get("pv_mud", 15.0),
+        yp_mud=data.get("yp_mud", 10.0),
+        fracture_gradient_ppg=data.get("fracture_gradient_ppg", 16.5),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
+    )
+
+    cem_result = CementingResult(
+        well_id=well_id,
+        event_id=data.get("event_id"),
+        casing_od_in=data.get("casing_od_in", 9.625),
+        hole_id_in=data.get("hole_id_in", 12.25),
+        casing_shoe_md_ft=data.get("casing_shoe_md_ft", 10000.0),
+        cement_density_ppg=data.get("tail_cement_density_ppg", 16.0),
+        result_data=result,
+        summary=result.get("summary", {}),
+    )
+    db.add(cem_result)
+    db.commit()
+    db.refresh(cem_result)
+
+    return {"id": cem_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/cementing")
+def get_cementing(well_id: int, db: Session = Depends(get_db)):
+    """Get latest cementing result for a well."""
+    from models.models_v2 import CementingResult
+
+    result = db.query(CementingResult).filter(
+        CementingResult.well_id == well_id
+    ).order_by(CementingResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No cementing results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+@app.post("/wells/{well_id}/cementing/analyze")
+async def analyze_cementing(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Cementing results via cementing_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_module(
+        module="cementing",
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+# ============================================================
+# MODULE 13: Casing Design Endpoints
+# ============================================================
+
+@app.post("/wells/{well_id}/casing-design")
+def calculate_casing_design(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run casing design calculations."""
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    from models.models_v2 import CasingDesignResult
+
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = CasingDesignEngine.calculate_full_casing_design(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        casing_id_in=data.get("casing_id_in", 8.681),
+        wall_thickness_in=data.get("wall_thickness_in", 0.472),
+        casing_weight_ppf=data.get("casing_weight_ppf", 47.0),
+        casing_length_ft=data.get("casing_length_ft", 10000.0),
+        tvd_ft=data.get("tvd_ft", 9500.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.5),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
+        fracture_gradient_ppg=data.get("fracture_gradient_ppg", 16.5),
+        gas_gradient_psi_ft=data.get("gas_gradient_psi_ft", 0.1),
+        cement_top_tvd_ft=data.get("cement_top_tvd_ft", 5000.0),
+        cement_density_ppg=data.get("cement_density_ppg", 16.0),
+        bending_dls=data.get("bending_dls", 3.0),
+        overpull_lbs=data.get("overpull_lbs", 50000.0),
+        sf_burst=data.get("sf_burst", 1.10),
+        sf_collapse=data.get("sf_collapse", 1.00),
+        sf_tension=data.get("sf_tension", 1.60),
+    )
+
+    csg_result = CasingDesignResult(
+        well_id=well_id,
+        event_id=data.get("event_id"),
+        casing_od_in=data.get("casing_od_in", 9.625),
+        casing_weight_ppf=data.get("casing_weight_ppf", 47.0),
+        tvd_ft=data.get("tvd_ft", 9500.0),
+        selected_grade=result.get("summary", {}).get("selected_grade", ""),
+        result_data=result,
+        summary=result.get("summary", {}),
+    )
+    db.add(csg_result)
+    db.commit()
+    db.refresh(csg_result)
+
+    return {"id": csg_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/casing-design")
+def get_casing_design(well_id: int, db: Session = Depends(get_db)):
+    """Get latest casing design result for a well."""
+    from models.models_v2 import CasingDesignResult
+
+    result = db.query(CasingDesignResult).filter(
+        CasingDesignResult.well_id == well_id
+    ).order_by(CasingDesignResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No casing design results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+@app.post("/wells/{well_id}/casing-design/analyze")
+async def analyze_casing_design(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Casing Design results via well_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_module(
+        module="casing_design",
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -450,3 +450,51 @@ class VibrationsResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     well = relationship("Well")
+
+
+# ============================================================
+# MODULE 12: Cementing Simulation Models
+# ============================================================
+
+class CementingResult(Base):
+    """Stores results from cementing simulation calculations."""
+    __tablename__ = "cementing_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    casing_od_in = Column(Float)
+    hole_id_in = Column(Float)
+    casing_shoe_md_ft = Column(Float)
+    cement_density_ppg = Column(Float)
+
+    result_data = Column(JSON)
+    summary = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 13: Casing Design Models
+# ============================================================
+
+class CasingDesignResult(Base):
+    """Stores results from casing design calculations."""
+    __tablename__ = "casing_design_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    casing_od_in = Column(Float)
+    casing_weight_ppf = Column(Float)
+    tvd_ft = Column(Float)
+    selected_grade = Column(String(20), nullable=True)
+
+    result_data = Column(JSON)
+    summary = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")

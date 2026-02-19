@@ -31,6 +31,12 @@ METRIC_LABELS = {
         "D50": "D50", "Sanding Risk": "Sanding Risk",
         "Critical Drawdown": "Critical Drawdown", "Recommended Gravel": "Recommended Gravel",
         "Skin Total": "Skin Total", "Recommended Completion": "Recommended Completion",
+        "Total Cement": "Total Cement", "Max ECD": "Max ECD",
+        "Fracture Margin": "Fracture Margin", "Job Time": "Job Time",
+        "Free-Fall": "Free-Fall", "Lift Pressure": "Lift Pressure",
+        "Selected Grade": "Selected Grade", "SF Burst": "SF Burst",
+        "SF Collapse": "SF Collapse", "SF Tension": "SF Tension",
+        "Triaxial Status": "Triaxial Status", "Overall Status": "Overall Status",
     },
     "es": {
         "Hookload": "Carga en Gancho", "Torque": "Torque", "Max Side Force": "Fuerza Lateral Máx",
@@ -49,6 +55,12 @@ METRIC_LABELS = {
         "D50": "D50", "Sanding Risk": "Riesgo de Arenamiento",
         "Critical Drawdown": "Drawdown Crítico", "Recommended Gravel": "Grava Recomendada",
         "Skin Total": "Skin Total", "Recommended Completion": "Completación Recomendada",
+        "Total Cement": "Cemento Total", "Max ECD": "ECD Máximo",
+        "Fracture Margin": "Margen de Fractura", "Job Time": "Tiempo de Trabajo",
+        "Free-Fall": "Caída Libre", "Lift Pressure": "Presión de Levantamiento",
+        "Selected Grade": "Grado Seleccionado", "SF Burst": "FS Estallido",
+        "SF Collapse": "FS Colapso", "SF Tension": "FS Tensión",
+        "Triaxial Status": "Estado Triaxial", "Overall Status": "Estado General",
     },
 }
 
@@ -127,6 +139,64 @@ class ModuleAnalysisEngine:
         context = {"well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "sand_control", result_data, well_name, language, provider)
+
+    async def analyze_cementing(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Cementing results using cementing_engineer agent."""
+        problem = self._build_cem_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("cementing_engineer", problem, context, provider=provider)
+        return self._package(analysis, "cementing", result_data, well_name, language, provider)
+
+    async def analyze_casing_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Casing Design results using well_engineer agent."""
+        problem = self._build_csg_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "casing_design", result_data, well_name, language, provider)
+
+    # ================================================================
+    # Generic dispatcher (for modules 9+)
+    # ================================================================
+
+    async def analyze_module(self, module: str, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Generic dispatcher that routes to the appropriate analyze_X method."""
+        method_map = {
+            "completion_design": self.analyze_completion_design,
+            "shot_efficiency": self.analyze_shot_efficiency,
+            "vibrations": self.analyze_vibrations,
+            "cementing": self.analyze_cementing,
+            "casing_design": self.analyze_casing_design,
+        }
+        handler = method_map.get(module)
+        if handler:
+            return await handler(result_data, well_name, params, language, provider)
+
+        # Fallback: generic analysis using well_engineer
+        problem = self._build_generic_problem(module, result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, module, result_data, well_name, language, provider)
+
+    async def analyze_completion_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Completion Design results using well_engineer agent."""
+        problem = self._build_cd_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "completion_design", result_data, well_name, language, provider)
+
+    async def analyze_shot_efficiency(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Shot Efficiency results using well_engineer agent."""
+        problem = self._build_se_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "shot_efficiency", result_data, well_name, language, provider)
+
+    async def analyze_vibrations(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Vibrations results using optimization_engineer agent."""
+        problem = self._build_vb_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("optimization_engineer", problem, context, provider=provider)
+        return self._package(analysis, "vibrations", result_data, well_name, language, provider)
 
     # ================================================================
     # Language helpers
@@ -439,6 +509,108 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
 {self._get_instruction_block(language)}"""
 
+    def _build_cd_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Completion Design Module — Well: {well_name}
+
+PR: {summary.get('productivity_ratio', 'N/A')} | Quality: {summary.get('quality', 'N/A')}
+Pen Depth: {summary.get('corrected_depth_in', 'N/A')}" | SPF: {params.get('spf', 'N/A')} | Phasing: {params.get('phasing_deg', 'N/A')}°
+Fracture: P_init={summary.get('fracture_initiation_psi', 'N/A')} psi | FG={summary.get('fracture_gradient_ppg', 'N/A')} ppg
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_se_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Shot Efficiency Module — Well: {well_name}
+
+Net Pay: {summary.get('total_net_pay_ft', 'N/A')} ft | Intervals: {summary.get('net_pay_intervals', 'N/A')}
+Avg Porosity: {summary.get('avg_porosity', 'N/A')} | Avg Sw: {summary.get('avg_sw', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_vb_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Vibrations / Stability Module — Well: {well_name}
+
+WOB: {params.get('wob_klb', 'N/A')} klb | RPM: {params.get('rpm', 'N/A')}
+MSE: {summary.get('mse_total_psi', 'N/A')} psi | Efficiency: {summary.get('efficiency_pct', 'N/A')}%
+Stability: {summary.get('stability_index', 'N/A')} | Stick-Slip: {summary.get('stick_slip_severity', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_cem_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Cementing Simulation Module — Well: {well_name}
+
+Casing: {params.get('casing_od_in', 'N/A')}" OD × {params.get('hole_id_in', 'N/A')}" hole
+Shoe MD: {params.get('casing_shoe_md_ft', 'N/A')} ft | TOC: {params.get('toc_md_ft', 'N/A')} ft
+
+VOLUMES:
+- Total Cement: {summary.get('total_cement_bbl', 'N/A')} bbl ({summary.get('total_cement_sacks', 'N/A')} sacks)
+- Displacement: {summary.get('displacement_bbl', 'N/A')} bbl
+- Total Pump: {summary.get('total_pump_bbl', 'N/A')} bbl
+
+JOB PARAMETERS:
+- Job Time: {summary.get('job_time_hrs', 'N/A')} hrs
+- Max ECD: {summary.get('max_ecd_ppg', 'N/A')} ppg | Fracture Margin: {summary.get('fracture_margin_ppg', 'N/A')} ppg
+- Max BHP: {summary.get('max_bhp_psi', 'N/A')} psi
+- Lift Pressure: {summary.get('lift_pressure_psi', 'N/A')} psi
+- Free-Fall: {summary.get('free_fall_ft', 'N/A')} ft
+- U-Tube: {summary.get('utube_psi', 'N/A')} psi
+
+STATUS: {summary.get('ecd_status', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_csg_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Casing Design Module — Well: {well_name}
+
+Casing: {params.get('casing_od_in', 'N/A')}" OD, {params.get('casing_weight_ppf', 'N/A')} ppf
+TVD: {params.get('tvd_ft', 'N/A')} ft | MW: {params.get('mud_weight_ppg', 'N/A')} ppg
+
+LOADS:
+- Max Burst: {summary.get('max_burst_load_psi', 'N/A')} psi
+- Max Collapse: {summary.get('max_collapse_load_psi', 'N/A')} psi
+- Total Tension: {summary.get('total_tension_lbs', 'N/A')} lbs
+
+RATINGS ({summary.get('selected_grade', 'N/A')}):
+- Burst: {summary.get('burst_rating_psi', 'N/A')} psi | SF: {summary.get('sf_burst', 'N/A')}
+- Collapse: {summary.get('collapse_rating_psi', 'N/A')} psi ({summary.get('collapse_zone', 'N/A')}) | SF: {summary.get('sf_collapse', 'N/A')}
+- Tension: {summary.get('tension_rating_lbs', 'N/A')} lbs | SF: {summary.get('sf_tension', 'N/A')}
+
+TRIAXIAL VME: {summary.get('triaxial_status', 'N/A')} (Utilization: {summary.get('triaxial_utilization_pct', 'N/A')}%)
+OVERALL: {summary.get('overall_status', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_generic_problem(self, module: str, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        alerts = summary.get("alerts", [])
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — {module.replace('_', ' ').title()} Module — Well: {well_name}
+
+RESULTS SUMMARY:
+{json.dumps(summary, indent=2, ensure_ascii=False, default=str)[:2000]}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
     # ================================================================
     # Packaging and metrics extraction
     # ================================================================
@@ -541,6 +713,28 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
                 {"label": self._ml("Recommended Gravel", language), "value": summary.get("recommended_gravel", "N/A"), "unit": ""},
                 {"label": self._ml("Skin Total", language), "value": summary.get("skin_total", 0), "unit": ""},
                 {"label": self._ml("Recommended Completion", language), "value": summary.get("recommended_completion", "N/A"), "unit": ""},
+            ]
+
+        elif module == "cementing":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("Total Cement", language), "value": summary.get("total_cement_bbl", 0), "unit": "bbl"},
+                {"label": self._ml("Max ECD", language), "value": summary.get("max_ecd_ppg", 0), "unit": "ppg"},
+                {"label": self._ml("Fracture Margin", language), "value": summary.get("fracture_margin_ppg", 0), "unit": "ppg"},
+                {"label": self._ml("Job Time", language), "value": summary.get("job_time_hrs", 0), "unit": "hrs"},
+                {"label": self._ml("Free-Fall", language), "value": summary.get("free_fall_ft", 0), "unit": "ft"},
+                {"label": self._ml("Lift Pressure", language), "value": summary.get("lift_pressure_psi", 0), "unit": "psi"},
+            ]
+
+        elif module == "casing_design":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("Selected Grade", language), "value": summary.get("selected_grade", "N/A"), "unit": ""},
+                {"label": self._ml("SF Burst", language), "value": summary.get("sf_burst", 0), "unit": ""},
+                {"label": self._ml("SF Collapse", language), "value": summary.get("sf_collapse", 0), "unit": ""},
+                {"label": self._ml("SF Tension", language), "value": summary.get("sf_tension", 0), "unit": ""},
+                {"label": self._ml("Triaxial Status", language), "value": summary.get("triaxial_status", "N/A"), "unit": ""},
+                {"label": self._ml("Overall Status", language), "value": summary.get("overall_status", "N/A"), "unit": ""},
             ]
 
         return []

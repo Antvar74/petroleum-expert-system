@@ -16,7 +16,9 @@ import {
     Filter,
     Layers,
     Target,
-    Vibrate
+    Vibrate,
+    Cylinder,
+    ShieldCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,6 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
         { id: 'completion-design', label: 'Completion Design', icon: Layers },
         { id: 'shot-efficiency', label: 'Shot Efficiency', icon: Target },
         { id: 'vibrations', label: 'Vibrations', icon: Vibrate },
+        { id: 'cementing', label: 'Cementing', icon: Cylinder },
+        { id: 'casing-design', label: 'Casing Design', icon: ShieldCheck },
         { id: 'settings', label: 'Settings', icon: Settings },
     ];
 

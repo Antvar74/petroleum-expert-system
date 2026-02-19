@@ -17,6 +17,8 @@ import SandControlModule from './components/SandControlModule';
 import CompletionDesignModule from './components/CompletionDesignModule';
 import ShotEfficiencyModule from './components/ShotEfficiencyModule';
 import VibrationsModule from './components/VibrationsModule';
+import CementingModule from './components/CementingModule';
+import CasingDesignModule from './components/CasingDesignModule';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 
@@ -157,6 +159,10 @@ function App() {
         return <ShotEfficiencyModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'vibrations':
         return <VibrationsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'cementing':
+        return <CementingModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'casing-design':
+        return <CasingDesignModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'settings':
         return <div className="p-12 text-center text-white/40 italic">Settings module coming soon in v3.1</div>;
       default:
@@ -196,6 +202,8 @@ function App() {
               {currentView === 'completion-design' && <span className="font-bold">Completion Design / Perforating & Fracture</span>}
               {currentView === 'shot-efficiency' && <span className="font-bold">Shot Efficiency / Petrophysics & Intervals</span>}
               {currentView === 'vibrations' && <span className="font-bold">Vibrations & Stability / Drillstring Dynamics</span>}
+              {currentView === 'cementing' && <span className="font-bold">Cementing Simulation / Displacement & ECD</span>}
+              {currentView === 'casing-design' && <span className="font-bold">Casing Design / API 5C3 Burst-Collapse-Tension</span>}
             </div>
           </div>
           <div className="flex items-center gap-6">

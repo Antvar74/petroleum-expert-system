@@ -1,0 +1,470 @@
+"""
+Unit tests for CasingDesignEngine -- casing design calculations.
+
+Covers burst/collapse/tension loads, API 5C3 collapse rating (4 zones),
+Barlow burst, biaxial correction, triaxial VME, grade selection,
+safety factor verification, and full master method integration.
+"""
+import math
+import pytest
+from orchestrator.casing_design_engine import CasingDesignEngine
+
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def engine():
+    """Return CasingDesignEngine class (all static methods)."""
+    return CasingDesignEngine
+
+
+@pytest.fixture
+def typical_casing():
+    """Standard 9-5/8" 47 ppf casing."""
+    return dict(
+        casing_od_in=9.625,
+        casing_id_in=8.681,
+        wall_thickness_in=0.472,
+        casing_weight_ppf=47.0,
+    )
+
+
+@pytest.fixture
+def typical_well():
+    return dict(
+        tvd_ft=9500.0,
+        mud_weight_ppg=10.5,
+        pore_pressure_ppg=9.0,
+    )
+
+
+# ===========================================================================
+# 1. BURST LOAD
+# ===========================================================================
+class TestBurstLoad:
+    def test_profile_has_points(self, engine, typical_well):
+        result = engine.calculate_burst_load(**typical_well, num_points=20)
+        assert len(result["profile"]) == 20
+
+    def test_max_burst_positive(self, engine, typical_well):
+        result = engine.calculate_burst_load(**typical_well)
+        assert result["max_burst_load_psi"] > 0
+
+    def test_max_burst_at_surface(self, engine, typical_well):
+        """Gas-to-surface scenario: max burst is at surface (depth = 0)."""
+        result = engine.calculate_burst_load(**typical_well)
+        assert result["max_burst_depth_ft"] == 0
+
+    def test_reservoir_pressure_consistent(self, engine, typical_well):
+        result = engine.calculate_burst_load(**typical_well)
+        expected_p_res = 9.0 * 0.052 * 9500
+        assert result["reservoir_pressure_psi"] == pytest.approx(expected_p_res, abs=1)
+
+    def test_zero_tvd_error(self, engine):
+        result = engine.calculate_burst_load(tvd_ft=0, mud_weight_ppg=10.0, pore_pressure_ppg=9.0)
+        assert "error" in result
+
+    def test_higher_pore_pressure_higher_burst(self, engine):
+        low = engine.calculate_burst_load(tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0)
+        high = engine.calculate_burst_load(tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=14.0)
+        assert high["max_burst_load_psi"] > low["max_burst_load_psi"]
+
+
+# ===========================================================================
+# 2. COLLAPSE LOAD
+# ===========================================================================
+class TestCollapseLoad:
+    def test_profile_has_points(self, engine, typical_well):
+        result = engine.calculate_collapse_load(**typical_well, num_points=15)
+        assert len(result["profile"]) == 15
+
+    def test_max_collapse_positive_with_evacuation(self, engine, typical_well):
+        """Full evacuation (evacuation_level = TVD) yields positive collapse."""
+        result = engine.calculate_collapse_load(
+            **typical_well, evacuation_level_ft=typical_well["tvd_ft"])
+        assert result["max_collapse_load_psi"] > 0
+
+    def test_full_evacuation_max_at_bottom(self, engine, typical_well):
+        """Full evacuation: max collapse load at TD (deepest point)."""
+        result = engine.calculate_collapse_load(
+            **typical_well, evacuation_level_ft=typical_well["tvd_ft"])
+        assert result["max_collapse_depth_ft"] == pytest.approx(typical_well["tvd_ft"], abs=1)
+
+    def test_heavier_mud_higher_collapse(self, engine):
+        """With full evacuation, heavier external mud → higher collapse load."""
+        light = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=10000)
+        heavy = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=14.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=10000)
+        assert heavy["max_collapse_load_psi"] > light["max_collapse_load_psi"]
+
+    def test_zero_tvd_error(self, engine):
+        result = engine.calculate_collapse_load(tvd_ft=0, mud_weight_ppg=10.0, pore_pressure_ppg=9.0)
+        assert "error" in result
+
+    def test_partial_evacuation_scenario_label(self, engine, typical_well):
+        result = engine.calculate_collapse_load(**typical_well, evacuation_level_ft=3000.0)
+        assert "Partial" in result["scenario"]
+
+
+# ===========================================================================
+# 3. TENSION LOAD
+# ===========================================================================
+class TestTensionLoad:
+    def test_air_weight_correct(self, engine, typical_casing):
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+        )
+        assert result["air_weight_lbs"] == pytest.approx(470000, abs=1)
+
+    def test_buoyancy_factor_formula(self, engine, typical_casing):
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+        )
+        expected_bf = 1.0 - 10.0 / 65.4
+        assert result["buoyancy_factor"] == pytest.approx(expected_bf, abs=0.001)
+
+    def test_buoyant_weight_less_than_air(self, engine, typical_casing):
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+        )
+        assert result["buoyant_weight_lbs"] < result["air_weight_lbs"]
+
+    def test_shock_load_lubinski(self, engine, typical_casing):
+        """Lubinski shock: F = 3200 * ppf."""
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+            shock_load=True,
+        )
+        assert result["shock_load_lbs"] == pytest.approx(3200.0 * 47.0, abs=1)
+
+    def test_no_shock_when_disabled(self, engine, typical_casing):
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+            shock_load=False,
+        )
+        assert result["shock_load_lbs"] == 0.0
+
+    def test_bending_increases_tension(self, engine, typical_casing):
+        no_bend = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+            bending_load_dls=0.0,
+        )
+        with_bend = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+            bending_load_dls=5.0,
+        )
+        assert with_bend["total_tension_lbs"] > no_bend["total_tension_lbs"]
+
+    def test_cross_section_area(self, engine, typical_casing):
+        result = engine.calculate_tension_load(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.0, casing_od_in=9.625, casing_id_in=8.681,
+        )
+        expected_area = math.pi / 4.0 * (9.625**2 - 8.681**2)
+        assert result["cross_section_area_sq_in"] == pytest.approx(expected_area, abs=0.01)
+
+
+# ===========================================================================
+# 4. BURST RATING (BARLOW)
+# ===========================================================================
+class TestBurstRating:
+    def test_barlow_formula(self, engine):
+        """P_burst = 0.875 * 2 * Yp * t / OD"""
+        result = engine.calculate_burst_rating(
+            casing_od_in=9.625, wall_thickness_in=0.472, yield_strength_psi=80000,
+        )
+        expected = 0.875 * 2 * 80000 * 0.472 / 9.625
+        assert result["burst_rating_psi"] == pytest.approx(expected, abs=1)
+
+    def test_higher_yield_higher_rating(self, engine):
+        low = engine.calculate_burst_rating(9.625, 0.472, 55000)
+        high = engine.calculate_burst_rating(9.625, 0.472, 110000)
+        assert high["burst_rating_psi"] > low["burst_rating_psi"]
+
+    def test_thicker_wall_higher_rating(self, engine):
+        thin = engine.calculate_burst_rating(9.625, 0.312, 80000)
+        thick = engine.calculate_burst_rating(9.625, 0.625, 80000)
+        assert thick["burst_rating_psi"] > thin["burst_rating_psi"]
+
+    def test_invalid_zero_od(self, engine):
+        result = engine.calculate_burst_rating(0.0, 0.472, 80000)
+        assert "error" in result
+
+    def test_dt_ratio(self, engine):
+        result = engine.calculate_burst_rating(9.625, 0.472, 80000)
+        assert result["dt_ratio"] == pytest.approx(9.625 / 0.472, abs=0.01)
+
+
+# ===========================================================================
+# 5. COLLAPSE RATING (API 5C3 — 4 ZONES)
+# ===========================================================================
+class TestCollapseRating:
+    def test_positive_rating(self, engine):
+        result = engine.calculate_collapse_rating(9.625, 0.472, 80000)
+        assert result["collapse_rating_psi"] > 0
+
+    def test_zone_assignment(self, engine):
+        result = engine.calculate_collapse_rating(9.625, 0.472, 80000)
+        assert result["collapse_zone"] in ("Yield", "Plastic", "Transition", "Elastic")
+
+    def test_boundaries_ordered(self, engine):
+        result = engine.calculate_collapse_rating(9.625, 0.472, 80000)
+        b = result["boundaries"]
+        assert b["yield_plastic"] <= b["plastic_transition"] <= b["transition_elastic"]
+
+    def test_higher_yield_higher_collapse(self, engine):
+        low = engine.calculate_collapse_rating(9.625, 0.472, 55000)
+        high = engine.calculate_collapse_rating(9.625, 0.472, 110000)
+        assert high["collapse_rating_psi"] >= low["collapse_rating_psi"]
+
+    def test_very_thin_wall_high_dt(self, engine):
+        """Very thin wall (very high D/t) should NOT be in Yield zone."""
+        result = engine.calculate_collapse_rating(9.625, 0.150, 80000)
+        # D/t ~ 64, should be Transition or Elastic
+        assert result["collapse_zone"] in ("Transition", "Elastic")
+        assert result["dt_ratio"] > 50
+
+    def test_invalid_dimensions(self, engine):
+        result = engine.calculate_collapse_rating(0.0, 0.472, 80000)
+        assert "error" in result
+
+
+# ===========================================================================
+# 6. BIAXIAL CORRECTION (API 5C3 ELLIPSE)
+# ===========================================================================
+class TestBiaxialCorrection:
+    def test_no_axial_no_reduction(self, engine):
+        result = engine.calculate_biaxial_correction(5000, 0, 80000)
+        assert result["reduction_factor"] == pytest.approx(1.0, abs=0.001)
+        assert result["corrected_collapse_psi"] == pytest.approx(5000, abs=1)
+
+    def test_tension_reduces_collapse(self, engine):
+        result = engine.calculate_biaxial_correction(5000, 40000, 80000)
+        assert result["corrected_collapse_psi"] < 5000
+        assert result["reduction_factor"] < 1.0
+
+    def test_more_tension_more_reduction(self, engine):
+        low_t = engine.calculate_biaxial_correction(5000, 20000, 80000)
+        high_t = engine.calculate_biaxial_correction(5000, 60000, 80000)
+        assert high_t["reduction_factor"] < low_t["reduction_factor"]
+
+    def test_stress_ratio_clamped(self, engine):
+        """Stress ratio should be clamped to [-0.99, 0.99]."""
+        result = engine.calculate_biaxial_correction(5000, 90000, 80000)
+        assert result["stress_ratio"] <= 0.99
+
+    def test_zero_yield_error(self, engine):
+        result = engine.calculate_biaxial_correction(5000, 1000, 0)
+        assert "error" in result
+
+
+# ===========================================================================
+# 7. TRIAXIAL VME STRESS
+# ===========================================================================
+class TestTriaxialVME:
+    def test_low_stress_passes(self, engine):
+        result = engine.calculate_triaxial_vme(
+            axial_stress_psi=10000, hoop_stress_psi=5000,
+            yield_strength_psi=80000,
+        )
+        assert result["passes"] is True
+        assert result["status"] == "PASS"
+
+    def test_high_stress_fails(self, engine):
+        result = engine.calculate_triaxial_vme(
+            axial_stress_psi=70000, hoop_stress_psi=60000,
+            yield_strength_psi=80000,
+        )
+        assert result["passes"] is False
+        assert result["status"] == "FAIL"
+
+    def test_marginal_status(self, engine):
+        """High utilization (>90%) but still passing → MARGINAL."""
+        # Target: VME ~ 0.92 * allowable
+        # allowable = 80000/1.25 = 64000; need VME ~ 59000
+        result = engine.calculate_triaxial_vme(
+            axial_stress_psi=55000, hoop_stress_psi=0,
+            yield_strength_psi=80000, safety_factor=1.25,
+        )
+        # VME ≈ 55000 for uniaxial, allowable = 64000, util = 85.9% → PASS
+        # Need higher. Try axial=60000:
+        result2 = engine.calculate_triaxial_vme(
+            axial_stress_psi=60000, hoop_stress_psi=0,
+            yield_strength_psi=80000, safety_factor=1.25,
+        )
+        # VME = 60000, allowable = 64000, util = 93.75% → MARGINAL
+        assert result2["status"] == "MARGINAL"
+
+    def test_utilization_percentage(self, engine):
+        result = engine.calculate_triaxial_vme(
+            axial_stress_psi=30000, hoop_stress_psi=0,
+            yield_strength_psi=80000, safety_factor=1.0,
+        )
+        # VME = 30000, allowable = 80000, util = 37.5%
+        assert result["utilization_pct"] == pytest.approx(37.5, abs=0.5)
+
+    def test_stress_components_returned(self, engine):
+        result = engine.calculate_triaxial_vme(
+            axial_stress_psi=10000, hoop_stress_psi=5000,
+            radial_stress_psi=1000, shear_stress_psi=500,
+        )
+        assert result["stress_components"]["axial_psi"] == 10000
+        assert result["stress_components"]["shear_psi"] == 500
+
+
+# ===========================================================================
+# 8. GRADE SELECTION
+# ===========================================================================
+class TestGradeSelection:
+    def test_selects_grade(self, engine, typical_casing):
+        result = engine.select_casing_grade(
+            required_burst_psi=3000, required_collapse_psi=3000,
+            required_tension_lbs=500000,
+            casing_od_in=9.625, wall_thickness_in=0.472,
+        )
+        assert result["selected_grade"] != "None"
+        assert "None" not in result["selected_grade"]
+
+    def test_selects_cheapest_that_passes(self, engine, typical_casing):
+        """Should select lowest-yield grade that satisfies all criteria."""
+        result = engine.select_casing_grade(
+            required_burst_psi=2000, required_collapse_psi=2000,
+            required_tension_lbs=200000,
+            casing_od_in=9.625, wall_thickness_in=0.472,
+        )
+        selected = result["selected_details"]
+        assert selected is not None
+        # Verify it passes all
+        assert selected["passes_all"] is True
+
+    def test_all_candidates_listed(self, engine, typical_casing):
+        result = engine.select_casing_grade(
+            required_burst_psi=3000, required_collapse_psi=3000,
+            required_tension_lbs=500000,
+            casing_od_in=9.625, wall_thickness_in=0.472,
+        )
+        assert len(result["all_candidates"]) == len(CasingDesignEngine.CASING_GRADES)
+
+    def test_extreme_loads_no_grade(self, engine, typical_casing):
+        """Loads too high for any grade → no selection."""
+        result = engine.select_casing_grade(
+            required_burst_psi=50000, required_collapse_psi=50000,
+            required_tension_lbs=50000000,
+            casing_od_in=9.625, wall_thickness_in=0.472,
+        )
+        assert "None" in result["selected_grade"]
+
+    def test_invalid_dimensions(self, engine):
+        result = engine.select_casing_grade(
+            required_burst_psi=3000, required_collapse_psi=3000,
+            required_tension_lbs=500000,
+            casing_od_in=0, wall_thickness_in=0.472,
+        )
+        assert "error" in result
+
+
+# ===========================================================================
+# 9. SAFETY FACTORS
+# ===========================================================================
+class TestSafetyFactors:
+    def test_all_pass(self, engine):
+        result = engine.calculate_safety_factors(
+            burst_load_psi=3000, burst_rating_psi=5000,
+            collapse_load_psi=3000, collapse_rating_psi=5000,
+            tension_load_lbs=500000, tension_rating_lbs=1500000,
+        )
+        assert result["all_pass"] is True
+        assert result["overall_status"] == "ALL PASS"
+
+    def test_burst_failure(self, engine):
+        result = engine.calculate_safety_factors(
+            burst_load_psi=5000, burst_rating_psi=3000,
+            collapse_load_psi=1000, collapse_rating_psi=5000,
+            tension_load_lbs=100000, tension_rating_lbs=1500000,
+        )
+        assert result["all_pass"] is False
+        assert result["results"]["burst"]["status"] == "FAIL"
+
+    def test_governing_criterion(self, engine):
+        result = engine.calculate_safety_factors(
+            burst_load_psi=4000, burst_rating_psi=5000,   # SF=1.25
+            collapse_load_psi=4500, collapse_rating_psi=5000,  # SF=1.11
+            tension_load_lbs=800000, tension_rating_lbs=1000000,  # SF=1.25
+        )
+        assert result["governing_criterion"] == "collapse"
+
+    def test_margin_percentage(self, engine):
+        result = engine.calculate_safety_factors(
+            burst_load_psi=1000, burst_rating_psi=2200,
+            collapse_load_psi=1000, collapse_rating_psi=2000,
+            tension_load_lbs=100000, tension_rating_lbs=320000,
+            sf_burst_min=1.1, sf_collapse_min=1.0, sf_tension_min=1.6,
+        )
+        # Burst SF = 2.2, min=1.1 → margin = (2.2/1.1 - 1)*100 = 100%
+        assert result["results"]["burst"]["margin_pct"] == pytest.approx(100.0, abs=0.5)
+
+
+# ===========================================================================
+# 10. FULL CASING DESIGN (MASTER METHOD)
+# ===========================================================================
+class TestFullCasingDesign:
+    def test_all_sections_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        expected_keys = {
+            "burst_load", "collapse_load", "tension_load",
+            "burst_rating", "collapse_rating", "biaxial_correction",
+            "triaxial_vme", "grade_selection", "safety_factors", "summary",
+        }
+        assert expected_keys.issubset(result.keys())
+
+    def test_summary_fields(self, engine):
+        result = engine.calculate_full_casing_design()
+        s = result["summary"]
+        for key in ["selected_grade", "max_burst_load_psi", "max_collapse_load_psi",
+                     "total_tension_lbs", "burst_rating_psi", "collapse_rating_psi",
+                     "sf_burst", "sf_collapse", "sf_tension",
+                     "triaxial_status", "overall_status", "alerts"]:
+            assert key in s, f"Missing summary key: {key}"
+
+    def test_alerts_is_list(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert isinstance(result["summary"]["alerts"], list)
+
+    def test_sub_results_are_dicts(self, engine):
+        result = engine.calculate_full_casing_design()
+        for key in ["burst_load", "collapse_load", "tension_load",
+                     "burst_rating", "collapse_rating", "biaxial_correction",
+                     "triaxial_vme", "grade_selection", "safety_factors"]:
+            assert isinstance(result[key], dict)
+            assert "error" not in result[key]
+
+    def test_default_params_produce_valid_design(self, engine):
+        """Default parameters should produce a valid casing design."""
+        result = engine.calculate_full_casing_design()
+        assert result["summary"]["selected_grade"] != ""
+        assert result["summary"]["sf_burst"] > 0
+        assert result["summary"]["sf_collapse"] > 0
+        assert result["summary"]["sf_tension"] > 0
+
+    def test_summary_grade_matches_selection(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert result["summary"]["selected_grade"] == result["grade_selection"]["selected_grade"]
+
+    def test_biaxial_reduces_collapse_rating(self, engine):
+        """Biaxial correction should reduce collapse vs original."""
+        result = engine.calculate_full_casing_design()
+        original = result["collapse_rating"]["collapse_rating_psi"]
+        corrected = result["biaxial_correction"]["corrected_collapse_psi"]
+        # With tension present, corrected should be <= original
+        assert corrected <= original

@@ -109,6 +109,12 @@ class TestMetricLabelsStructure:
             "D50", "Sanding Risk",
             "Critical Drawdown", "Recommended Gravel",
             "Skin Total", "Recommended Completion",
+            # Cementing (Module 12)
+            "Total Cement", "Max ECD", "Fracture Margin",
+            "Job Time", "Free-Fall", "Lift Pressure",
+            # Casing Design (Module 13)
+            "Selected Grade", "SF Burst", "SF Collapse",
+            "SF Tension", "Triaxial Status", "Overall Status",
         }
         assert expected == set(METRIC_LABELS["en"].keys())
 
