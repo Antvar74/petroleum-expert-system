@@ -95,6 +95,20 @@ class TestMetricLabelsStructure:
             "ECD at TD", "Total SPP", "HSI", "% at Bit", "Surge Margin",
             "Mechanism", "Risk Level", "Risk Score", "Free Point",
             "Pf", "KMW", "ICP", "FCP", "MAASP", "Influx Type",
+            # Wellbore Cleanup (Module 5)
+            "Annular Velocity", "CTR", "HCI",
+            "Cuttings Concentration", "Cleaning Quality",
+            # Packer Forces (Module 6)
+            "Total Force", "Buckling Status",
+            "Piston Force", "Temperature Force",
+            # Workover Hydraulics (Module 7)
+            "Total Pressure Loss", "Buoyed Weight",
+            "Snubbing Force", "Max Reach",
+            "Kill Weight", "Pipe Light",
+            # Sand Control (Module 8)
+            "D50", "Sanding Risk",
+            "Critical Drawdown", "Recommended Gravel",
+            "Skin Total", "Recommended Completion",
         }
         assert expected == set(METRIC_LABELS["en"].keys())
 

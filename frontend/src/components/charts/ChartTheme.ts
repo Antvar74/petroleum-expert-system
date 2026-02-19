@@ -52,6 +52,7 @@ export const CHART_DEFAULTS = {
   tooltipBorder: 'rgba(255,255,255,0.1)',
   fontFamily: 'Inter, system-ui, sans-serif',
   animationDuration: 800,
+  margin: { top: 20, right: 20, bottom: 20, left: 20 },
 };
 
 // Buckling status colors

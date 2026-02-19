@@ -61,7 +61,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   useState(() => {
     axios.get(`${API_BASE_URL}/providers`)
       .then(res => setAvailableProviders(res.data))
-      .catch(() => {});
+      .catch(() => { });
   });
 
   const runAIAnalysis = async () => {
@@ -123,7 +123,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   // (Pressure bar replaced by PressureWaterfallChart component)
 
   return (
-    <div className="max-w-6xl mx-auto py-8">
+    <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Droplets className="text-industrial-500" size={28} />
         <h2 className="text-2xl font-bold">Hydraulics & ECD Analysis</h2>
@@ -378,11 +378,10 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                   <button
                     key={lang}
                     onClick={() => setLanguage(lang)}
-                    className={`px-3 py-1.5 text-xs font-bold transition-all ${
-                      language === lang
-                        ? 'bg-industrial-600 text-white'
-                        : 'text-white/40 hover:text-white/70'
-                    }`}
+                    className={`px-3 py-1.5 text-xs font-bold transition-all ${language === lang
+                      ? 'bg-industrial-600 text-white'
+                      : 'text-white/40 hover:text-white/70'
+                      }`}
                   >
                     {lang.toUpperCase()}
                   </button>

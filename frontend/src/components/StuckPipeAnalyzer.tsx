@@ -61,7 +61,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   useState(() => {
     axios.get(`${API_BASE_URL}/providers`)
       .then(res => setAvailableProviders(res.data))
-      .catch(() => {});
+      .catch(() => { });
   });
 
   const runAIAnalysis = async () => {
@@ -202,7 +202,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   // (Risk matrix SVG replaced by InteractiveRiskMatrix component)
 
   return (
-    <div className="max-w-6xl mx-auto py-8">
+    <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Lock className="text-industrial-500" size={28} />
         <h2 className="text-2xl font-bold">Stuck Pipe Analyzer</h2>
@@ -450,11 +450,10 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                   <button
                     key={lang}
                     onClick={() => setLanguage(lang)}
-                    className={`px-3 py-1.5 text-xs font-bold transition-all ${
-                      language === lang
-                        ? 'bg-industrial-600 text-white'
-                        : 'text-white/40 hover:text-white/70'
-                    }`}
+                    className={`px-3 py-1.5 text-xs font-bold transition-all ${language === lang
+                      ? 'bg-industrial-600 text-white'
+                      : 'text-white/40 hover:text-white/70'
+                      }`}
                   >
                     {lang.toUpperCase()}
                   </button>

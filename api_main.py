@@ -1492,5 +1492,632 @@ async def analyze_well_control(well_id: int, data: Dict[str, Any] = Body(...), d
     )
 
 
+# ============================================================
+# MODULE 5: Wellbore Cleanup (Hole Cleaning) Endpoints
+# ============================================================
+
+from orchestrator.wellbore_cleanup_engine import WellboreCleanupEngine
+from models.models_v2 import WellboreCleanupResult
+
+@app.post("/wells/{well_id}/wellbore-cleanup")
+def calculate_wellbore_cleanup(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run wellbore cleanup / hole cleaning calculation."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = WellboreCleanupEngine.calculate_full_cleanup(
+        flow_rate=data.get("flow_rate", 500),
+        mud_weight=data.get("mud_weight", 10.0),
+        pv=data.get("pv", 15),
+        yp=data.get("yp", 10),
+        hole_id=data.get("hole_id", 8.5),
+        pipe_od=data.get("pipe_od", 5.0),
+        inclination=data.get("inclination", 0),
+        rop=data.get("rop", 60),
+        cutting_size=data.get("cutting_size", 0.25),
+        cutting_density=data.get("cutting_density", 21.0),
+        rpm=data.get("rpm", 0),
+        annular_length=data.get("annular_length", 1000)
+    )
+
+    # Save result
+    cu_result = WellboreCleanupResult(
+        well_id=well_id,
+        event_id=data.get("event_id"),
+        flow_rate=data.get("flow_rate", 500),
+        mud_weight=data.get("mud_weight", 10.0),
+        pv=data.get("pv", 15),
+        yp=data.get("yp", 10),
+        hole_id=data.get("hole_id", 8.5),
+        pipe_od=data.get("pipe_od", 5.0),
+        inclination=data.get("inclination", 0),
+        result_data=result,
+        summary=result.get("summary", {})
+    )
+    db.add(cu_result)
+    db.commit()
+    db.refresh(cu_result)
+
+    return {"id": cu_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/wellbore-cleanup")
+def get_wellbore_cleanup(well_id: int, db: Session = Depends(get_db)):
+    """Get latest wellbore cleanup result for a well."""
+    result = db.query(WellboreCleanupResult).filter(
+        WellboreCleanupResult.well_id == well_id
+    ).order_by(WellboreCleanupResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No cleanup results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+# ============================================================
+# MODULE 6: Packer Forces Endpoints
+# ============================================================
+
+from orchestrator.packer_forces_engine import PackerForcesEngine
+from models.models_v2 import PackerForcesResult
+
+@app.post("/wells/{well_id}/packer-forces")
+def calculate_packer_forces(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run packer forces calculation."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = PackerForcesEngine.calculate_total_packer_force(
+        tubing_od=data.get("tubing_od", 2.875),
+        tubing_id=data.get("tubing_id", 2.441),
+        tubing_weight=data.get("tubing_weight", 6.5),
+        tubing_length=data.get("tubing_length", 10000),
+        seal_bore_id=data.get("seal_bore_id", 3.25),
+        initial_tubing_pressure=data.get("initial_tubing_pressure", 0),
+        final_tubing_pressure=data.get("final_tubing_pressure", 3000),
+        initial_annulus_pressure=data.get("initial_annulus_pressure", 0),
+        final_annulus_pressure=data.get("final_annulus_pressure", 0),
+        initial_temperature=data.get("initial_temperature", 80),
+        final_temperature=data.get("final_temperature", 250),
+        packer_depth_tvd=data.get("packer_depth_tvd", 10000),
+        mud_weight_tubing=data.get("mud_weight_tubing", 8.34),
+        mud_weight_annulus=data.get("mud_weight_annulus", 8.34),
+        poisson_ratio=data.get("poisson_ratio", 0.30),
+        thermal_expansion=data.get("thermal_expansion", 6.9e-6)
+    )
+
+    # Save result
+    pf_result = PackerForcesResult(
+        well_id=well_id,
+        event_id=data.get("event_id"),
+        tubing_od=data.get("tubing_od", 2.875),
+        tubing_id=data.get("tubing_id", 2.441),
+        tubing_weight=data.get("tubing_weight", 6.5),
+        packer_depth_tvd=data.get("packer_depth_tvd", 10000),
+        result_data=result,
+        summary=result.get("summary", {})
+    )
+    db.add(pf_result)
+    db.commit()
+    db.refresh(pf_result)
+
+    return {"id": pf_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/packer-forces")
+def get_packer_forces(well_id: int, db: Session = Depends(get_db)):
+    """Get latest packer forces result for a well."""
+    result = db.query(PackerForcesResult).filter(
+        PackerForcesResult.well_id == well_id
+    ).order_by(PackerForcesResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No packer forces results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+# ============================================================
+# MODULE 5 & 6 AI ANALYSIS ENDPOINTS
+# ============================================================
+
+@app.post("/wells/{well_id}/wellbore-cleanup/analyze")
+async def analyze_wellbore_cleanup(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Wellbore Cleanup results via mud_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_wellbore_cleanup(
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+@app.post("/wells/{well_id}/packer-forces/analyze")
+async def analyze_packer_forces(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Packer Forces results via well_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_packer_forces(
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+# ============================================================
+# MODULE 7: WORKOVER HYDRAULICS ENDPOINTS
+# ============================================================
+
+from orchestrator.workover_hydraulics_engine import WorkoverHydraulicsEngine
+from models.models_v2 import WorkoverHydraulicsResult
+
+
+@app.post("/wells/{well_id}/workover-hydraulics")
+def calculate_workover_hydraulics(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run workover/CT hydraulics calculations."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = WorkoverHydraulicsEngine.calculate_full_workover(
+        flow_rate=data.get("flow_rate", 80),
+        mud_weight=data.get("mud_weight", 8.6),
+        pv=data.get("pv", 12),
+        yp=data.get("yp", 8),
+        ct_od=data.get("ct_od", 2.0),
+        wall_thickness=data.get("wall_thickness", 0.156),
+        ct_length=data.get("ct_length", 10000),
+        hole_id=data.get("hole_id", 4.892),
+        tvd=data.get("tvd", 10000),
+        inclination=data.get("inclination", 0),
+        friction_factor=data.get("friction_factor", 0.25),
+        wellhead_pressure=data.get("wellhead_pressure", 0),
+        reservoir_pressure=data.get("reservoir_pressure", 5200),
+        yield_strength_psi=data.get("yield_strength_psi", 80000)
+    )
+
+    wh_result = WorkoverHydraulicsResult(
+        well_id=well_id,
+        ct_od=data.get("ct_od", 2.0),
+        wall_thickness=data.get("wall_thickness", 0.156),
+        ct_length=data.get("ct_length", 10000),
+        flow_rate=data.get("flow_rate", 80),
+        mud_weight=data.get("mud_weight", 8.6),
+        hole_id=data.get("hole_id", 4.892),
+        result_data=result,
+        summary=result.get("summary", {})
+    )
+    db.add(wh_result)
+    db.commit()
+    db.refresh(wh_result)
+
+    return {"id": wh_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/workover-hydraulics")
+def get_workover_hydraulics(well_id: int, db: Session = Depends(get_db)):
+    """Get latest workover hydraulics result for a well."""
+    result = db.query(WorkoverHydraulicsResult).filter(
+        WorkoverHydraulicsResult.well_id == well_id
+    ).order_by(WorkoverHydraulicsResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No workover hydraulics results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+# ============================================================
+# MODULE 8: SAND CONTROL ENDPOINTS
+# ============================================================
+
+from orchestrator.sand_control_engine import SandControlEngine
+from models.models_v2 import SandControlResult
+
+
+@app.post("/wells/{well_id}/sand-control")
+def calculate_sand_control(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run sand control analysis calculations."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = SandControlEngine.calculate_full_sand_control(
+        sieve_sizes_mm=data.get("sieve_sizes_mm", [2.0, 0.85, 0.425, 0.25, 0.15, 0.075]),
+        cumulative_passing_pct=data.get("cumulative_passing_pct", [100, 95, 70, 40, 15, 2]),
+        hole_id=data.get("hole_id", 8.5),
+        screen_od=data.get("screen_od", 5.5),
+        interval_length=data.get("interval_length", 50),
+        ucs_psi=data.get("ucs_psi", 500),
+        friction_angle_deg=data.get("friction_angle_deg", 30),
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4500),
+        overburden_stress_psi=data.get("overburden_stress_psi", 10000),
+        formation_permeability_md=data.get("formation_permeability_md", 500),
+        wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+        wellbore_type=data.get("wellbore_type", "cased"),
+        gravel_permeability_md=data.get("gravel_permeability_md", 80000),
+        pack_factor=data.get("pack_factor", 1.4),
+        washout_factor=data.get("washout_factor", 1.1)
+    )
+
+    sc_result = SandControlResult(
+        well_id=well_id,
+        d50_mm=result.get("psd", {}).get("d50_mm", 0),
+        uniformity_coefficient=result.get("psd", {}).get("uniformity_coefficient", 0),
+        ucs_psi=data.get("ucs_psi", 500),
+        interval_length=data.get("interval_length", 50),
+        result_data=result,
+        summary=result.get("summary", {})
+    )
+    db.add(sc_result)
+    db.commit()
+    db.refresh(sc_result)
+
+    return {"id": sc_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/sand-control")
+def get_sand_control(well_id: int, db: Session = Depends(get_db)):
+    """Get latest sand control result for a well."""
+    result = db.query(SandControlResult).filter(
+        SandControlResult.well_id == well_id
+    ).order_by(SandControlResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No sand control results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+# ============================================================
+# MODULE 7 & 8 AI ANALYSIS ENDPOINTS
+# ============================================================
+
+@app.post("/wells/{well_id}/workover-hydraulics/analyze")
+async def analyze_workover_hydraulics(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Workover Hydraulics results via well_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_workover_hydraulics(
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+@app.post("/wells/{well_id}/sand-control/analyze")
+async def analyze_sand_control(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Sand Control results via well_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_sand_control(
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+# ============================================================
+# MODULE 9: COMPLETION DESIGN ENDPOINTS
+# ============================================================
+
+from orchestrator.completion_design_engine import CompletionDesignEngine
+from models.models_v2 import CompletionDesignResult
+
+
+@app.post("/wells/{well_id}/completion-design")
+def calculate_completion_design(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run completion design calculations (perforating, fracture, productivity)."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = CompletionDesignEngine.calculate_full_completion_design(
+        casing_id_in=data.get("casing_id_in", 6.276),
+        formation_permeability_md=data.get("formation_permeability_md", 100),
+        formation_thickness_ft=data.get("formation_thickness_ft", 30),
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 5000),
+        wellbore_pressure_psi=data.get("wellbore_pressure_psi", 4200),
+        depth_tvd_ft=data.get("depth_tvd_ft", 10000),
+        overburden_stress_psi=data.get("overburden_stress_psi", 10000),
+        pore_pressure_psi=data.get("pore_pressure_psi", 4500),
+        sigma_min_psi=data.get("sigma_min_psi", 6000),
+        sigma_max_psi=data.get("sigma_max_psi", 8000),
+        tensile_strength_psi=data.get("tensile_strength_psi", 500),
+        poisson_ratio=data.get("poisson_ratio", 0.25),
+        penetration_berea_in=data.get("penetration_berea_in", 12.0),
+        effective_stress_psi=data.get("effective_stress_psi", 3000),
+        temperature_f=data.get("temperature_f", 200),
+        completion_fluid=data.get("completion_fluid", "brine"),
+        wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+        kv_kh_ratio=data.get("kv_kh_ratio", 0.5),
+        tubing_od_in=data.get("tubing_od_in", 0.0),
+        damage_radius_ft=data.get("damage_radius_ft", 0.5),
+        damage_permeability_md=data.get("damage_permeability_md", 50.0),
+        formation_type=data.get("formation_type", "sandstone"),
+    )
+
+    cd_result = CompletionDesignResult(
+        well_id=well_id,
+        casing_id_in=data.get("casing_id_in", 6.276),
+        formation_permeability_md=data.get("formation_permeability_md", 100),
+        depth_tvd_ft=data.get("depth_tvd_ft", 10000),
+        penetration_berea_in=data.get("penetration_berea_in", 12.0),
+        result_data=result,
+        summary=result.get("summary", {}),
+    )
+    db.add(cd_result)
+    db.commit()
+    db.refresh(cd_result)
+
+    return {"id": cd_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/completion-design")
+def get_completion_design(well_id: int, db: Session = Depends(get_db)):
+    """Get latest completion design result for a well."""
+    result = db.query(CompletionDesignResult).filter(
+        CompletionDesignResult.well_id == well_id
+    ).order_by(CompletionDesignResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No completion design results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+@app.post("/wells/{well_id}/completion-design/analyze")
+async def analyze_completion_design(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Completion Design results via well_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_module(
+        module="completion_design",
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+# ============================================================
+# MODULE 10: SHOT EFFICIENCY ENDPOINTS
+# ============================================================
+
+from orchestrator.shot_efficiency_engine import ShotEfficiencyEngine
+from models.models_v2 import ShotEfficiencyResult
+
+
+@app.post("/wells/{well_id}/shot-efficiency")
+def calculate_shot_efficiency(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run shot efficiency analysis (petrophysics + interval ranking)."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = ShotEfficiencyEngine.calculate_full_shot_efficiency(
+        log_entries=data.get("log_entries", []),
+        archie_params=data.get("archie_params", {"a": 1.0, "m": 2.0, "n": 2.0, "rw": 0.05}),
+        matrix_params=data.get("matrix_params", {"rho_matrix": 2.65, "rho_fluid": 1.0, "gr_clean": 20, "gr_shale": 120}),
+        cutoffs=data.get("cutoffs", {"phi_min": 0.08, "sw_max": 0.60, "vsh_max": 0.40, "min_thickness_ft": 2.0}),
+        perf_params=data.get("perf_params", {"spf": 6, "phasing_deg": 60, "perf_length_in": 10, "tunnel_radius_in": 0.2}),
+        reservoir_params=data.get("reservoir_params", {"k_h": 100, "kv_kh": 0.5, "wellbore_radius_ft": 0.354}),
+    )
+
+    se_result = ShotEfficiencyResult(
+        well_id=well_id,
+        log_points_count=result.get("summary", {}).get("total_log_points", 0),
+        net_pay_intervals=result.get("summary", {}).get("net_pay_intervals_count", 0),
+        total_net_pay_ft=result.get("summary", {}).get("total_net_pay_ft", 0),
+        result_data=result,
+        summary=result.get("summary", {}),
+    )
+    db.add(se_result)
+    db.commit()
+    db.refresh(se_result)
+
+    return {"id": se_result.id, "well_id": well_id, **result}
+
+
+@app.post("/wells/{well_id}/shot-efficiency/upload-csv")
+async def upload_log_csv(well_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Upload CSV with log data (columns: MD, GR, RHOB, NPHI, Rt, Caliper)."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    contents = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(contents))
+        # Normalize column names
+        col_map = {}
+        for col in df.columns:
+            cl = col.strip().lower()
+            if cl in ("md", "depth", "prof"):
+                col_map[col] = "md"
+            elif cl in ("gr", "gamma_ray", "gamma"):
+                col_map[col] = "gr"
+            elif cl in ("rhob", "density", "den"):
+                col_map[col] = "rhob"
+            elif cl in ("nphi", "neutron", "neu"):
+                col_map[col] = "nphi"
+            elif cl in ("rt", "resistivity", "res", "ild"):
+                col_map[col] = "rt"
+            elif cl in ("caliper", "cali", "cal"):
+                col_map[col] = "caliper"
+        df = df.rename(columns=col_map)
+
+        required = ["md", "gr", "rhob", "nphi", "rt"]
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Missing columns: {missing}")
+
+        log_entries = df.fillna(0).to_dict(orient="records")
+        return {"status": "ok", "rows": len(log_entries), "columns": list(df.columns), "log_entries": log_entries}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error parsing CSV: {str(e)}")
+
+
+@app.get("/wells/{well_id}/shot-efficiency")
+def get_shot_efficiency(well_id: int, db: Session = Depends(get_db)):
+    """Get latest shot efficiency result for a well."""
+    result = db.query(ShotEfficiencyResult).filter(
+        ShotEfficiencyResult.well_id == well_id
+    ).order_by(ShotEfficiencyResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No shot efficiency results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+@app.post("/wells/{well_id}/shot-efficiency/analyze")
+async def analyze_shot_efficiency(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Shot Efficiency results via geologist agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_module(
+        module="shot_efficiency",
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
+# ============================================================
+# MODULE 11: VIBRATIONS / STABILITY ENDPOINTS
+# ============================================================
+
+from orchestrator.vibrations_engine import VibrationsEngine
+from models.models_v2 import VibrationsResult
+
+
+@app.post("/wells/{well_id}/vibrations")
+def calculate_vibrations(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Run vibrations/stability analysis."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+
+    result = VibrationsEngine.calculate_full_vibration_analysis(
+        wob_klb=data.get("wob_klb", 25),
+        rpm=data.get("rpm", 120),
+        rop_fph=data.get("rop_fph", 60),
+        torque_ftlb=data.get("torque_ftlb", 15000),
+        bit_diameter_in=data.get("bit_diameter_in", 8.5),
+        dp_od_in=data.get("dp_od_in", 5.0),
+        dp_id_in=data.get("dp_id_in", 4.276),
+        dp_weight_lbft=data.get("dp_weight_lbft", 19.5),
+        bha_length_ft=data.get("bha_length_ft", 300),
+        bha_od_in=data.get("bha_od_in", 6.75),
+        bha_id_in=data.get("bha_id_in", 2.813),
+        bha_weight_lbft=data.get("bha_weight_lbft", 83.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.0),
+        hole_diameter_in=data.get("hole_diameter_in", 8.5),
+        inclination_deg=data.get("inclination_deg", 30),
+    )
+
+    vib_result = VibrationsResult(
+        well_id=well_id,
+        wob_klb=data.get("wob_klb", 25),
+        rpm=data.get("rpm", 120),
+        bit_diameter_in=data.get("bit_diameter_in", 8.5),
+        result_data=result,
+        summary=result.get("summary", {}),
+    )
+    db.add(vib_result)
+    db.commit()
+    db.refresh(vib_result)
+
+    return {"id": vib_result.id, "well_id": well_id, **result}
+
+
+@app.get("/wells/{well_id}/vibrations")
+def get_vibrations(well_id: int, db: Session = Depends(get_db)):
+    """Get latest vibrations result for a well."""
+    result = db.query(VibrationsResult).filter(
+        VibrationsResult.well_id == well_id
+    ).order_by(VibrationsResult.created_at.desc()).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="No vibrations results found")
+    return {
+        "id": result.id, "well_id": well_id,
+        "result_data": result.result_data,
+        "summary": result.summary,
+        "created_at": str(result.created_at)
+    }
+
+
+@app.post("/wells/{well_id}/vibrations/analyze")
+async def analyze_vibrations(well_id: int, data: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """AI executive analysis of Vibrations results via optimization_engineer agent."""
+    well = db.query(Well).filter(Well.id == well_id).first()
+    if not well:
+        raise HTTPException(status_code=404, detail="Well not found")
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+    return await module_analyzer.analyze_module(
+        module="vibrations",
+        result_data=data.get("result_data", {}),
+        well_name=well.name,
+        params=data.get("params", {}),
+        language=language,
+        provider=provider
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

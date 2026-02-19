@@ -21,6 +21,16 @@ METRIC_LABELS = {
         "Mechanism": "Mechanism", "Risk Level": "Risk Level", "Risk Score": "Risk Score",
         "Free Point": "Free Point", "Pf": "Pf", "KMW": "KMW", "ICP": "ICP", "FCP": "FCP",
         "MAASP": "MAASP", "Influx Type": "Influx Type",
+        "Annular Velocity": "Annular Velocity", "CTR": "CTR", "HCI": "HCI",
+        "Cleaning Quality": "Cleaning Quality", "Cuttings Concentration": "Cuttings Concentration",
+        "Total Force": "Total Force", "Buckling Status": "Buckling Status",
+        "Piston Force": "Piston Force", "Temperature Force": "Temperature Force",
+        "Total Pressure Loss": "Total Pressure Loss", "Buoyed Weight": "Buoyed Weight",
+        "Snubbing Force": "Snubbing Force", "Max Reach": "Max Reach",
+        "Kill Weight": "Kill Weight", "Pipe Light": "Pipe Light",
+        "D50": "D50", "Sanding Risk": "Sanding Risk",
+        "Critical Drawdown": "Critical Drawdown", "Recommended Gravel": "Recommended Gravel",
+        "Skin Total": "Skin Total", "Recommended Completion": "Recommended Completion",
     },
     "es": {
         "Hookload": "Carga en Gancho", "Torque": "Torque", "Max Side Force": "Fuerza Lateral Máx",
@@ -29,6 +39,16 @@ METRIC_LABELS = {
         "Mechanism": "Mecanismo", "Risk Level": "Nivel de Riesgo", "Risk Score": "Puntaje de Riesgo",
         "Free Point": "Punto Libre", "Pf": "Pf", "KMW": "PMM", "ICP": "PCI", "FCP": "PCF",
         "MAASP": "MAASP", "Influx Type": "Tipo de Influjo",
+        "Annular Velocity": "Velocidad Anular", "CTR": "CTR", "HCI": "HCI",
+        "Cleaning Quality": "Calidad de Limpieza", "Cuttings Concentration": "Concentración de Recortes",
+        "Total Force": "Fuerza Total", "Buckling Status": "Estado de Pandeo",
+        "Piston Force": "Fuerza Pistón", "Temperature Force": "Fuerza Temperatura",
+        "Total Pressure Loss": "Pérdida Presión Total", "Buoyed Weight": "Peso Flotado",
+        "Snubbing Force": "Fuerza de Snubbing", "Max Reach": "Alcance Máximo",
+        "Kill Weight": "Peso de Control", "Pipe Light": "Tubería Liviana",
+        "D50": "D50", "Sanding Risk": "Riesgo de Arenamiento",
+        "Critical Drawdown": "Drawdown Crítico", "Recommended Gravel": "Grava Recomendada",
+        "Skin Total": "Skin Total", "Recommended Completion": "Completación Recomendada",
     },
 }
 
@@ -79,6 +99,34 @@ class ModuleAnalysisEngine:
         context = {"well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("drilling_engineer", problem, context, provider=provider)
         return self._package(analysis, "well_control", result_data, well_name, language, provider)
+
+    async def analyze_wellbore_cleanup(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Wellbore Cleanup results using mud_engineer agent."""
+        problem = self._build_cu_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("mud_engineer", problem, context, provider=provider)
+        return self._package(analysis, "wellbore_cleanup", result_data, well_name, language, provider)
+
+    async def analyze_packer_forces(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Packer Forces results using well_engineer agent."""
+        problem = self._build_pf_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "packer_forces", result_data, well_name, language, provider)
+
+    async def analyze_workover_hydraulics(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Workover Hydraulics results using well_engineer agent."""
+        problem = self._build_wh_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "workover_hydraulics", result_data, well_name, language, provider)
+
+    async def analyze_sand_control(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Sand Control results using well_engineer agent."""
+        problem = self._build_sc_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "sand_control", result_data, well_name, language, provider)
 
     # ================================================================
     # Language helpers
@@ -252,6 +300,145 @@ BULLHEAD:
 
 {self._get_instruction_block(language)}"""
 
+    def _build_cu_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        sweep = result_data.get("sweep_pill", {})
+        alerts = summary.get("alerts", [])
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Wellbore Cleanup Module — Well: {well_name}
+
+Flow Rate: {params.get('flow_rate', 'N/A')} gpm | Mud Weight: {params.get('mud_weight', 'N/A')} ppg
+PV: {params.get('pv', 'N/A')} cP | YP: {params.get('yp', 'N/A')} lb/100ft²
+Hole ID: {params.get('hole_id', 'N/A')}" | Pipe OD: {params.get('pipe_od', 'N/A')}"
+Inclination: {params.get('inclination', 'N/A')}° | RPM: {params.get('rpm', 'N/A')}
+ROP: {params.get('rop', 'N/A')} ft/hr | Cutting Size: {params.get('cutting_size', 'N/A')}"
+
+HOLE CLEANING RESULTS:
+- Annular Velocity: {summary.get('annular_velocity_ftmin', 'N/A')} ft/min
+- Slip Velocity: {summary.get('slip_velocity_ftmin', 'N/A')} ft/min
+- Transport Velocity: {summary.get('transport_velocity_ftmin', 'N/A')} ft/min
+- Cuttings Transport Ratio (CTR): {summary.get('cuttings_transport_ratio', 'N/A')}
+- Hole Cleaning Index (HCI): {summary.get('hole_cleaning_index', 'N/A')}
+- Cleaning Quality: {summary.get('cleaning_quality', 'N/A')}
+- Cuttings Concentration: {summary.get('cuttings_concentration_pct', 'N/A')}%
+- Minimum Flow Rate Required: {summary.get('minimum_flow_rate_gpm', 'N/A')} gpm
+- Flow Rate Adequate: {summary.get('flow_rate_adequate', 'N/A')}
+
+SWEEP PILL DESIGN:
+- Pill Volume: {sweep.get('pill_volume_bbl', 'N/A')} bbl
+- Pill Weight: {sweep.get('pill_weight_ppg', 'N/A')} ppg
+- Pill Length: {sweep.get('pill_length_ft', 'N/A')} ft
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_pf_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        forces = result_data.get("force_components", {})
+        movements = result_data.get("movements", {})
+        alerts = summary.get("alerts", [])
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Packer Forces Module — Well: {well_name}
+
+Tubing: {params.get('tubing_od', 'N/A')}" OD x {params.get('tubing_id', 'N/A')}" ID, {params.get('tubing_weight', 'N/A')} lb/ft
+Packer Depth TVD: {params.get('packer_depth_tvd', 'N/A')} ft
+Seal Bore ID: {params.get('seal_bore_id', 'N/A')}"
+ΔT: {params.get('delta_t_f', summary.get('delta_t_f', 'N/A'))}°F
+ΔPi: {params.get('delta_pi_psi', 'N/A')} psi | ΔPo: {params.get('delta_po_psi', 'N/A')} psi
+
+FORCE COMPONENTS (Lubinski Method):
+- Piston Force: {forces.get('piston', 'N/A')} lbs
+- Ballooning Force: {forces.get('ballooning', 'N/A')} lbs
+- Temperature Force: {forces.get('temperature', 'N/A')} lbs
+- TOTAL Force: {forces.get('total', 'N/A')} lbs ({summary.get('force_direction', 'N/A')})
+
+TUBING MOVEMENTS:
+- Piston: {movements.get('piston_in', 'N/A')}" | Ballooning: {movements.get('ballooning_in', 'N/A')}"
+- Thermal: {movements.get('thermal_in', 'N/A')}" | Total: {movements.get('total_in', 'N/A')}"
+
+BUCKLING CHECK:
+- Status: {summary.get('buckling_status', 'N/A')}
+- Critical Buckling Load: {summary.get('buckling_critical_load_lbs', 'N/A')} lbs
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_wh_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        hydraulics = result_data.get("hydraulics", {})
+        snubbing = result_data.get("snubbing", {})
+        reach = result_data.get("max_reach", {})
+        kill_data = result_data.get("kill_data", {})
+        alerts = summary.get("alerts", [])
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Workover Hydraulics Module — Well: {well_name}
+
+CT String: {params.get('ct_od', 'N/A')}" OD × {params.get('wall_thickness', 'N/A')}" wall, Length: {params.get('ct_length', 'N/A')} ft
+Wellbore: {params.get('hole_id', 'N/A')}" ID, TVD: {params.get('tvd', 'N/A')} ft, Inclination: {params.get('inclination', 'N/A')}°
+Fluid: {params.get('mud_weight', 'N/A')} ppg, PV: {params.get('pv', 'N/A')} cP, YP: {params.get('yp', 'N/A')} lb/100ft²
+
+HYDRAULICS:
+- Total Pressure Loss: {summary.get('total_pressure_loss_psi', 'N/A')} psi (Pipe: {summary.get('pipe_loss_psi', 'N/A')} + Annular: {summary.get('annular_loss_psi', 'N/A')})
+- Pipe Regime: {hydraulics.get('pipe_regime', 'N/A')} | Annular Regime: {hydraulics.get('annular_regime', 'N/A')}
+
+FORCE ANALYSIS:
+- Buoyed Weight: {summary.get('buoyed_weight_lb', 'N/A')} lb
+- Drag Force: {summary.get('drag_force_lb', 'N/A')} lb
+- Snubbing Force: {snubbing.get('snubbing_force_lb', 'N/A')} lb | Pipe Light: {snubbing.get('pipe_light', 'N/A')}
+- Light/Heavy Point: {snubbing.get('light_heavy_depth_ft', 'N/A')} ft
+
+MAX REACH:
+- Estimated: {reach.get('max_reach_ft', 'N/A')} ft
+- Limiting Factor: {reach.get('limiting_factor', 'N/A')}
+- Helical Buckling Load: {reach.get('helical_buckling_load_lb', 'N/A')} lb
+
+KILL DATA:
+- Kill Weight: {kill_data.get('kill_weight_ppg', 'N/A')} ppg | Status: {kill_data.get('status', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
+    def _build_sc_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        summary = result_data.get("summary", {})
+        psd = result_data.get("psd", {})
+        gravel = result_data.get("gravel", {})
+        screen = result_data.get("screen", {})
+        drawdown = result_data.get("drawdown", {})
+        completion = result_data.get("completion", {})
+        skin = result_data.get("skin", {})
+        alerts = summary.get("alerts", [])
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Sand Control Module — Well: {well_name}
+
+Formation: UCS={params.get('ucs_psi', 'N/A')} psi, φ={params.get('friction_angle_deg', 'N/A')}°
+Reservoir: P={params.get('reservoir_pressure_psi', 'N/A')} psi, k={params.get('formation_permeability_md', 'N/A')} mD
+Completion: {params.get('wellbore_type', 'N/A')}, Interval: {params.get('interval_length', 'N/A')} ft
+
+GRAIN SIZE DISTRIBUTION:
+- D50: {psd.get('d50_mm', 'N/A')} mm | D10: {psd.get('d10_mm', 'N/A')} mm | D90: {psd.get('d90_mm', 'N/A')} mm
+- Cu: {psd.get('uniformity_coefficient', 'N/A')} | Sorting: {psd.get('sorting', 'N/A')}
+
+GRAVEL SELECTION (Saucier):
+- Recommended: {gravel.get('recommended_pack', 'N/A')} mesh
+- Range: {gravel.get('gravel_min_mm', 'N/A')}-{gravel.get('gravel_max_mm', 'N/A')} mm
+
+SCREEN: Slot {screen.get('recommended_standard_slot_in', 'N/A')}" ({screen.get('screen_type', 'N/A')})
+
+SANDING ANALYSIS:
+- Critical Drawdown: {drawdown.get('critical_drawdown_psi', 'N/A')} psi
+- Risk: {drawdown.get('sanding_risk', 'N/A')}
+
+SKIN: Total={skin.get('skin_total', 'N/A')} (Perf={skin.get('skin_perforation', 'N/A')}, Gravel={skin.get('skin_gravel', 'N/A')}, Damage={skin.get('skin_damage', 'N/A')})
+
+RECOMMENDED: {completion.get('recommended', 'N/A')}
+
+ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
+
+{self._get_instruction_block(language)}"""
+
     # ================================================================
     # Packaging and metrics extraction
     # ================================================================
@@ -313,6 +500,47 @@ BULLHEAD:
                 {"label": self._ml("FCP", language), "value": kill.get("fcp_psi", 0), "unit": "psi"},
                 {"label": self._ml("MAASP", language), "value": kill.get("maasp_psi", 0), "unit": "psi"},
                 {"label": self._ml("Influx Type", language), "value": kill.get("influx_type", "N/A"), "unit": ""},
+            ]
+
+        elif module == "wellbore_cleanup":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("Annular Velocity", language), "value": summary.get("annular_velocity_ftmin", 0), "unit": "ft/min"},
+                {"label": self._ml("CTR", language), "value": summary.get("cuttings_transport_ratio", 0), "unit": ""},
+                {"label": self._ml("HCI", language), "value": summary.get("hole_cleaning_index", 0), "unit": ""},
+                {"label": self._ml("Cleaning Quality", language), "value": summary.get("cleaning_quality", "N/A"), "unit": ""},
+                {"label": self._ml("Cuttings Concentration", language), "value": summary.get("cuttings_concentration_pct", 0), "unit": "%"},
+            ]
+
+        elif module == "packer_forces":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("Total Force", language), "value": summary.get("total_force_lbs", 0), "unit": "lbs"},
+                {"label": self._ml("Piston Force", language), "value": summary.get("piston_force_lbs", 0), "unit": "lbs"},
+                {"label": self._ml("Temperature Force", language), "value": summary.get("temperature_force_lbs", 0), "unit": "lbs"},
+                {"label": self._ml("Buckling Status", language), "value": summary.get("buckling_status", "N/A"), "unit": ""},
+            ]
+
+        elif module == "workover_hydraulics":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("Total Pressure Loss", language), "value": summary.get("total_pressure_loss_psi", 0), "unit": "psi"},
+                {"label": self._ml("Buoyed Weight", language), "value": summary.get("buoyed_weight_lb", 0), "unit": "lb"},
+                {"label": self._ml("Snubbing Force", language), "value": summary.get("snubbing_force_lb", 0), "unit": "lb"},
+                {"label": self._ml("Max Reach", language), "value": summary.get("max_reach_ft", 0), "unit": "ft"},
+                {"label": self._ml("Kill Weight", language), "value": summary.get("kill_weight_ppg", 0), "unit": "ppg"},
+                {"label": self._ml("Pipe Light", language), "value": summary.get("pipe_light", "N/A"), "unit": ""},
+            ]
+
+        elif module == "sand_control":
+            summary = result_data.get("summary", {})
+            return [
+                {"label": self._ml("D50", language), "value": summary.get("d50_mm", 0), "unit": "mm"},
+                {"label": self._ml("Sanding Risk", language), "value": summary.get("sanding_risk", "N/A"), "unit": ""},
+                {"label": self._ml("Critical Drawdown", language), "value": summary.get("critical_drawdown_psi", 0), "unit": "psi"},
+                {"label": self._ml("Recommended Gravel", language), "value": summary.get("recommended_gravel", "N/A"), "unit": ""},
+                {"label": self._ml("Skin Total", language), "value": summary.get("skin_total", 0), "unit": ""},
+                {"label": self._ml("Recommended Completion", language), "value": summary.get("recommended_completion", "N/A"), "unit": ""},
             ]
 
         return []

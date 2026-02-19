@@ -5,6 +5,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
+  Waves, Anchor, Wrench, Filter,
 } from 'lucide-react';
 import SparklineChart from './SparklineChart';
 
@@ -64,6 +65,46 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-red-500/10 border-red-500/20',
     description: 'Kill sheet calculations, pressure schedules, volumetric & bullhead methods',
     sparkColor: '#ef4444',
+  },
+  {
+    id: 'cu',
+    view: 'wellbore-cleanup',
+    name: 'Wellbore Cleanup',
+    icon: Waves,
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10 border-green-500/20',
+    description: 'Hole cleaning analysis, cuttings transport, annular velocity, sweep pill design',
+    sparkColor: '#22c55e',
+  },
+  {
+    id: 'pf',
+    view: 'packer-forces',
+    name: 'Packer Forces',
+    icon: Anchor,
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/10 border-purple-500/20',
+    description: 'Tubing-packer force analysis, buckling assessment, thermal & pressure effects',
+    sparkColor: '#a855f7',
+  },
+  {
+    id: 'wh',
+    view: 'workover-hydraulics',
+    name: 'Workover Hydraulics',
+    icon: Wrench,
+    color: 'text-teal-400',
+    bgColor: 'bg-teal-500/10 border-teal-500/20',
+    description: 'CT pressure losses, snubbing forces, weight/drag analysis, max reach estimation',
+    sparkColor: '#14b8a6',
+  },
+  {
+    id: 'sc',
+    view: 'sand-control',
+    name: 'Sand Control',
+    icon: Filter,
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10 border-amber-500/20',
+    description: 'PSD analysis, gravel pack design, screen selection, sanding risk assessment',
+    sparkColor: '#f59e0b',
   },
 ];
 
@@ -136,9 +177,9 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
         <h3 className="font-bold text-sm mb-4">System Capabilities</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Engineering Modules', value: '4', detail: 'T&D, Hyd, SP, WC' },
-            { label: 'Chart Types', value: '20+', detail: 'Recharts + Custom SVG' },
-            { label: 'Calculation Engines', value: '4', detail: 'Pure Python' },
+            { label: 'Engineering Modules', value: '8', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC' },
+            { label: 'Chart Types', value: '36+', detail: 'Recharts + Custom SVG' },
+            { label: 'Calculation Engines', value: '8', detail: 'Pure Python' },
             { label: 'PDF Export', value: 'Yes', detail: 'Professional reports' },
           ].map((stat, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-4 text-center">

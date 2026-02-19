@@ -361,7 +361,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     );
 
     return (
-        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-8 max-w-4xl mx-auto shadow-2xl">
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-8 w-full max-w-7xl mx-auto shadow-2xl">
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold font-mono">ASISTENTE DE ANÁLISIS DE EVENTOS</h2>
             </div>

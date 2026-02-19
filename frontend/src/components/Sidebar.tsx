@@ -9,7 +9,14 @@ import {
     ArrowUpDown,
     Droplets,
     Lock,
-    Shield
+    Shield,
+    Waves,
+    Anchor,
+    Wrench,
+    Filter,
+    Layers,
+    Target,
+    Vibrate
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,12 +33,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
         { id: 'hydraulics', label: 'Hydraulics/ECD', icon: Droplets },
         { id: 'stuck-pipe', label: 'Stuck Pipe', icon: Lock },
         { id: 'well-control', label: 'Well Control', icon: Shield },
+        { id: 'wellbore-cleanup', label: 'Wellbore Cleanup', icon: Waves },
+        { id: 'packer-forces', label: 'Packer Forces', icon: Anchor },
+        { id: 'workover-hydraulics', label: 'Workover Hyd.', icon: Wrench },
+        { id: 'sand-control', label: 'Sand Control', icon: Filter },
+        { id: 'completion-design', label: 'Completion Design', icon: Layers },
+        { id: 'shot-efficiency', label: 'Shot Efficiency', icon: Target },
+        { id: 'vibrations', label: 'Vibrations', icon: Vibrate },
         { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
     return (
         <aside className="w-72 bg-black/40 border-r border-white/5 flex flex-col h-screen backdrop-blur-xl z-20">
-            <div className="p-8">
+            <div className="p-8 flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-3 mb-10 overflow-hidden">
                     <div className="w-10 h-10 bg-industrial-600 rounded-xl flex items-center justify-center shadow-lg shadow-industrial-900/40 flex-shrink-0 animate-pulse">
                         <Box className="text-white" size={24} />
@@ -42,12 +56,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
                     </div>
                 </div>
 
-                <nav className="space-y-2">
+                <nav className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
                     {menuItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => setCurrentView(item.id)}
-                            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all group ${currentView === item.id
+                            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
                                 ? 'bg-industrial-600/10 text-industrial-500 border border-industrial-500/20 shadow-inner'
                                 : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
                                 } `}
@@ -64,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
                 </nav>
             </div>
 
-            <div className="mt-auto p-8 border-t border-white/5 bg-white/5">
+            <div className="flex-shrink-0 p-8 border-t border-white/5 bg-white/5">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="w-10 h-10 rounded-full bg-industrial-500/20 border border-industrial-500/30 flex items-center justify-center text-industrial-500 font-bold">
                         AV

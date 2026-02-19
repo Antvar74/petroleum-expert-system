@@ -15,6 +15,7 @@ interface ChartContainerProps {
   children: React.ReactNode;
   className?: string;
   noPadding?: boolean;
+  isFluid?: boolean;
 }
 
 const ChartContainer: React.FC<ChartContainerProps> = ({
@@ -25,9 +26,22 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
   children,
   className = '',
   noPadding = false,
+  isFluid = false,
 }) => {
+  const content = isFluid ? (
+    <div className="w-full h-full">
+      {children}
+    </div>
+  ) : (
+    <div style={{ width: '100%', height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {children as React.ReactElement}
+      </ResponsiveContainer>
+    </div>
+  );
+
   return (
-    <div className={`glass-panel ${noPadding ? 'p-0' : 'p-6'} rounded-2xl border border-white/5 print-chart ${className}`}>
+    <div className={`glass-panel ${noPadding ? 'p-0' : 'p-6'} rounded-2xl border border-white/5 print-chart ${className} ${isFluid ? 'h-full' : ''}`}>
       <div className={`flex justify-between items-center ${noPadding ? 'px-6 pt-6' : ''} mb-4`}>
         <div className="flex items-center gap-2">
           {Icon && <Icon size={18} className="text-industrial-400" />}
@@ -39,11 +53,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
           </span>
         )}
       </div>
-      <div style={{ width: '100%', height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {children as React.ReactElement}
-        </ResponsiveContainer>
-      </div>
+      {content}
     </div>
   );
 };

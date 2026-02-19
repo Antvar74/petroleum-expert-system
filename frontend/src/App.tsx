@@ -10,6 +10,13 @@ import TorqueDragModule from './components/TorqueDragModule';
 import HydraulicsModule from './components/HydraulicsModule';
 import StuckPipeAnalyzer from './components/StuckPipeAnalyzer';
 import WellControlModule from './components/WellControlModule';
+import WellboreCleanupModule from './components/WellboreCleanupModule';
+import PackerForcesModule from './components/PackerForcesModule';
+import WorkoverHydraulicsModule from './components/WorkoverHydraulicsModule';
+import SandControlModule from './components/SandControlModule';
+import CompletionDesignModule from './components/CompletionDesignModule';
+import ShotEfficiencyModule from './components/ShotEfficiencyModule';
+import VibrationsModule from './components/VibrationsModule';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 
@@ -68,7 +75,7 @@ function App() {
     switch (currentView) {
       case 'dashboard':
         return (
-          <div className="max-w-4xl mx-auto py-12">
+          <div className="w-full mx-auto py-12">
             <div className="mb-12">
               <h2 className="text-3xl font-bold mb-2">New Event Analysis: {selectedWell?.name}</h2>
               <p className="text-white/40">Use the AI Wizard to identify the event and extract technical parameters.</p>
@@ -136,6 +143,20 @@ function App() {
         return <StuckPipeAnalyzer wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'well-control':
         return <WellControlModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'wellbore-cleanup':
+        return <WellboreCleanupModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'packer-forces':
+        return <PackerForcesModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'workover-hydraulics':
+        return <WorkoverHydraulicsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'sand-control':
+        return <SandControlModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'completion-design':
+        return <CompletionDesignModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'shot-efficiency':
+        return <ShotEfficiencyModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'vibrations':
+        return <VibrationsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'settings':
         return <div className="p-12 text-center text-white/40 italic">Settings module coming soon in v3.1</div>;
       default:
@@ -144,7 +165,7 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-industrial-950 text-white selection:bg-industrial-500/30">
+    <div className="w-full flex h-screen overflow-hidden bg-industrial-950 text-white selection:bg-industrial-500/30">
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -168,6 +189,13 @@ function App() {
               {currentView === 'hydraulics' && <span className="font-bold">Hydraulics / ECD Dynamic</span>}
               {currentView === 'stuck-pipe' && <span className="font-bold">Stuck Pipe Analyzer</span>}
               {currentView === 'well-control' && <span className="font-bold">Well Control / Kill Sheet</span>}
+              {currentView === 'wellbore-cleanup' && <span className="font-bold">Wellbore Cleanup / Hole Cleaning</span>}
+              {currentView === 'packer-forces' && <span className="font-bold">Packer Forces / Tubing Analysis</span>}
+              {currentView === 'workover-hydraulics' && <span className="font-bold">Workover Hydraulics / CT Operations</span>}
+              {currentView === 'sand-control' && <span className="font-bold">Sand Control / Gravel Pack Design</span>}
+              {currentView === 'completion-design' && <span className="font-bold">Completion Design / Perforating & Fracture</span>}
+              {currentView === 'shot-efficiency' && <span className="font-bold">Shot Efficiency / Petrophysics & Intervals</span>}
+              {currentView === 'vibrations' && <span className="font-bold">Vibrations & Stability / Drillstring Dynamics</span>}
             </div>
           </div>
           <div className="flex items-center gap-6">

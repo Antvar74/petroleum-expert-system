@@ -279,3 +279,174 @@ class KillSheet(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     well = relationship("Well")
+
+
+# ============================================================
+# MODULE 5: Wellbore Cleanup (Hole Cleaning) Models
+# ============================================================
+
+class WellboreCleanupResult(Base):
+    """Stores results from wellbore cleanup / hole cleaning calculations."""
+    __tablename__ = "wellbore_cleanup_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    flow_rate = Column(Float)              # gpm
+    mud_weight = Column(Float)             # ppg
+    pv = Column(Float)                     # cP
+    yp = Column(Float)                     # lb/100ft²
+    hole_id = Column(Float)                # inches
+    pipe_od = Column(Float)                # inches
+    inclination = Column(Float)            # degrees
+
+    result_data = Column(JSON)             # full calculation results
+    summary = Column(JSON)                 # summary metrics + alerts
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 6: Packer Forces Models
+# ============================================================
+
+class PackerForcesResult(Base):
+    """Stores results from packer forces calculations."""
+    __tablename__ = "packer_forces_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    tubing_od = Column(Float)              # inches
+    tubing_id = Column(Float)              # inches
+    tubing_weight = Column(Float)          # lb/ft
+    packer_depth_tvd = Column(Float)       # ft
+
+    result_data = Column(JSON)             # full calculation results
+    summary = Column(JSON)                 # summary metrics + alerts
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 7: Workover Hydraulics Models
+# ============================================================
+
+class WorkoverHydraulicsResult(Base):
+    """Stores results from workover/CT hydraulics calculations."""
+    __tablename__ = "workover_hydraulics_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    ct_od = Column(Float)                  # inches
+    wall_thickness = Column(Float)         # inches
+    ct_length = Column(Float)              # ft
+    flow_rate = Column(Float)              # gpm
+    mud_weight = Column(Float)             # ppg
+    hole_id = Column(Float)               # inches
+
+    result_data = Column(JSON)             # full calculation results
+    summary = Column(JSON)                 # summary metrics + alerts
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 8: Sand Control Models
+# ============================================================
+
+class SandControlResult(Base):
+    """Stores results from sand control analysis calculations."""
+    __tablename__ = "sand_control_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    d50_mm = Column(Float)                 # median grain size
+    uniformity_coefficient = Column(Float) # Cu = D60/D10
+    ucs_psi = Column(Float)               # unconfined compressive strength
+    interval_length = Column(Float)        # ft
+
+    result_data = Column(JSON)             # full calculation results
+    summary = Column(JSON)                 # summary metrics + alerts
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 9: Completion Design Models
+# ============================================================
+
+class CompletionDesignResult(Base):
+    """Stores results from completion design calculations."""
+    __tablename__ = "completion_design_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    casing_id_in = Column(Float)
+    formation_permeability_md = Column(Float)
+    depth_tvd_ft = Column(Float)
+    penetration_berea_in = Column(Float)
+
+    result_data = Column(JSON)
+    summary = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 10: Shot Efficiency Models
+# ============================================================
+
+class ShotEfficiencyResult(Base):
+    """Stores results from shot efficiency / petrophysical analysis."""
+    __tablename__ = "shot_efficiency_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    log_points_count = Column(Integer)
+    net_pay_intervals = Column(Integer)
+    total_net_pay_ft = Column(Float)
+
+    result_data = Column(JSON)
+    summary = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")
+
+
+# ============================================================
+# MODULE 11: Vibrations / Stability Models
+# ============================================================
+
+class VibrationsResult(Base):
+    """Stores results from vibrations/stability calculations."""
+    __tablename__ = "vibrations_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+
+    wob_klb = Column(Float)
+    rpm = Column(Float)
+    bit_diameter_in = Column(Float)
+
+    result_data = Column(JSON)
+    summary = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    well = relationship("Well")

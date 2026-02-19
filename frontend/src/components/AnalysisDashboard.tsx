@@ -307,7 +307,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     }
 
     return (
-        <div className="max-w-6xl mx-auto pb-20">
+        <div className="w-full mx-auto pb-20">
             {/* Physics Engine Results */}
             {eventId && (
                 <div className="space-y-8">
