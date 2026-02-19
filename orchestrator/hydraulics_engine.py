@@ -629,6 +629,254 @@ class HydraulicsEngine:
         }
 
     @staticmethod
+    def calculate_bha_pressure_breakdown(
+        bha_tools: List[Dict[str, Any]],
+        flow_rate: float,
+        mud_weight: float,
+        pv: float,
+        yp: float,
+        rheology_model: str = "bingham_plastic",
+        n: float = 0.5,
+        k: float = 300.0,
+        tau_0: float = 0.0,
+        k_hb: float = 0.0,
+        n_hb: float = 0.5
+    ) -> Dict[str, Any]:
+        """
+        Calculate pressure loss breakdown for individual BHA tools.
+
+        Each tool can have a loss_coefficient to model internal restrictions
+        (e.g., motors, MWD/LWD tools with complex internal geometries).
+
+        Args:
+            bha_tools: list of dicts, each with:
+                - tool_name: descriptive name (e.g., "PDM Motor 6-3/4")
+                - tool_type: 'motor', 'mwd', 'lwd', 'stabilizer', 'collar',
+                             'jar', 'reamer', 'crossover'
+                - od: outer diameter (in)
+                - id_inner: inner diameter (in)
+                - length: tool length (ft)
+                - loss_coefficient: multiplier for internal restrictions (default 1.0)
+            flow_rate: circulation rate (gpm)
+            mud_weight: mud weight (ppg)
+            pv, yp: Bingham parameters
+            rheology_model: 'bingham_plastic', 'power_law', or 'herschel_bulkley'
+            n, k: Power Law parameters
+            tau_0, k_hb, n_hb: Herschel-Bulkley parameters
+
+        Returns:
+            Dict with tools_breakdown[], total_bha_loss_psi, critical_tool
+        """
+        if not bha_tools or flow_rate <= 0:
+            return {
+                "tools_breakdown": [],
+                "total_bha_loss_psi": 0.0,
+                "critical_tool": None
+            }
+
+        tools_breakdown = []
+        total_loss = 0.0
+        max_dp_per_ft = 0.0
+        critical_tool = None
+
+        for tool in bha_tools:
+            tool_name = tool.get("tool_name", "Unknown")
+            tool_type = tool.get("tool_type", "collar")
+            od = tool.get("od", 6.75)
+            id_inner = tool.get("id_inner", 2.8125)
+            length = tool.get("length", 30.0)
+            loss_coeff = tool.get("loss_coefficient", 1.0)
+
+            if length <= 0 or od <= 0 or id_inner <= 0:
+                tools_breakdown.append({
+                    "tool_name": tool_name,
+                    "tool_type": tool_type,
+                    "length": length,
+                    "pressure_loss_psi": 0.0,
+                    "velocity_ftmin": 0.0,
+                    "regime": "none",
+                    "loss_coefficient": loss_coeff,
+                    "dp_per_ft": 0.0
+                })
+                continue
+
+            # Calculate base pressure loss through the tool bore
+            if rheology_model == "herschel_bulkley":
+                result = HydraulicsEngine.pressure_loss_herschel_bulkley(
+                    flow_rate=flow_rate, mud_weight=mud_weight,
+                    tau_0=tau_0, k_hb=k_hb, n_hb=n_hb,
+                    length=length, od=od, id_inner=id_inner,
+                    is_annular=False
+                )
+            elif rheology_model == "power_law":
+                result = HydraulicsEngine.pressure_loss_power_law(
+                    flow_rate=flow_rate, mud_weight=mud_weight,
+                    n=n, k=k,
+                    length=length, od=od, id_inner=id_inner,
+                    is_annular=False
+                )
+            else:
+                result = HydraulicsEngine.pressure_loss_bingham(
+                    flow_rate=flow_rate, mud_weight=mud_weight,
+                    pv=pv, yp=yp,
+                    length=length, od=od, id_inner=id_inner,
+                    is_annular=False
+                )
+
+            # Apply loss coefficient (for motors, MWD, etc.)
+            base_loss = result.get("pressure_loss_psi", 0.0)
+            actual_loss = base_loss * loss_coeff
+
+            # Pressure drop per foot (identifies bottleneck)
+            dp_per_ft = actual_loss / length if length > 0 else 0.0
+
+            tools_breakdown.append({
+                "tool_name": tool_name,
+                "tool_type": tool_type,
+                "length": length,
+                "pressure_loss_psi": round(actual_loss, 1),
+                "velocity_ftmin": result.get("velocity_ft_min", 0.0),
+                "regime": result.get("flow_regime", "unknown"),
+                "loss_coefficient": loss_coeff,
+                "dp_per_ft": round(dp_per_ft, 2)
+            })
+
+            total_loss += actual_loss
+
+            if dp_per_ft > max_dp_per_ft:
+                max_dp_per_ft = dp_per_ft
+                critical_tool = tool_name
+
+        return {
+            "tools_breakdown": tools_breakdown,
+            "total_bha_loss_psi": round(total_loss, 1),
+            "critical_tool": critical_tool
+        }
+
+    @staticmethod
+    def generate_pressure_waterfall(
+        circuit_result: Dict[str, Any],
+        bha_breakdown: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a detailed pressure waterfall from circuit results.
+
+        Breaks down total SPP into sequential steps from pump to annular return.
+        If bha_breakdown is provided, expands BHA into individual tools.
+
+        Args:
+            circuit_result: output from calculate_full_circuit()
+            bha_breakdown: optional output from calculate_bha_pressure_breakdown()
+
+        Returns:
+            Dict with waterfall_steps[], total_spp_psi
+        """
+        summary = circuit_result.get("summary", {})
+        section_results = circuit_result.get("section_results", [])
+        bit_hydraulics = circuit_result.get("bit_hydraulics", {})
+
+        waterfall_steps = []
+        cumulative = 0.0
+
+        # 1. Surface Equipment
+        surface_loss = summary.get("surface_equipment_psi", 0.0)
+        cumulative += surface_loss
+        waterfall_steps.append({
+            "label": "Surface Equipment",
+            "pressure_psi": round(surface_loss, 0),
+            "cumulative_psi": round(cumulative, 0),
+            "pct_of_total": 0.0  # calculated at the end
+        })
+
+        # 2. Pipe sections (non-annular, non-BHA)
+        pipe_sections = [s for s in section_results if "annulus" not in s.get("section_type", "")]
+        annular_sections = [s for s in section_results if "annulus" in s.get("section_type", "")]
+
+        # If BHA breakdown is provided, separate collar/BHA from drillpipe/HWDP
+        bha_tool_names = set()
+        if bha_breakdown and bha_breakdown.get("tools_breakdown"):
+            # Add BHA tools as individual steps
+            for sec in pipe_sections:
+                sec_type = sec.get("section_type", "")
+                if sec_type in ("drill_pipe", "hwdp"):
+                    loss = sec.get("pressure_loss_psi", 0.0)
+                    cumulative += loss
+                    label = "Drill Pipe" if sec_type == "drill_pipe" else "HWDP"
+                    waterfall_steps.append({
+                        "label": label,
+                        "pressure_psi": round(loss, 0),
+                        "cumulative_psi": round(cumulative, 0),
+                        "pct_of_total": 0.0
+                    })
+
+            # BHA tools breakdown
+            for tool in bha_breakdown["tools_breakdown"]:
+                loss = tool.get("pressure_loss_psi", 0.0)
+                cumulative += loss
+                waterfall_steps.append({
+                    "label": f"BHA: {tool['tool_name']}",
+                    "pressure_psi": round(loss, 0),
+                    "cumulative_psi": round(cumulative, 0),
+                    "pct_of_total": 0.0
+                })
+        else:
+            # No BHA breakdown — add pipe sections grouped
+            for sec in pipe_sections:
+                sec_type = sec.get("section_type", "")
+                loss = sec.get("pressure_loss_psi", 0.0)
+                cumulative += loss
+                label_map = {
+                    "drill_pipe": "Drill Pipe",
+                    "hwdp": "HWDP",
+                    "collar": "Drill Collars/BHA"
+                }
+                label = label_map.get(sec_type, sec_type.replace("_", " ").title())
+                waterfall_steps.append({
+                    "label": label,
+                    "pressure_psi": round(loss, 0),
+                    "cumulative_psi": round(cumulative, 0),
+                    "pct_of_total": 0.0
+                })
+
+        # 3. Bit
+        bit_loss = bit_hydraulics.get("pressure_drop_psi", summary.get("bit_loss_psi", 0.0))
+        cumulative += bit_loss
+        waterfall_steps.append({
+            "label": "Bit Nozzles",
+            "pressure_psi": round(bit_loss, 0),
+            "cumulative_psi": round(cumulative, 0),
+            "pct_of_total": 0.0
+        })
+
+        # 4. Annular sections
+        for sec in annular_sections:
+            sec_type = sec.get("section_type", "")
+            loss = sec.get("pressure_loss_psi", 0.0)
+            cumulative += loss
+            label_map = {
+                "annulus_dc": "Annular (DC)",
+                "annulus_hwdp": "Annular (HWDP)",
+                "annulus_dp": "Annular (DP)"
+            }
+            label = label_map.get(sec_type, sec_type.replace("_", " ").title())
+            waterfall_steps.append({
+                "label": label,
+                "pressure_psi": round(loss, 0),
+                "cumulative_psi": round(cumulative, 0),
+                "pct_of_total": 0.0
+            })
+
+        # Calculate percentages
+        total_spp = cumulative if cumulative > 0 else 1.0
+        for step in waterfall_steps:
+            step["pct_of_total"] = round(step["pressure_psi"] / total_spp * 100, 1)
+
+        return {
+            "waterfall_steps": waterfall_steps,
+            "total_spp_psi": round(cumulative, 0)
+        }
+
+    @staticmethod
     def calculate_full_circuit(
         sections: List[Dict[str, Any]],
         nozzle_sizes: List[float],
@@ -648,7 +896,8 @@ class HydraulicsEngine:
         use_pt_correction: bool = False,
         fluid_type: str = "wbm",
         t_surface: float = 80.0,
-        geothermal_gradient: float = 0.012
+        geothermal_gradient: float = 0.012,
+        annular_tvds: Optional[List[float]] = None
     ) -> Dict[str, Any]:
         """
         Calculate full hydraulic circuit: Surface -> DP -> BHA -> Bit -> Annular
@@ -663,6 +912,7 @@ class HydraulicsEngine:
         - fluid_type: 'wbm' or 'obm' (for P/T correction coefficients)
         - t_surface: surface temperature (°F, for geothermal gradient)
         - geothermal_gradient: °F per ft (typical 0.010-0.015)
+        - annular_tvds: optional list of TVD (ft) for each annular section (for accurate ECD)
         """
         # Auto-fit Herschel-Bulkley if FANN readings provided
         if rheology_model == "herschel_bulkley" and fann_readings is not None:
@@ -762,20 +1012,72 @@ class HydraulicsEngine:
             annular_pressure_loss=total_annular_loss
         )
 
-        # ECD profile at various depths
+        # Multi-diameter annular analysis
+        annular_analysis_sections = []
+        annular_idx = 0
+        for sec in section_results:
+            if "annulus" in sec.get("section_type", ""):
+                sec_velocity = sec.get("velocity_ft_min", 0.0)
+                sec_od = sec.get("od", 0.0) if "od" in sec else 0.0
+                sec_id = sec.get("id_inner", 0.0) if "id_inner" in sec else 0.0
+
+                # Get TVD for this annular section if provided
+                if annular_tvds and annular_idx < len(annular_tvds):
+                    sec_tvd = annular_tvds[annular_idx]
+                else:
+                    sec_tvd = tvd  # fallback to total TVD
+
+                # Local ECD for this section
+                if sec_tvd > 0:
+                    ecd_local = mud_weight + sec["pressure_loss_psi"] / (0.052 * sec_tvd)
+                else:
+                    ecd_local = mud_weight
+
+                annular_analysis_sections.append({
+                    "section_type": sec.get("section_type", ""),
+                    "velocity_ftmin": round(sec_velocity, 1),
+                    "ecd_local_ppg": round(ecd_local, 2),
+                    "pressure_loss_psi": round(sec["pressure_loss_psi"], 1),
+                    "tvd_ft": round(sec_tvd, 0)
+                })
+                annular_idx += 1
+
+        # Identify critical annular section (lowest velocity or highest ECD)
+        critical_section = None
+        min_velocity = float("inf")
+        if annular_analysis_sections:
+            for asec in annular_analysis_sections:
+                if 0 < asec["velocity_ftmin"] < min_velocity:
+                    min_velocity = asec["velocity_ftmin"]
+                    critical_section = asec["section_type"]
+
+        annular_analysis = {
+            "sections": annular_analysis_sections,
+            "critical_section": critical_section,
+            "min_velocity_ftmin": round(min_velocity, 1) if min_velocity < float("inf") else 0.0
+        }
+
+        # ECD profile at various depths (improved with TVDs when available)
         ecd_profile = []
         cum_annular = 0.0
-        for sec in reversed(section_results):
-            if "annulus" in sec.get("section_type", ""):
-                cum_annular += sec["pressure_loss_psi"]
+        annular_secs_reversed = [s for s in reversed(section_results)
+                                  if "annulus" in s.get("section_type", "")]
+        for i, sec in enumerate(annular_secs_reversed):
+            cum_annular += sec["pressure_loss_psi"]
+
+            # Use real TVD if available, else estimate from depth fraction
+            if annular_tvds and i < len(annular_tvds):
+                est_tvd = annular_tvds[len(annular_tvds) - 1 - i]
+            else:
                 depth_frac = cum_annular / total_annular_loss if total_annular_loss > 0 else 0
-                est_tvd = tvd * (1 - depth_frac)  # rough depth estimate
-                if est_tvd > 0:
-                    ecd_at_depth = mud_weight + cum_annular / (0.052 * est_tvd)
-                    ecd_profile.append({
-                        "tvd": round(est_tvd, 0),
-                        "ecd": round(ecd_at_depth, 2)
-                    })
+                est_tvd = tvd * (1 - depth_frac)
+
+            if est_tvd > 0:
+                ecd_at_depth = mud_weight + cum_annular / (0.052 * est_tvd)
+                ecd_profile.append({
+                    "tvd": round(est_tvd, 0),
+                    "ecd": round(ecd_at_depth, 2)
+                })
 
         summary = {
             "total_spp_psi": round(total_spp, 0),
@@ -795,6 +1097,7 @@ class HydraulicsEngine:
             "bit_hydraulics": bit_result,
             "ecd": ecd_result,
             "ecd_profile": ecd_profile,
+            "annular_analysis": annular_analysis,
             "summary": summary
         }
 

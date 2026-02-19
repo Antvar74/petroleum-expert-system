@@ -347,6 +347,98 @@ class WellControlEngine:
         }
 
     @staticmethod
+    def calculate_barite_requirements(
+        current_mud_weight: float,
+        target_mud_weight: float,
+        system_volume_bbl: float,
+        barite_sg: float = 4.20,
+        sack_weight_lbs: float = 100.0
+    ) -> Dict[str, Any]:
+        """
+        Calculate barite (weighting material) requirements to increase mud weight.
+
+        Uses API standard formula for mixing calculations.
+
+        Args:
+            current_mud_weight: current mud weight (ppg)
+            target_mud_weight: desired mud weight (ppg)
+            system_volume_bbl: active system volume (bbl)
+            barite_sg: specific gravity of barite (default 4.20)
+            sack_weight_lbs: weight per sack (default 100 lbs)
+
+        Returns:
+            Dict with barite_lbs, barite_sacks, final_volume_increase_bbl, etc.
+        """
+        # Equivalent density of barite in ppg
+        barite_ppg = barite_sg * 8.345  # 8.345 lbs/gal per SG unit = ppg
+
+        # Guards
+        if target_mud_weight <= current_mud_weight:
+            return {
+                "barite_lbs": 0.0,
+                "barite_sacks": 0.0,
+                "final_volume_increase_bbl": 0.0,
+                "mix_time_estimate_hrs": 0.0,
+                "barite_sg": barite_sg,
+                "barite_ppg": round(barite_ppg, 1),
+                "current_mw_ppg": current_mud_weight,
+                "target_mw_ppg": target_mud_weight,
+                "alert": "Target MW <= Current MW — no weighting needed"
+            }
+
+        if target_mud_weight >= barite_ppg:
+            return {
+                "error": f"Target MW ({target_mud_weight} ppg) >= barite density ({barite_ppg:.1f} ppg) — physically impossible",
+                "barite_lbs": 0.0,
+                "barite_sacks": 0.0,
+                "final_volume_increase_bbl": 0.0,
+                "mix_time_estimate_hrs": 0.0,
+                "barite_sg": barite_sg,
+                "barite_ppg": round(barite_ppg, 1),
+                "current_mw_ppg": current_mud_weight,
+                "target_mw_ppg": target_mud_weight
+            }
+
+        if system_volume_bbl <= 0 or current_mud_weight <= 0:
+            return {
+                "error": "Invalid input — system volume and current MW must be > 0",
+                "barite_lbs": 0.0,
+                "barite_sacks": 0.0,
+                "final_volume_increase_bbl": 0.0,
+                "mix_time_estimate_hrs": 0.0,
+                "barite_sg": barite_sg,
+                "barite_ppg": round(barite_ppg, 1),
+                "current_mw_ppg": current_mud_weight,
+                "target_mw_ppg": target_mud_weight
+            }
+
+        # API formula: lbs = 1470 * V * (MW_target - MW_current) / (barite_ppg - MW_target)
+        # 1470 = 42 gal/bbl * 8.345 lbs/gal / 0.2386... ≈ conversion factor
+        # Derivation: mass balance V_bbl * 42 * MW_t = V_bbl * 42 * MW_c + lbs * (1 - MW_t/barite_ppg * ...)
+        barite_lbs = 1470.0 * system_volume_bbl * (target_mud_weight - current_mud_weight) / (barite_ppg - target_mud_weight)
+
+        # Number of sacks
+        barite_sacks = barite_lbs / sack_weight_lbs
+
+        # Volume increase: displaced volume of barite added
+        # 1 bbl = 350 lbs of water; barite at SG 4.2 → 350 * 4.2 = 1470 lbs/bbl
+        volume_increase_bbl = barite_lbs / (barite_sg * 350.0)
+
+        # Mix time estimate: ~2000 lbs/hr with standard hopper
+        mix_time_hrs = barite_lbs / 2000.0
+
+        return {
+            "barite_lbs": round(barite_lbs, 0),
+            "barite_sacks": round(barite_sacks, 1),
+            "final_volume_increase_bbl": round(volume_increase_bbl, 1),
+            "mix_time_estimate_hrs": round(mix_time_hrs, 1),
+            "barite_sg": barite_sg,
+            "barite_ppg": round(barite_ppg, 1),
+            "current_mw_ppg": current_mud_weight,
+            "target_mw_ppg": target_mud_weight
+        }
+
+    @staticmethod
     def generate_pressure_schedule(
         icp: float,
         fcp: float,
