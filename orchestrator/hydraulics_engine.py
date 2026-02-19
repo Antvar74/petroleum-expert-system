@@ -190,6 +190,231 @@ class HydraulicsEngine:
         }
 
     @staticmethod
+    def fit_herschel_bulkley(fann_readings: Dict[str, float]) -> Dict[str, Any]:
+        """
+        Fit Herschel-Bulkley rheological parameters (tau_0, K, n) from
+        standard FANN viscometer readings using iterative least-squares.
+
+        Model: tau = tau_0 + K * gamma^n
+
+        Parameters:
+        - fann_readings: dict with keys r600, r300, r200, r100, r6, r3
+          (dial readings at standard RPMs)
+
+        Returns:
+        - tau_0: yield stress (lbf/100ft²)
+        - k_hb: consistency index
+        - n_hb: flow behavior index
+        - r_squared: goodness of fit
+        - fann_readings: echo of input readings
+        """
+        # FANN RPM -> shear rate (1/s): gamma = 1.703 * RPM
+        fann_rpm = {"r600": 600, "r300": 300, "r200": 200, "r100": 100, "r6": 6, "r3": 3}
+
+        # Extract available readings
+        readings = []
+        for key in ["r3", "r6", "r100", "r200", "r300", "r600"]:
+            val = fann_readings.get(key, 0.0)
+            if val is not None and val > 0:
+                gamma = 1.703 * fann_rpm[key]          # shear rate (1/s)
+                tau = 1.0678 * val                      # shear stress (lbf/100ft²)
+                readings.append((gamma, tau))
+
+        # Guard: all zero or no valid readings
+        if len(readings) < 2:
+            return {
+                "tau_0": 0.0, "k_hb": 0.0, "n_hb": 1.0,
+                "r_squared": 0.0, "fann_readings": fann_readings
+            }
+
+        # Sort by shear rate ascending
+        readings.sort(key=lambda x: x[0])
+
+        # Initial tau_0 estimate: low-shear extrapolation (2*tau_3 - tau_6)
+        tau_3 = 1.0678 * fann_readings.get("r3", 0.0)
+        tau_6 = 1.0678 * fann_readings.get("r6", 0.0)
+        tau_0 = max(2.0 * tau_3 - tau_6, 0.0)
+
+        # Cap tau_0 below minimum measured shear stress
+        tau_min = min(t for _, t in readings)
+        if tau_0 >= tau_min:
+            tau_0 = tau_min * 0.5
+
+        best_tau_0, best_k, best_n, best_r2 = tau_0, 0.0, 1.0, -1.0
+
+        # Iterative regression: ln(tau - tau_0) = ln(K) + n * ln(gamma)
+        for iteration in range(5):
+            ln_gamma = []
+            ln_tau_adj = []
+            for gamma, tau in readings:
+                adj = tau - tau_0
+                if adj > 1e-6:
+                    ln_gamma.append(math.log(gamma))
+                    ln_tau_adj.append(math.log(adj))
+
+            if len(ln_gamma) < 2:
+                break
+
+            # Least-squares: y = a + b*x  →  ln(tau-tau0) = ln(K) + n*ln(gamma)
+            n_pts = len(ln_gamma)
+            sum_x = sum(ln_gamma)
+            sum_y = sum(ln_tau_adj)
+            sum_xx = sum(x * x for x in ln_gamma)
+            sum_xy = sum(x * y for x, y in zip(ln_gamma, ln_tau_adj))
+
+            denom = n_pts * sum_xx - sum_x * sum_x
+            if abs(denom) < 1e-12:
+                break
+
+            n_hb = (n_pts * sum_xy - sum_x * sum_y) / denom
+            ln_k = (sum_y - n_hb * sum_x) / n_pts
+            k_hb = math.exp(ln_k)
+
+            # Clamp n to physical range
+            n_hb = max(0.05, min(n_hb, 1.5))
+
+            # R-squared
+            mean_y = sum_y / n_pts
+            ss_tot = sum((y - mean_y) ** 2 for y in ln_tau_adj)
+            ss_res = sum((y - (ln_k + n_hb * x)) ** 2 for x, y in zip(ln_gamma, ln_tau_adj))
+            r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else 0.0
+
+            if r2 > best_r2:
+                best_tau_0, best_k, best_n, best_r2 = tau_0, k_hb, n_hb, r2
+
+            # Update tau_0: find value that minimizes residuals
+            # Use predicted tau at lowest shear rate minus measured
+            gamma_low, tau_low = readings[0]
+            tau_0_new = tau_low - k_hb * gamma_low ** n_hb
+            tau_0_new = max(tau_0_new, 0.0)
+            tau_0_new = min(tau_0_new, tau_min * 0.95)
+
+            if abs(tau_0_new - tau_0) < 0.01:
+                best_tau_0, best_k, best_n, best_r2 = tau_0_new, k_hb, n_hb, r2
+                break
+            tau_0 = tau_0_new
+
+        # Fallback: 2-point fit from r300/r600 if regression diverged
+        if best_r2 < 0.5 and best_k <= 0:
+            r300 = fann_readings.get("r300", 0.0)
+            r600 = fann_readings.get("r600", 0.0)
+            if r300 > 0 and r600 > 0:
+                tau300 = 1.0678 * r300
+                tau600 = 1.0678 * r600
+                best_n = math.log(tau600 / tau300) / math.log(2.0) if tau300 > 0 else 1.0
+                best_n = max(0.05, min(best_n, 1.5))
+                best_k = tau300 / (510.9 ** best_n)
+                best_tau_0 = 0.0
+                best_r2 = 0.95
+
+        return {
+            "tau_0": round(best_tau_0, 3),
+            "k_hb": round(best_k, 6),
+            "n_hb": round(best_n, 4),
+            "r_squared": round(best_r2, 4),
+            "fann_readings": fann_readings
+        }
+
+    @staticmethod
+    def pressure_loss_herschel_bulkley(
+        flow_rate: float, mud_weight: float,
+        tau_0: float, k_hb: float, n_hb: float,
+        length: float, od: float, id_inner: float,
+        is_annular: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate pressure loss using Herschel-Bulkley model (API RP 13D / Metzner-Reed).
+
+        Model: tau = tau_0 + K * gamma^n
+
+        Parameters:
+        - tau_0: yield stress (lbf/100ft²)
+        - k_hb: consistency index
+        - n_hb: flow behavior index (0 < n < 1 for shear-thinning)
+        - is_annular: True for annular geometry
+
+        Returns: dict with pressure_loss_psi, velocity, Reynolds, flow regime
+        """
+        if length <= 0 or flow_rate <= 0:
+            result = HydraulicsEngine._zero_result()
+            result.update({"tau_0": tau_0, "k_hb": k_hb, "n_hb": n_hb})
+            return result
+
+        if is_annular:
+            d_eff = od - id_inner
+            v = 24.5 * flow_rate / (od**2 - id_inner**2)  # ft/min
+        else:
+            d_eff = id_inner
+            v = 24.5 * flow_rate / (d_eff**2)              # ft/min
+
+        if d_eff <= 0 or v <= 0:
+            result = HydraulicsEngine._zero_result()
+            result.update({"tau_0": tau_0, "k_hb": k_hb, "n_hb": n_hb})
+            return result
+
+        # Ensure n_hb is in valid range
+        n = max(0.05, min(n_hb, 1.5))
+
+        # Wall shear rate (Metzner-Reed generalized)
+        if is_annular:
+            gamma_w = 144.0 * v / d_eff * (2.0 * n + 1.0) / (3.0 * n)
+        else:
+            gamma_w = 96.0 * v / d_eff * (3.0 * n + 1.0) / (4.0 * n)
+
+        # Wall shear stress
+        tau_w = tau_0 + k_hb * (gamma_w ** n)
+
+        # Effective viscosity (cP) at the wall
+        # mu_eff = tau_w / gamma_w * 47880 converts lbf/100ft² to cP at gamma_w
+        # Simplified: mu_eff = tau_w * d_eff / (96 * v) for pipe (field units)
+        if is_annular:
+            mu_eff = tau_w * d_eff / (144.0 * v) if v > 0 else 1e6
+        else:
+            mu_eff = tau_w * d_eff / (96.0 * v) if v > 0 else 1e6
+
+        mu_eff = max(mu_eff, 0.001)
+
+        # Generalized Reynolds number
+        re_g = 928.0 * mud_weight * v * d_eff / mu_eff
+
+        # Critical Reynolds (Dodge-Metzner)
+        re_crit = 3470.0 - 1370.0 * n
+
+        if re_g < re_crit:
+            # Laminar: dP = tau_w * L / (300 * d_eff) for pipe
+            if is_annular:
+                dp = tau_w * length / (300.0 * d_eff)
+            else:
+                dp = tau_w * length / (300.0 * d_eff)
+            flow_regime = "laminar"
+        else:
+            # Turbulent: Fanning friction factor (Dodge-Metzner)
+            a = 0.0791 / (re_g ** 0.25)  # simplified Fanning
+            # More accurate: log(1/sqrt(f)) = (4.0/n^0.75)*log(Re*f^(1-n/2)) - 0.395/n^1.2
+            # Use iterative or simplified power-law form
+            a_coef = (math.log10(n) + 3.93) / 50.0
+            b_coef = (1.75 - math.log10(n)) / 7.0
+            f = a_coef / (re_g ** b_coef)
+            f = max(f, 1e-6)
+
+            if is_annular:
+                dp = f * mud_weight * v**2 * length / (21.1 * d_eff)
+            else:
+                dp = f * mud_weight * v**2 * length / (25.8 * d_eff)
+            flow_regime = "turbulent"
+
+        return {
+            "pressure_loss_psi": round(dp, 1),
+            "velocity_ft_min": round(v, 1),
+            "reynolds": round(re_g, 0),
+            "flow_regime": flow_regime,
+            "d_eff": round(d_eff, 3),
+            "tau_0": tau_0,
+            "k_hb": k_hb,
+            "n_hb": n_hb
+        }
+
+    @staticmethod
     def calculate_bit_hydraulics(
         flow_rate: float,
         mud_weight: float,
@@ -305,7 +530,11 @@ class HydraulicsEngine:
         rheology_model: str = "bingham_plastic",
         n: float = 0.5,
         k: float = 300.0,
-        surface_equipment_loss: float = 80.0
+        surface_equipment_loss: float = 80.0,
+        tau_0: float = 0.0,
+        k_hb: float = 0.0,
+        n_hb: float = 0.5,
+        fann_readings: Optional[Dict[str, float]] = None
     ) -> Dict[str, Any]:
         """
         Calculate full hydraulic circuit: Surface -> DP -> BHA -> Bit -> Annular
@@ -313,8 +542,17 @@ class HydraulicsEngine:
         Parameters:
         - sections: list of {section_type, length, od, id_inner}
           section_type: 'drill_pipe', 'hwdp', 'collar', 'annulus_dp', 'annulus_dc', 'annulus_hwdp'
-        - rheology_model: 'bingham_plastic' or 'power_law'
+        - rheology_model: 'bingham_plastic', 'power_law', or 'herschel_bulkley'
+        - tau_0, k_hb, n_hb: Herschel-Bulkley parameters (used if rheology_model='herschel_bulkley')
+        - fann_readings: optional FANN viscometer readings for auto-fit H-B parameters
         """
+        # Auto-fit Herschel-Bulkley if FANN readings provided
+        if rheology_model == "herschel_bulkley" and fann_readings is not None:
+            hb_fit = HydraulicsEngine.fit_herschel_bulkley(fann_readings)
+            tau_0 = hb_fit["tau_0"]
+            k_hb = hb_fit["k_hb"]
+            n_hb = hb_fit["n_hb"]
+
         section_results = []
         total_pipe_loss = surface_equipment_loss
         total_annular_loss = 0.0
@@ -322,7 +560,17 @@ class HydraulicsEngine:
         for sec in sections:
             is_annular = "annulus" in sec.get("section_type", "")
 
-            if rheology_model == "power_law":
+            if rheology_model == "herschel_bulkley":
+                result = HydraulicsEngine.pressure_loss_herschel_bulkley(
+                    flow_rate=flow_rate,
+                    mud_weight=mud_weight,
+                    tau_0=tau_0, k_hb=k_hb, n_hb=n_hb,
+                    length=sec["length"],
+                    od=sec["od"],
+                    id_inner=sec["id_inner"],
+                    is_annular=is_annular
+                )
+            elif rheology_model == "power_law":
                 result = HydraulicsEngine.pressure_loss_power_law(
                     flow_rate=flow_rate,
                     mud_weight=mud_weight,

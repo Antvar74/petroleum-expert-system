@@ -16,6 +16,171 @@ class WellControlEngine:
 
     HYDROSTATIC_CONSTANT = 0.052  # psi/ft/ppg
 
+    # Dranchuk-Abou-Kassem (DAK) 11 coefficients for Z-factor correlation
+    _DAK = {
+        "A1": 0.3265, "A2": -1.0700, "A3": -0.5339, "A4": 0.01569,
+        "A5": -0.05165, "A6": 0.5475, "A7": -0.7361, "A8": 0.6853,
+        "A9": 0.6123, "A10": 0.10489, "A11": 0.68157
+    }
+
+    @staticmethod
+    def calculate_z_factor(
+        pressure: float, temperature: float, gas_gravity: float = 0.65
+    ) -> Dict[str, Any]:
+        """
+        Calculate real gas Z-factor using Dranchuk-Abou-Kassem (DAK) correlation
+        with Standing's pseudo-critical property correlations.
+
+        Parameters:
+        - pressure: absolute pressure (psia)
+        - temperature: temperature (°F)
+        - gas_gravity: gas specific gravity (air = 1.0), default 0.65
+
+        Returns:
+        - z_factor, pseudo-critical/reduced properties, convergence info
+        """
+        # Guard: non-physical inputs
+        if pressure <= 0 or gas_gravity <= 0:
+            return {
+                "z_factor": 1.0,
+                "pseudo_critical_pressure": 0.0,
+                "pseudo_critical_temperature": 0.0,
+                "pseudo_reduced_pressure": 0.0,
+                "pseudo_reduced_temperature": 0.0,
+                "iterations": 0,
+                "converged": True
+            }
+
+        # Standing correlations for pseudo-critical properties
+        sg = gas_gravity
+        t_pc = 168.0 + 325.0 * sg - 12.5 * sg**2        # °R
+        p_pc = 677.0 + 15.0 * sg - 37.5 * sg**2          # psia
+
+        # Pseudo-reduced properties
+        t_pr = (temperature + 460.0) / t_pc               # dimensionless
+        p_pr = pressure / p_pc                             # dimensionless
+
+        # Guard: very low temperature
+        t_pr = max(t_pr, 1.05)
+
+        # DAK coefficients
+        A = WellControlEngine._DAK
+        A1, A2, A3 = A["A1"], A["A2"], A["A3"]
+        A4, A5, A6 = A["A4"], A["A5"], A["A6"]
+        A7, A8, A9 = A["A7"], A["A8"], A["A9"]
+        A10, A11 = A["A10"], A["A11"]
+
+        # Newton-Raphson iteration
+        z = 1.0  # initial guess
+        converged = False
+        max_iter = 15
+        tol = 1e-6
+
+        for i in range(max_iter):
+            rho_r = 0.27 * p_pr / (z * t_pr)
+
+            # F(Z) = Z - [1 + C1*rho + C2*rho^2 - C3*rho^5 + C4]
+            c1 = (A1 + A2 / t_pr + A3 / t_pr**3 + A4 / t_pr**4 + A5 / t_pr**5)
+            c2 = (A6 + A7 / t_pr + A8 / t_pr**2)
+            c3 = A9 * (A7 / t_pr + A8 / t_pr**2)
+            c4_exp = -A11 * rho_r**2
+            c4 = A10 * (1.0 + A11 * rho_r**2) * (rho_r**2 / t_pr**3) * math.exp(c4_exp)
+
+            f_z = z - (1.0 + c1 * rho_r + c2 * rho_r**2 - c3 * rho_r**5 + c4)
+
+            # Derivative dF/dZ (chain rule: d_rho_r/dZ = -rho_r/Z)
+            d_rho_dz = -rho_r / z
+            dc4_drho = A10 * rho_r / t_pr**3 * (
+                2.0 * (1.0 + A11 * rho_r**2) +
+                2.0 * A11 * rho_r**2
+            ) * math.exp(c4_exp) + A10 * (1.0 + A11 * rho_r**2) * (
+                rho_r**2 / t_pr**3
+            ) * math.exp(c4_exp) * (-2.0 * A11 * rho_r)
+
+            df_dz = 1.0 - (c1 + 2.0 * c2 * rho_r - 5.0 * c3 * rho_r**4 + dc4_drho) * d_rho_dz
+
+            if abs(df_dz) < 1e-15:
+                break
+
+            z_new = z - f_z / df_dz
+
+            # Clamp to physical range
+            z_new = max(0.05, min(z_new, 3.0))
+
+            if abs(z_new - z) < tol:
+                z = z_new
+                converged = True
+                break
+
+            z = z_new
+
+        return {
+            "z_factor": round(z, 6),
+            "pseudo_critical_pressure": round(p_pc, 2),
+            "pseudo_critical_temperature": round(t_pc, 2),
+            "pseudo_reduced_pressure": round(p_pr, 4),
+            "pseudo_reduced_temperature": round(t_pr, 4),
+            "iterations": i + 1,
+            "converged": converged
+        }
+
+    @staticmethod
+    def calculate_gas_volume(
+        p1: float, t1: float, v1: float,
+        p2: float, t2: float, gas_gravity: float = 0.65
+    ) -> Dict[str, Any]:
+        """
+        Calculate gas volume at new conditions using real gas law (PV=ZnRT).
+
+        V2 = V1 * (P1/P2) * (Z2/Z1) * (T2_R/T1_R)
+
+        Parameters:
+        - p1, t1, v1: initial pressure (psia), temperature (°F), volume (bbl)
+        - p2, t2: final pressure (psia), temperature (°F)
+        - gas_gravity: gas specific gravity (air = 1.0)
+
+        Returns:
+        - v2_bbl, z1, z2, expansion_ratio
+        """
+        if p2 <= 0:
+            return {
+                "v2_bbl": 0.0, "z1": 1.0, "z2": 1.0,
+                "expansion_ratio": 0.0,
+                "error": "Final pressure must be > 0",
+                "p1": p1, "t1": t1, "v1": v1, "p2": p2, "t2": t2
+            }
+
+        if p1 <= 0 or v1 <= 0:
+            return {
+                "v2_bbl": 0.0, "z1": 1.0, "z2": 1.0,
+                "expansion_ratio": 0.0,
+                "p1": p1, "t1": t1, "v1": v1, "p2": p2, "t2": t2
+            }
+
+        # Calculate Z-factors at both conditions
+        z1_result = WellControlEngine.calculate_z_factor(p1, t1, gas_gravity)
+        z2_result = WellControlEngine.calculate_z_factor(p2, t2, gas_gravity)
+
+        z1 = z1_result["z_factor"]
+        z2 = z2_result["z_factor"]
+
+        # Absolute temperatures (Rankine)
+        t1_r = t1 + 460.0
+        t2_r = t2 + 460.0
+
+        # Real gas law: V2 = V1 * (P1/P2) * (Z2/Z1) * (T2_R/T1_R)
+        v2 = v1 * (p1 / p2) * (z2 / z1) * (t2_r / t1_r)
+
+        expansion_ratio = v2 / v1 if v1 > 0 else 0.0
+
+        return {
+            "v2_bbl": round(v2, 4),
+            "z1": round(z1, 6),
+            "z2": round(z2, 6),
+            "expansion_ratio": round(expansion_ratio, 4),
+            "p1": p1, "t1": t1, "v1": v1, "p2": p2, "t2": t2
+        }
+
     @staticmethod
     def calculate_kill_sheet(
         depth_md: float,
@@ -334,7 +499,11 @@ class WellControlEngine:
         lot_emw: float,
         casing_shoe_tvd: float,
         safety_margin_psi: float = 50.0,
-        pressure_increment_psi: float = 100.0
+        pressure_increment_psi: float = 100.0,
+        gas_gravity: float = 0.65,
+        bht: float = 150.0,
+        use_real_gas: bool = False,
+        kick_volume_bbl: float = 0.0
     ) -> Dict[str, Any]:
         """
         Volumetric Method: No circulation required (for when pumps are unavailable
@@ -345,6 +514,10 @@ class WellControlEngine:
         Parameters:
         - safety_margin_psi: additional safety margin above SIDPP
         - pressure_increment_psi: pressure increase allowed per cycle
+        - gas_gravity: gas SG for real gas Z-factor (default 0.65)
+        - bht: bottom hole temperature (°F)
+        - use_real_gas: if True, calculate gas expansion per cycle with Z-factor
+        - kick_volume_bbl: initial kick volume (bbl), used when use_real_gas=True
         """
         h = WellControlEngine.HYDROSTATIC_CONSTANT
 
@@ -377,18 +550,42 @@ class WellControlEngine:
         # Generate cycle plan
         cycles = []
         current_csg_pressure = sicp
+        # Real gas tracking: estimate gas position and volume per cycle
+        gas_vol_current = kick_volume_bbl if kick_volume_bbl > 0 else volume_per_cycle * 2
+        p_bh = mud_weight * h * tvd  # initial BHP estimate
+
         for i in range(1, n_cycles + 1):
             allow_increase = current_csg_pressure + pressure_increment_psi
             if allow_increase > maasp:
                 allow_increase = maasp
 
+            cycle_bleed = volume_per_cycle
+
+            # Real gas expansion: recalculate gas volume as it migrates up
+            if use_real_gas and gas_vol_current > 0:
+                # Approximate gas pressure at current depth (reduces each cycle)
+                p_gas_old = p_bh - (i - 1) * pressure_increment_psi
+                p_gas_new = p_gas_old - pressure_increment_psi
+                p_gas_old = max(p_gas_old, 100.0)
+                p_gas_new = max(p_gas_new, 100.0)
+                # Temperature at approximate gas depth (linear gradient)
+                t_frac = max(1.0 - i / max(n_cycles, 1), 0.05)
+                t_gas = 80.0 + (bht - 80.0) * t_frac  # surface ~80F to BHT
+                gas_expand = WellControlEngine.calculate_gas_volume(
+                    p1=p_gas_old, t1=t_gas + 10, v1=gas_vol_current,
+                    p2=p_gas_new, t2=t_gas, gas_gravity=gas_gravity
+                )
+                gas_vol_new = gas_expand["v2_bbl"]
+                cycle_bleed = max(gas_vol_new - gas_vol_current, volume_per_cycle)
+                gas_vol_current = gas_vol_new
+
             cycles.append({
                 "cycle": i,
                 "step_1": f"Allow casing pressure to increase by {pressure_increment_psi} psi to {round(allow_increase)} psi",
-                "step_2": f"Bleed {round(volume_per_cycle, 2)} bbl to reduce pressure by {pressure_increment_psi} psi",
+                "step_2": f"Bleed {round(cycle_bleed, 2)} bbl to reduce pressure by {pressure_increment_psi} psi",
                 "step_3": f"Casing pressure returns to ~{round(current_csg_pressure + safety_margin_psi)} psi",
                 "max_pressure": round(allow_increase),
-                "volume_bled": round(volume_per_cycle, 2)
+                "volume_bled": round(cycle_bleed, 2)
             })
             current_csg_pressure = current_csg_pressure + safety_margin_psi * 0.1  # small increase per cycle
 
@@ -426,6 +623,134 @@ class WellControlEngine:
                 "Track cumulative volume bled",
                 "Gas expansion accelerates near surface"
             ]
+        }
+
+    @staticmethod
+    def calculate_kick_tolerance(
+        mud_weight: float, shoe_tvd: float, lot_emw: float,
+        well_depth_tvd: float, gas_gravity: float = 0.65,
+        bht: float = 150.0, annular_capacity: float = 0.05,
+        influx_type: str = "gas",
+        shoe_depths: Optional[List[float]] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculate kick tolerance: maximum influx volume that can be circulated
+        out without exceeding fracture pressure at the shoe.
+
+        Parameters:
+        - mud_weight: current mud weight (ppg)
+        - shoe_tvd: casing shoe TVD (ft)
+        - lot_emw: leak-off test equivalent mud weight (ppg)
+        - well_depth_tvd: total well depth TVD (ft)
+        - gas_gravity: gas SG for Z-factor calculation
+        - bht: bottom hole temperature (°F)
+        - annular_capacity: annular capacity (bbl/ft)
+        - influx_type: 'gas' or 'liquid'
+        - shoe_depths: optional list of shoe TVDs for multi-shoe KT table
+
+        Returns:
+        - kick_tolerance_bbl, kick_tolerance_psi (MAASP), max_influx_height,
+          gas_gradient, kt_table (if multi-shoe)
+        """
+        h_const = WellControlEngine.HYDROSTATIC_CONSTANT
+
+        # Guards
+        if shoe_tvd <= 0 or well_depth_tvd <= 0:
+            return {
+                "kick_tolerance_bbl": 0.0, "kick_tolerance_psi": 0.0,
+                "max_influx_height_ft": 0.0, "gas_gradient_psi_ft": 0.0,
+                "maasp_psi": 0.0, "kt_table": [], "parameters": {},
+                "alerts": ["Invalid depth inputs"]
+            }
+
+        # MAASP: Maximum Allowable Annular Surface Pressure
+        maasp = (lot_emw - mud_weight) * h_const * shoe_tvd
+
+        alerts = []
+        if maasp <= 0:
+            alerts.append("LOT EMW <= current mud weight — zero kick tolerance")
+            return {
+                "kick_tolerance_bbl": 0.0, "kick_tolerance_psi": round(maasp, 1),
+                "max_influx_height_ft": 0.0, "gas_gradient_psi_ft": 0.0,
+                "maasp_psi": 0.0, "kt_table": [], "parameters": {},
+                "alerts": alerts
+            }
+
+        if influx_type == "gas":
+            # Gas density at bottom hole conditions using real gas Z-factor
+            p_bh = mud_weight * h_const * well_depth_tvd  # psi
+            t_bh_r = bht + 460.0  # Rankine
+
+            z_result = WellControlEngine.calculate_z_factor(p_bh, bht, gas_gravity)
+            z_bh = z_result["z_factor"]
+
+            # Gas density: rho_gas = 2.7 * SG * P / (Z * T_R)  (ppg)
+            rho_gas = 2.7 * gas_gravity * p_bh / (z_bh * t_bh_r) if t_bh_r > 0 else 0.0
+
+            # Gas gradient
+            gas_gradient = rho_gas * h_const  # psi/ft
+        else:
+            # Liquid influx (e.g., salt water kick)
+            rho_gas = 8.6  # typical salt water ppg
+            gas_gradient = rho_gas * h_const
+
+        # Mud gradient
+        mud_gradient = mud_weight * h_const
+
+        # Maximum influx height before fracturing at shoe
+        gradient_diff = mud_gradient - gas_gradient
+        if gradient_diff <= 0:
+            alerts.append("Gas gradient >= mud gradient — infinite kick tolerance (unusual)")
+            max_influx_height = well_depth_tvd - shoe_tvd  # limited by geometry
+        else:
+            max_influx_height = maasp / gradient_diff
+
+        # Limit to available open hole
+        open_hole_length = well_depth_tvd - shoe_tvd
+        max_influx_height = min(max_influx_height, open_hole_length)
+
+        # Kick tolerance in barrels
+        kt_bbl = max_influx_height * annular_capacity
+
+        # Build KT table for multiple shoe depths
+        kt_table = []
+        if shoe_depths:
+            for s_tvd in shoe_depths:
+                if s_tvd <= 0:
+                    continue
+                s_maasp = (lot_emw - mud_weight) * h_const * s_tvd
+                if s_maasp <= 0:
+                    kt_table.append({
+                        "shoe_tvd": s_tvd, "maasp_psi": 0.0,
+                        "max_height_ft": 0.0, "kt_bbl": 0.0
+                    })
+                    continue
+                s_height = s_maasp / gradient_diff if gradient_diff > 0 else open_hole_length
+                s_height = min(s_height, well_depth_tvd - s_tvd)
+                kt_table.append({
+                    "shoe_tvd": round(s_tvd, 0),
+                    "maasp_psi": round(s_maasp, 1),
+                    "max_height_ft": round(s_height, 1),
+                    "kt_bbl": round(s_height * annular_capacity, 2)
+                })
+
+        return {
+            "kick_tolerance_bbl": round(kt_bbl, 2),
+            "kick_tolerance_psi": round(maasp, 1),
+            "max_influx_height_ft": round(max_influx_height, 1),
+            "gas_gradient_psi_ft": round(gas_gradient, 4),
+            "maasp_psi": round(maasp, 1),
+            "kt_table": kt_table,
+            "parameters": {
+                "mud_weight": mud_weight,
+                "shoe_tvd": shoe_tvd,
+                "lot_emw": lot_emw,
+                "well_depth_tvd": well_depth_tvd,
+                "gas_gravity": gas_gravity,
+                "influx_type": influx_type,
+                "annular_capacity": annular_capacity
+            },
+            "alerts": alerts
         }
 
     @staticmethod
