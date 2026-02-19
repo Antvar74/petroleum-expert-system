@@ -16,6 +16,116 @@ class HydraulicsEngine:
     # Discharge coefficient for bit nozzles
     CD = 0.95
 
+    # --- Phase 2: P/T Correction Methods ---
+
+    @staticmethod
+    def correct_density_pt(
+        rho_surface: float, pressure: float, temperature: float,
+        fluid_type: str = "wbm",
+        p_ref: float = 14.7, t_ref: float = 70.0
+    ) -> Dict[str, Any]:
+        """
+        Correct mud density for pressure and temperature effects.
+
+        rho(P,T) = rho_0 * [1 + Cp*(P - P0)] * [1 / (1 + Ct*(T - T0))]
+
+        Parameters:
+        - rho_surface: surface mud density (ppg)
+        - pressure: local pressure (psi)
+        - temperature: local temperature (°F)
+        - fluid_type: 'wbm' (water-based) or 'obm' (oil-based)
+        - p_ref, t_ref: reference conditions (default: atmospheric, 70°F)
+
+        Returns:
+        - rho_corrected: corrected density (ppg)
+        - pressure_effect, temperature_effect: individual contributions
+        """
+        if rho_surface <= 0:
+            return {"rho_corrected": 0.0, "pressure_effect_ppg": 0.0,
+                    "temperature_effect_ppg": 0.0, "fluid_type": fluid_type}
+
+        # Compressibility and thermal expansion coefficients (API RP 13D)
+        if fluid_type.lower() == "obm":
+            cp = 5.0e-6   # compressibility (/psi) — OBM more compressible
+            ct = 3.5e-4   # thermal expansion (/°F) — OBM expands more
+        else:
+            cp = 3.0e-6   # compressibility (/psi) — WBM
+            ct = 2.0e-4   # thermal expansion (/°F) — WBM
+
+        # Density correction
+        pressure_factor = 1.0 + cp * (pressure - p_ref)
+        temp_factor = 1.0 + ct * (temperature - t_ref)
+        temp_factor = max(temp_factor, 0.5)  # Guard against extreme cooling
+
+        rho_corrected = rho_surface * pressure_factor / temp_factor
+
+        return {
+            "rho_corrected": round(rho_corrected, 4),
+            "pressure_effect_ppg": round(rho_surface * (pressure_factor - 1.0), 4),
+            "temperature_effect_ppg": round(rho_surface * (1.0 - 1.0 / temp_factor), 4),
+            "fluid_type": fluid_type
+        }
+
+    @staticmethod
+    def correct_viscosity_pt(
+        pv_surface: float, temperature: float,
+        t_ref: float = 120.0, alpha: float = 0.015
+    ) -> Dict[str, Any]:
+        """
+        Correct plastic viscosity for temperature using Arrhenius-type model.
+
+        PV(T) = PV_ref * exp(-alpha * (T - T_ref))
+
+        Parameters:
+        - pv_surface: PV at reference temperature (cP)
+        - temperature: local temperature (°F)
+        - t_ref: reference temperature (°F, default 120°F — typical surface measurement)
+        - alpha: temperature sensitivity coefficient (1/°F, default 0.015)
+
+        Returns:
+        - pv_corrected: corrected PV (cP)
+        """
+        if pv_surface <= 0:
+            return {"pv_corrected": 0.0, "correction_factor": 1.0,
+                    "t_ref": t_ref, "temperature": temperature}
+
+        delta_t = temperature - t_ref
+        correction = math.exp(-alpha * delta_t)
+        # Clamp: don't allow PV to go below 10% or above 500% of surface value
+        correction = max(0.1, min(correction, 5.0))
+
+        pv_corrected = pv_surface * correction
+
+        return {
+            "pv_corrected": round(pv_corrected, 2),
+            "correction_factor": round(correction, 4),
+            "t_ref": t_ref,
+            "temperature": temperature
+        }
+
+    @staticmethod
+    def calculate_temperature_profile(
+        t_surface: float, gradient: float, depths: List[float]
+    ) -> List[Dict[str, Any]]:
+        """
+        Calculate temperature at each depth using a linear geothermal gradient.
+
+        T(z) = T_surface + gradient * z
+
+        Parameters:
+        - t_surface: surface/mudline temperature (°F)
+        - gradient: geothermal gradient (°F per ft, typical 1.0-1.5 per 100ft → 0.01-0.015)
+        - depths: list of TVDs (ft)
+
+        Returns:
+        - list of {depth, temperature} dicts
+        """
+        return [
+            {"depth_ft": round(d, 1),
+             "temperature_f": round(t_surface + gradient * d, 2)}
+            for d in depths
+        ]
+
     @staticmethod
     def pressure_loss_bingham(
         flow_rate: float,
@@ -534,7 +644,11 @@ class HydraulicsEngine:
         tau_0: float = 0.0,
         k_hb: float = 0.0,
         n_hb: float = 0.5,
-        fann_readings: Optional[Dict[str, float]] = None
+        fann_readings: Optional[Dict[str, float]] = None,
+        use_pt_correction: bool = False,
+        fluid_type: str = "wbm",
+        t_surface: float = 80.0,
+        geothermal_gradient: float = 0.012
     ) -> Dict[str, Any]:
         """
         Calculate full hydraulic circuit: Surface -> DP -> BHA -> Bit -> Annular
@@ -545,6 +659,10 @@ class HydraulicsEngine:
         - rheology_model: 'bingham_plastic', 'power_law', or 'herschel_bulkley'
         - tau_0, k_hb, n_hb: Herschel-Bulkley parameters (used if rheology_model='herschel_bulkley')
         - fann_readings: optional FANN viscometer readings for auto-fit H-B parameters
+        - use_pt_correction: if True, apply P/T density and viscosity corrections per section
+        - fluid_type: 'wbm' or 'obm' (for P/T correction coefficients)
+        - t_surface: surface temperature (°F, for geothermal gradient)
+        - geothermal_gradient: °F per ft (typical 0.010-0.015)
         """
         # Auto-fit Herschel-Bulkley if FANN readings provided
         if rheology_model == "herschel_bulkley" and fann_readings is not None:
@@ -557,13 +675,38 @@ class HydraulicsEngine:
         total_pipe_loss = surface_equipment_loss
         total_annular_loss = 0.0
 
+        # Cumulative depth tracker for P/T correction
+        cum_depth = 0.0
+
         for sec in sections:
             is_annular = "annulus" in sec.get("section_type", "")
+
+            # Estimate mid-section TVD for P/T correction
+            sec_length = sec["length"]
+            mid_depth = cum_depth + sec_length / 2.0
+            cum_depth += sec_length
+
+            # Apply P/T corrections if enabled
+            mw_local = mud_weight
+            pv_local = pv
+            yp_local = yp
+            if use_pt_correction:
+                t_local = t_surface + geothermal_gradient * mid_depth
+                p_local = 0.052 * mud_weight * mid_depth  # hydrostatic estimate
+                rho_corr = HydraulicsEngine.correct_density_pt(
+                    mud_weight, p_local, t_local, fluid_type
+                )
+                mw_local = rho_corr["rho_corrected"]
+                pv_corr = HydraulicsEngine.correct_viscosity_pt(pv, t_local)
+                pv_local = pv_corr["pv_corrected"]
+                # YP scales similarly to PV with temperature
+                yp_corr_factor = pv_corr["correction_factor"]
+                yp_local = yp * yp_corr_factor
 
             if rheology_model == "herschel_bulkley":
                 result = HydraulicsEngine.pressure_loss_herschel_bulkley(
                     flow_rate=flow_rate,
-                    mud_weight=mud_weight,
+                    mud_weight=mw_local,
                     tau_0=tau_0, k_hb=k_hb, n_hb=n_hb,
                     length=sec["length"],
                     od=sec["od"],
@@ -573,7 +716,7 @@ class HydraulicsEngine:
             elif rheology_model == "power_law":
                 result = HydraulicsEngine.pressure_loss_power_law(
                     flow_rate=flow_rate,
-                    mud_weight=mud_weight,
+                    mud_weight=mw_local,
                     n=n, k=k,
                     length=sec["length"],
                     od=sec["od"],
@@ -583,8 +726,8 @@ class HydraulicsEngine:
             else:
                 result = HydraulicsEngine.pressure_loss_bingham(
                     flow_rate=flow_rate,
-                    mud_weight=mud_weight,
-                    pv=pv, yp=yp,
+                    mud_weight=mw_local,
+                    pv=pv_local, yp=yp_local,
                     length=sec["length"],
                     od=sec["od"],
                     id_inner=sec["id_inner"],
