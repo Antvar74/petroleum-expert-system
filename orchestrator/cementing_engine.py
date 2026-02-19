@@ -841,3 +841,58 @@ class CementingEngine:
             "lift_pressure": lift,
             "summary": summary,
         }
+
+    # ===================================================================
+    # 9. Operational Recommendations Generator
+    # ===================================================================
+    @staticmethod
+    def generate_recommendations(result: Dict[str, Any]) -> List[str]:
+        """
+        Generate operational recommendations from cementing simulation results.
+
+        Parameters:
+        - result: output from calculate_full_cementing()
+
+        Returns list of plain-text recommendations.
+        """
+        recs: List[str] = []
+        summary = result.get("summary", {})
+
+        # ECD management
+        margin = summary.get("fracture_margin_ppg", 999)
+        if margin < 0:
+            recs.append("CRITICAL: ECD exceeds fracture gradient. Reduce pump rate or cement density.")
+        elif margin < 0.3:
+            recs.append("Tight ECD margin — consider reducing pump rate during cement displacement.")
+        elif margin < 0.5:
+            recs.append("Monitor ECD closely during tail cement placement.")
+
+        # Free-fall
+        ff = result.get("free_fall", {})
+        if ff.get("free_fall_occurs"):
+            h = ff.get("free_fall_height_ft", 0)
+            if h > 1000:
+                recs.append(f"Significant free-fall ({h} ft). Use staged cementing or low-density lead.")
+            elif h > 300:
+                recs.append(f"Moderate free-fall ({h} ft). Monitor returns and pressures carefully.")
+
+        # U-tube
+        ut = result.get("utube", {})
+        if ut.get("utube_occurs"):
+            recs.append("U-tube effect detected. Hold back-pressure after displacement.")
+
+        # Volume check
+        volumes = result.get("volumes", {})
+        total = volumes.get("total_cement_bbl", 0)
+        if total > 600:
+            recs.append("Large cement volume — verify mixing capacity and bulk storage.")
+
+        # Job time
+        job_time = summary.get("job_time_hrs", 0)
+        if job_time > 4:
+            recs.append("Extended job time — verify slurry thickening time exceeds job duration + safety.")
+
+        if not recs:
+            recs.append("All parameters within normal operating range. Standard execution recommended.")
+
+        return recs

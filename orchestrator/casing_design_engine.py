@@ -785,3 +785,51 @@ class CasingDesignEngine:
             "safety_factors": safety_factors,
             "summary": summary,
         }
+
+    # ===================================================================
+    # 10. Design Recommendations Generator
+    # ===================================================================
+    @staticmethod
+    def generate_recommendations(result: Dict[str, Any]) -> List[str]:
+        """
+        Generate design recommendations from casing analysis results.
+
+        Parameters:
+        - result: output from calculate_full_casing_design()
+
+        Returns list of plain-text recommendations.
+        """
+        recs: List[str] = []
+        summary = result.get("summary", {})
+
+        sf_burst = summary.get("sf_burst", 0)
+        sf_collapse = summary.get("sf_collapse", 0)
+        sf_tension = summary.get("sf_tension", 0)
+
+        if summary.get("overall_status") != "ALL PASS":
+            recs.append("FAIL: One or more design criteria not met. Upgrade grade or wall thickness.")
+
+        if sf_burst > 3.0:
+            recs.append(f"SF Burst ({sf_burst}) is very high — may be over-designed. Consider lighter grade.")
+        if sf_collapse > 4.0:
+            recs.append(f"SF Collapse ({sf_collapse}) is very high — consider cost optimization.")
+        if sf_tension > 3.0:
+            recs.append(f"SF Tension ({sf_tension}) is very high — verify overpull assumption.")
+
+        if sf_burst < 1.2:
+            recs.append("SF Burst is marginal. Verify gas migration scenario assumptions.")
+        if sf_collapse < 1.1:
+            recs.append("SF Collapse is marginal. Verify evacuation scenario and biaxial correction.")
+
+        triaxial = summary.get("triaxial_status", "")
+        if triaxial == "FAIL":
+            recs.append("CRITICAL: Triaxial VME check fails. Upgrade grade immediately.")
+
+        collapse_zone = summary.get("collapse_zone", "")
+        if collapse_zone == "Elastic":
+            recs.append("Collapse in elastic zone — thin-walled behavior. Consider heavier weight.")
+
+        if not recs:
+            recs.append("Design passes all criteria with adequate margins.")
+
+        return recs
