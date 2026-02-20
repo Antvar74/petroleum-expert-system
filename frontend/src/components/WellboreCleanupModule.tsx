@@ -235,12 +235,27 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
                 cleaningQuality={result.summary?.cleaning_quality || 'Poor'}
               />
               <CleanupEfficiencyProfile
-                data={sensitivityData.map((d, i) => ({
-                  md: i * 100,
-                  annular_velocity: d.hci * 120,
-                  transport_velocity: d.ctr * d.hci * 120,
-                  slip_velocity: result.summary?.slip_velocity_ftmin || 30,
-                }))}
+                currentInclination={params.inclination}
+                data={(() => {
+                  const va = 24.51 * params.flow_rate / (params.hole_id ** 2 - params.pipe_od ** 2);
+                  const vs_base = result.summary?.slip_velocity_ftmin || 1;
+                  return Array.from({ length: 19 }, (_, i) => {
+                    const inc = i * 5; // 0° to 90°
+                    // va_min increases with inclination
+                    const va_min = inc > 60 ? 150 : inc > 30 ? 130 : 120;
+                    const hci = va / va_min;
+                    // Slip velocity increases with inclination (bed formation effect)
+                    const incRad = (inc * Math.PI) / 180;
+                    const slipFactor = 1 + 2.5 * Math.sin(incRad) * Math.cos(incRad) + 1.5 * Math.pow(Math.sin(incRad), 2);
+                    const vs_eff = vs_base * slipFactor;
+                    const ctr = va > 0 ? Math.max((va - vs_eff) / va, 0) : 0;
+                    return {
+                      inclination: inc,
+                      hci: Math.round(hci * 100) / 100,
+                      ctr: Math.round(ctr * 1000) / 1000,
+                    };
+                  });
+                })()}
               />
             </div>
 

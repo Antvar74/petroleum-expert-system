@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard,
     Settings,
-    Activity,
-    GitBranch,
     Box,
     ChevronRight,
     ArrowUpDown,
@@ -81,8 +79,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
 
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'analysis', label: 'Pipeline de Agentes', icon: Activity },
-        { id: 'rca', label: 'Herramienta RCA', icon: GitBranch },
         { id: 'torque-drag', label: 'Torque & Drag', icon: ArrowUpDown },
         { id: 'hydraulics', label: 'Hydraulics/ECD', icon: Droplets },
         { id: 'stuck-pipe', label: 'Stuck Pipe', icon: Lock },

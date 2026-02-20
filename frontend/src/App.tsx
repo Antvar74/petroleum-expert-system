@@ -102,6 +102,7 @@ function AppContent() {
               analysisId={activeAnalysis.id}
               workflow={activeAnalysis.workflow || activeAnalysis.workflow_used || []}
               onComplete={() => setCurrentView('rca')}
+              onBack={() => setCurrentView('dashboard')}
             />
           </div>
         ) : (
@@ -186,9 +187,17 @@ function AppContent() {
           <div className="flex items-center gap-4">
             {selectedWell && (
               <button
-                onClick={() => setSelectedWell(null)}
+                onClick={() => {
+                  if (currentView === 'analysis' || currentView === 'rca') {
+                    setCurrentView('dashboard');
+                  } else if (currentView === 'dashboard') {
+                    setSelectedWell(null);
+                  } else {
+                    setCurrentView('dashboard');
+                  }
+                }}
                 className="p-2 mr-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                title="Volver a Proyectos"
+                title={currentView === 'dashboard' ? 'Volver a Proyectos' : 'Volver'}
               >
                 <ArrowLeft size={20} />
               </button>

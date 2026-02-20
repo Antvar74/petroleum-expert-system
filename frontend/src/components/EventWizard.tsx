@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, PenTool, Play, AlertTriangle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, PenTool, AlertTriangle, FilePlus, Pencil, Play } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
@@ -43,13 +43,217 @@ const EVENT_TYPES: Record<string, { id: string; label: string; family: string }[
     ],
 };
 
-// Family labels for display (auto-inferred, not manually selected)
 const FAMILY_LABELS: Record<string, string> = {
     well: 'Pozo / Geomecánica',
     fluids: 'Fluidos / Presión',
     mechanics: 'Sarta / Mecánicos',
     control: 'Control de Pozo',
     human: 'Factores Humanos',
+};
+
+// =====================================================================
+// MINIMUM REQUIRED FIELDS PER EVENT TYPE — Nivel Elite
+// Basado en investigación de estándares API, SPE, y mejores prácticas
+// de ingeniería de perforación, completación y workover.
+// =====================================================================
+//
+// _baseline: campos universales requeridos para CUALQUIER evento
+// _baseline_completion: campos base para eventos de completación
+// _baseline_workover: campos base para eventos de workover
+// Cada evento tiene sus campos específicos adicionales.
+// La validación exige: TODOS los baseline + AL MENOS UNO de los específicos.
+// =====================================================================
+
+const MINIMUM_REQUIRED_FIELDS: Record<string, string[]> = {
+    // ── PERFORACIÓN: Baseline ──
+    _baseline: ['depth_md', 'depth_tvd', 'mud_weight'],
+
+    // ── PERFORACIÓN: Eventos ──
+    // Pega de Tubería (Stuck Pipe) — Familia: Sarta/Mecánicos
+    // Ref: SPE Stuck Pipe Manual, Aramco Early Warning System
+    // Requiere: torque (tendencia), overpull (vs drag normal), hook_load (MOP),
+    // differential_pressure (overbalance), friction_factor (para T&D model)
+    stuck_pipe: ['torque', 'overpull', 'hook_load', 'differential_pressure', 'friction_factor'],
+
+    // Pérdida de Circulación (Lost Circulation) — Familia: Fluidos/Presión
+    // Ref: SPE Lost Circulation Classification, ECD Management
+    // Requiere: flow_rate (caudal), ecd (densidad circulante equivalente),
+    // fracture_gradient (gradiente de fractura), loss_rate (tasa de pérdida),
+    // pore_pressure (presión de poro)
+    lost_circulation: ['flow_rate', 'ecd', 'fracture_gradient', 'loss_rate', 'pore_pressure'],
+
+    // Kick / Influjo — Familia: Fluidos/Presión
+    // Ref: API RP 59, Well Control Formulas (Driller's / Wait & Weight)
+    // Requiere: pit_gain (volumen kick), sidpp/sicp (presiones shut-in),
+    // kill_mud_weight (peso lodo matar), bht (temp fondo)
+    kick: ['pit_gain', 'sidpp', 'sicp', 'kill_mud_weight', 'bht'],
+
+    // Falla de BHA — Familia: Sarta/Mecánicos
+    // Ref: SPE Drillstring Vibration Analysis, BHA Fatigue Models
+    // Requiere: torque, wob, rpm, lateral_vibration (g), mse (energía específica)
+    bha_failure: ['torque', 'wob', 'rpm', 'lateral_vibration', 'mse'],
+
+    // Torque/Drag Excesivo — Familia: Sarta/Mecánicos
+    // Ref: Innova T&D, PVI TADPRO, Broomstick/Hookload Plots
+    // Requiere: torque, overpull, hook_load, friction_factor, rop
+    torque_drag: ['torque', 'overpull', 'hook_load', 'friction_factor', 'rop'],
+
+    // Vibración Severa — Familia: Sarta/Mecánicos
+    // Ref: SPE/IADC Drilling Vibration Monitoring, MSE Optimization
+    // Requiere: torque, wob, rpm, lateral_vibration, mse, spp
+    severe_vibration: ['torque', 'wob', 'rpm', 'lateral_vibration', 'mse', 'spp'],
+
+    // Inestabilidad del Hoyo — Familia: Pozo/Geomecánica
+    // Ref: Oilfield Geomechanics, Wellbore Stability Evaluations
+    // Requiere: pore_pressure, ucs, hole_diameter, inclination, azimuth
+    wellbore_instability: ['pore_pressure', 'ucs', 'hole_diameter', 'inclination', 'azimuth'],
+
+    // ── COMPLETACIÓN: Baseline ──
+    _baseline_completion: ['depth_md', 'depth_tvd', 'reservoir_pressure'],
+
+    // Falla de Cañoneo — Familia: Sarta/Mecánicos
+    // Ref: AAPG Perforation Design, SPE Underbalance Criteria
+    // Requiere: shot_density, penetration_depth, skin_factor,
+    // underbalance_pressure, perforation_diameter
+    perforation_failure: ['shot_density', 'penetration_depth', 'skin_factor', 'underbalance_pressure', 'perforation_diameter'],
+
+    // Daño de Formación — Familia: Pozo/Geomecánica
+    // Ref: ScienceDirect Skin Factor & Well Test Analysis
+    // Requiere: skin_factor, permeability, flow_rate, pressure_drawdown, porosity
+    formation_damage: ['skin_factor', 'permeability', 'flow_rate', 'pressure_drawdown', 'porosity'],
+
+    // Producción de Arena — Familia: Pozo/Geomecánica
+    // Ref: SPE Sanding Prediction, Critical Drawdown Pressure
+    // Requiere: ucs, pressure_drawdown, flow_rate, grain_size, shmin
+    sand_production: ['ucs', 'pressure_drawdown', 'flow_rate', 'grain_size', 'shmin'],
+
+    // Falla de Packer — Familia: Sarta/Mecánicos
+    // Ref: SPE HTHP Packer Analysis, Tubing Movement Studies
+    // Requiere: differential_pressure, bht, setting_depth,
+    // tubing_pressure, annular_pressure
+    packer_failure: ['differential_pressure', 'bht', 'setting_depth', 'tubing_pressure', 'annular_pressure'],
+
+    // Falla de Empaque (Gravel Pack) — Familia: Sarta/Mecánicos
+    // Ref: SPE Gravel Pack Fluidization, Sand Screen Selection
+    // Requiere: flow_rate, pressure_drawdown, gravel_permeability,
+    // screen_slot_size, skin_factor
+    gravel_pack_failure: ['flow_rate', 'pressure_drawdown', 'gravel_permeability', 'screen_slot_size', 'skin_factor'],
+
+    // ── WORKOVER: Baseline ──
+    _baseline_workover: ['depth_md', 'depth_tvd', 'fluid_density'],
+
+    // Falla de Coiled Tubing — Familia: Sarta/Mecánicos
+    // Ref: SPE CT Fatigue Models, BSEE CT Stress Analysis
+    // Requiere: ct_od, ct_wall_thickness, internal_pressure,
+    // reel_radius, tensile_load
+    ct_failure: ['ct_od', 'ct_wall_thickness', 'internal_pressure', 'reel_radius', 'tensile_load'],
+
+    // Falla de BOP — Familia: Control de Pozo
+    // Ref: API Standard 53, 30 CFR § 250.737
+    // Requiere: bop_pressure_rating, test_pressure, wellhead_pressure,
+    // last_test_date, bop_type
+    bop_failure: ['bop_pressure_rating', 'test_pressure', 'wellhead_pressure', 'last_test_date', 'bop_type'],
+
+    // Atascamiento (Stuck String Workover) — Familia: Sarta/Mecánicos
+    // Ref: SPE Stuck Pipe Manual, Differential Sticking Guide
+    // Requiere: overpull, torque, hook_load, differential_pressure,
+    // stuck_point_depth
+    stuck_string: ['overpull', 'torque', 'hook_load', 'differential_pressure', 'stuck_point_depth'],
+
+    // Falla de Equipo Superficie — Familia: Sarta/Mecánicos
+    // Requiere: equipment_type, operating_pressure, operating_temperature,
+    // failure_mode, hours_in_service
+    surface_equipment: ['equipment_type', 'operating_pressure', 'operating_temperature', 'failure_mode', 'hours_in_service'],
+};
+
+// =====================================================================
+// FIELD LABELS — Etiquetas legibles para cada campo con unidades
+// =====================================================================
+const FIELD_LABELS: Record<string, string> = {
+    // ── Universales / Baseline ──
+    depth_md:               'Profundidad MD (ft)',
+    depth_tvd:              'Profundidad TVD (ft)',
+    mud_weight:             'Peso del Lodo (ppg)',
+    fluid_density:          'Densidad del Fluido (ppg)',
+    reservoir_pressure:     'Presión de Reservorio (psi)',
+
+    // ── Perforación: Mecánicos ──
+    torque:                 'Torque (ft-lb)',
+    overpull:               'Overpull (klb)',
+    hook_load:              'Carga del Gancho (klb)',
+    wob:                    'WOB (klb)',
+    rpm:                    'RPM',
+    rop:                    'ROP (ft/hr)',
+    friction_factor:        'Factor de Fricción (adim.)',
+    differential_pressure:  'Presión Diferencial (psi)',
+    spp:                    'Presión de Standpipe (psi)',
+    mse:                    'MSE — Energía Específica (psi)',
+    lateral_vibration:      'Vibración Lateral (g)',
+
+    // ── Perforación: Fluidos / Presión ──
+    flow_rate:              'Caudal (gpm)',
+    ecd:                    'ECD (ppg)',
+    fracture_gradient:      'Gradiente de Fractura (ppg)',
+    loss_rate:              'Tasa de Pérdida (bbl/hr)',
+    pore_pressure:          'Presión de Poro (ppg)',
+    pit_gain:               'Ganancia de Pileta (bbl)',
+    sidpp:                  'SIDPP (psi)',
+    sicp:                   'SICP (psi)',
+    kill_mud_weight:        'Peso Lodo de Matar (ppg)',
+    bht:                    'Temperatura de Fondo (°F)',
+
+    // ── Perforación: Geomecánica ──
+    ucs:                    'UCS — Resist. Compresión (psi)',
+    hole_diameter:          'Diámetro del Hoyo (in)',
+    inclination:            'Inclinación (°)',
+    azimuth:                'Azimut (°)',
+
+    // ── Completación: Cañoneo ──
+    shot_density:           'Densidad de Disparos (SPF)',
+    penetration_depth:      'Profundidad de Penetración (in)',
+    skin_factor:            'Factor de Daño / Skin (adim.)',
+    underbalance_pressure:  'Presión Underbalance (psi)',
+    perforation_diameter:   'Diámetro de Perforación (in)',
+
+    // ── Completación: Formación / Arena ──
+    permeability:           'Permeabilidad (mD)',
+    pressure_drawdown:      'Drawdown de Presión (psi)',
+    porosity:               'Porosidad (%)',
+    grain_size:             'Tamaño de Grano (mm)',
+    shmin:                  'Esfuerzo Horizontal Mín. (psi)',
+
+    // ── Completación: Packer ──
+    setting_depth:          'Profundidad de Asentamiento (ft)',
+    tubing_pressure:        'Presión de Tubing (psi)',
+    annular_pressure:       'Presión Anular (psi)',
+
+    // ── Completación: Gravel Pack ──
+    gravel_permeability:    'Permeabilidad del Gravel (D)',
+    screen_slot_size:       'Apertura de Screen (in)',
+
+    // ── Workover: Coiled Tubing ──
+    ct_od:                  'OD del CT (in)',
+    ct_wall_thickness:      'Espesor Pared CT (in)',
+    internal_pressure:      'Presión Interna CT (psi)',
+    reel_radius:            'Radio del Carrete (ft)',
+    tensile_load:           'Carga Tensil (klb)',
+
+    // ── Workover: BOP ──
+    bop_pressure_rating:    'Presión Nominal BOP (psi)',
+    test_pressure:          'Presión de Prueba (psi)',
+    wellhead_pressure:      'Presión de Cabezal (psi)',
+    last_test_date:         'Fecha Última Prueba',
+    bop_type:               'Tipo de BOP',
+
+    // ── Workover: Stuck String ──
+    stuck_point_depth:      'Profundidad Pto. Pegado (ft)',
+
+    // ── Workover: Equipo Superficie ──
+    equipment_type:         'Tipo de Equipo',
+    operating_pressure:     'Presión de Operación (psi)',
+    operating_temperature:  'Temperatura de Operación (°F)',
+    failure_mode:           'Modo de Falla',
+    hours_in_service:       'Horas en Servicio',
 };
 
 const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
@@ -60,9 +264,15 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     const [files, setFiles] = useState<File[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractedData, setExtractedData] = useState<any>(null);
+    const [manualOverrides, setManualOverrides] = useState<Record<string, string>>({});
+    const [showManualInputs, setShowManualInputs] = useState(false);
+    const [manualFieldsSnapshot, setManualFieldsSnapshot] = useState<string[]>([]);
+    const additionalFileRef = useRef<HTMLInputElement>(null);
+
+    // Step 3 state: Agent selection
+    const [availableAgents, setAvailableAgents] = useState<any[]>([]);
     const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
     const [leaderAgent, setLeaderAgent] = useState<string | null>(null);
-    const [availableAgents, setAvailableAgents] = useState<any[]>([]);
 
     // Auto-infer family from event type selection
     const inferredFamily = React.useMemo(() => {
@@ -72,64 +282,132 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         return match?.family || 'well';
     }, [phase, eventType]);
 
-    React.useEffect(() => {
-        // Fetch agents on mount
-        axios.get(`${API_BASE_URL}/agents`)
-            .then(res => {
-                setAvailableAgents(res.data);
-                // Default to empty selection (User request)
-                setSelectedAgents([]);
-            })
-            .catch(err => console.error("Failed to fetch agents:", err));
-    }, []);
+    // Merge extracted data + manual overrides
+    const mergedData = React.useMemo(() => {
+        if (!extractedData) return null;
+        const merged = { ...extractedData };
+        for (const [key, value] of Object.entries(manualOverrides)) {
+            if (value !== '') {
+                merged[key] = parseFloat(value) || value;
+            }
+        }
+        return merged;
+    }, [extractedData, manualOverrides]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Fetch agents when reaching Step 3
+    useEffect(() => {
+        if (step === 3 && availableAgents.length === 0) {
+            axios.get(`${API_BASE_URL}/agents`)
+                .then(res => {
+                    setAvailableAgents(res.data);
+                    // Pre-select all agents and set drilling_engineer as leader
+                    const allIds = res.data.map((a: any) => a.id);
+                    setSelectedAgents(allIds);
+                    setLeaderAgent(allIds.includes('drilling_engineer') ? 'drilling_engineer' : allIds[0]);
+                })
+                .catch(err => console.error("Failed to fetch agents:", err));
+        }
+    }, [step, availableAgents.length]);
+
+    // ----- Validation -----
+    // Determine which baseline fields apply based on the selected phase
+    const getBaselineKey = (): string => {
+        if (phase === 'completion') return '_baseline_completion';
+        if (phase === 'workover') return '_baseline_workover';
+        return '_baseline'; // drilling default
+    };
+
+    const validateMinimumData = (data: any): { valid: boolean; missingBaseline: string[]; missingSpecific: string[]; } => {
+        const baselineKey = getBaselineKey();
+        const baselineFields = MINIMUM_REQUIRED_FIELDS[baselineKey] || MINIMUM_REQUIRED_FIELDS._baseline;
+
+        if (!data || Object.keys(data).length === 0) {
+            return { valid: false, missingBaseline: baselineFields, missingSpecific: [] };
+        }
+
+        const hasValue = (key: string) => {
+            const val = data[key];
+            return val !== null && val !== undefined && val !== '' && val !== 0 && val !== '0';
+        };
+
+        const missingBaseline = baselineFields.filter(f => !hasValue(f));
+        const specificFields = MINIMUM_REQUIRED_FIELDS[eventType || ''] || [];
+        const hasAnySpecific = specificFields.length === 0 || specificFields.some(f => hasValue(f));
+        const missingSpecific = hasAnySpecific ? [] : specificFields;
+
+        return { valid: missingBaseline.length === 0 && hasAnySpecific, missingBaseline, missingSpecific };
+    };
+
+    const getMissingFields = (data: any): string[] => {
+        const validation = validateMinimumData(data);
+        const missing: string[] = [...validation.missingBaseline];
+        if (validation.missingSpecific.length > 0) {
+            for (const f of validation.missingSpecific) {
+                if (!missing.includes(f)) missing.push(f);
+            }
+        }
+        return missing;
+    };
+
+    // ----- File Upload -----
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isAdditional: boolean = false) => {
         if (e.target.files && e.target.files.length > 0) {
             const selectedFiles = Array.from(e.target.files);
+            const allFiles = isAdditional ? [...files, ...selectedFiles] : selectedFiles;
 
-            // Validation
-            if (selectedFiles.length > 5) {
-                addToast("Máximo 5 archivos permitidos.", 'warning');
+            if (allFiles.length > 5) {
+                addToast("Máximo 5 archivos en total.", 'warning');
                 return;
             }
 
-            const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
-            if (totalSize > 10 * 1024 * 1024) { // 10MB
+            const totalSize = allFiles.reduce((acc, file) => acc + file.size, 0);
+            if (totalSize > 10 * 1024 * 1024) {
                 addToast("El tamaño total excede los 10MB.", 'warning');
                 return;
             }
 
-            setFiles(selectedFiles);
+            setFiles(allFiles);
             setIsExtracting(true);
 
             const formData = new FormData();
-            selectedFiles.forEach(file => {
-                formData.append('files', file); // Note: Backend expects 'files' list
-            });
+            selectedFiles.forEach(file => { formData.append('files', file); });
 
             try {
-                // Call Extraction Endpoint
                 const response = await axios.post(`${API_BASE_URL}/events/extract`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                setExtractedData(response.data);
+                const newData = response.data;
+
+                if (isAdditional && extractedData) {
+                    const merged = { ...extractedData };
+                    for (const [key, value] of Object.entries(newData)) {
+                        if (value !== null && value !== undefined && value !== '' && value !== 0) {
+                            merged[key] = value;
+                        }
+                    }
+                    setExtractedData(merged);
+                    addToast(`Datos adicionales integrados desde ${selectedFiles.map(f => f.name).join(', ')}`, 'success');
+                } else {
+                    setExtractedData(newData);
+                }
             } catch (error) {
                 console.error("Extraction error:", error);
-                addToast("Error al extraer datos. Ingrese los parámetros manualmente.", 'error');
+                addToast("Error al extraer datos. Intenta con otro documento.", 'error');
             } finally {
                 setIsExtracting(false);
+                if (e.target) e.target.value = '';
             }
         }
     };
 
-    const handleConfirm = () => {
-        // Move to Agent Selection Step instead of completing immediately
-        setStep(3);
+    const handleManualChange = (field: string, value: string) => {
+        setManualOverrides(prev => ({ ...prev, [field]: value }));
     };
 
+    // ----- Agent toggle -----
     const handleAgentToggle = (agentId: string) => {
         const isSelected = selectedAgents.includes(agentId);
-        let newSelection;
+        let newSelection: string[];
 
         if (isSelected) {
             newSelection = selectedAgents.filter(id => id !== agentId);
@@ -142,6 +420,25 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         setSelectedAgents(newSelection);
     };
 
+    // ----- Final Submit -----
+    const handleFinalSubmit = () => {
+        onComplete({
+            phase,
+            family: inferredFamily,
+            event_type: eventType,
+            parameters: mergedData || {},
+            workflow: selectedAgents,
+            leader: leaderAgent
+        });
+    };
+
+    // ----- Skip data and go to step 3 -----
+    const handleSkipData = () => {
+        setExtractedData({});
+        setStep(3);
+    };
+
+    // ----- Step Indicator (3 steps) -----
     const renderStepIndicator = () => (
         <div className="flex items-center justify-center gap-2 mb-8">
             {[
@@ -168,6 +465,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         </div>
     );
 
+    // ===== Step 1: Identification =====
     const renderStep1 = () => (
         <div className="space-y-6 animate-fadeIn">
             <h3 className="text-xl font-bold text-white mb-4">1. Identificación del Evento</h3>
@@ -211,7 +509,6 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                 </div>
             )}
 
-            {/* Auto-inferred family shown as read-only chip */}
             {phase && eventType && inferredFamily && (
                 <div className="animate-fadeIn flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 border border-white/10">
                     <span className="text-xs text-white/40 uppercase tracking-wider">Familia:</span>
@@ -221,13 +518,9 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
             )}
 
             <div className="flex justify-end pt-6">
-                <button
-                    onClick={onCancel}
-                    className="mr-auto text-white/50 hover:text-white px-4 py-2"
-                >
+                <button onClick={onCancel} className="mr-auto text-white/50 hover:text-white px-4 py-2">
                     Cancelar
                 </button>
-
                 <button
                     disabled={!phase || !eventType}
                     onClick={() => setStep(2)}
@@ -239,136 +532,236 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         </div>
     );
 
-    const renderStep2 = () => (
-        <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-bold text-white mb-4">2. Captura de Datos Inteligente</h3>
+    // ===== Step 2: Data Capture =====
+    const renderStep2 = () => {
+        const validation = mergedData && Object.keys(mergedData).length > 0
+            ? validateMinimumData(mergedData)
+            : null;
 
-            {!extractedData ? (
-                <>
-                    <div className="border-2 border-dashed border-white/20 rounded-xl p-12 text-center hover:border-ibm-blue-500/50 transition-colors bg-white/5">
-                        <input
-                            type="file"
-                            id="file-upload"
-                            className="hidden"
-                            accept=".pdf,.csv,.txt,.md"
-                            multiple
-                            onChange={handleFileUpload}
-                            disabled={isExtracting}
-                        />
-                        <label htmlFor="file-upload" className={`flex flex-col items-center gap-4 ${isExtracting ? 'pointer-events-none' : 'cursor-pointer'}`}>
-                            {isExtracting ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ibm-blue-500"></div>
-                                    <div className="text-ibm-blue-300 animate-pulse">Analizando documentos con IA...</div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="p-4 bg-ibm-blue-500/10 rounded-full text-ibm-blue-400">
-                                        <Upload size={32} />
-                                    </div>
-                                    <div>
-                                        <div className="text-lg font-medium text-white">Sube Reportes Diarios (DDR) o PDFs</div>
-                                        <div className="text-sm text-white/40 mt-1">Soporta PDF, CSV, TXT, MD</div>
-                                        <div className="text-xs text-yellow-500/80 mt-2 font-mono border border-yellow-500/20 bg-yellow-500/5 px-2 py-1 rounded inline-block">
-                                            Max 5 archivos o 10MB total. Se procesaran los primeros 15k caracteres.
+        const extractedFieldCount = mergedData
+            ? Object.entries(mergedData).filter(([k, v]) => k !== 'operation_summary' && v !== null && v !== '' && v !== undefined).length
+            : 0;
+
+        const missingFields = mergedData ? getMissingFields(mergedData) : [];
+        const specificFields = MINIMUM_REQUIRED_FIELDS[eventType || ''] || [];
+        const baselineFields = MINIMUM_REQUIRED_FIELDS[getBaselineKey()] || MINIMUM_REQUIRED_FIELDS._baseline;
+
+        return (
+            <div className="space-y-6 animate-fadeIn">
+                <h3 className="text-xl font-bold text-white mb-4">2. Captura de Datos Inteligente</h3>
+
+                {!extractedData ? (
+                    <>
+                        <div className="border-2 border-dashed border-white/20 rounded-xl p-12 text-center hover:border-ibm-blue-500/50 transition-colors bg-white/5">
+                            <input type="file" id="file-upload" className="hidden" accept=".pdf,.csv,.txt,.md" multiple
+                                onChange={(e) => handleFileUpload(e, false)} disabled={isExtracting} />
+                            <label htmlFor="file-upload" className={`flex flex-col items-center gap-4 ${isExtracting ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                                {isExtracting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ibm-blue-500"></div>
+                                        <div className="text-ibm-blue-300 animate-pulse">Analizando documentos con IA...</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="p-4 bg-ibm-blue-500/10 rounded-full text-ibm-blue-400"><Upload size={32} /></div>
+                                        <div>
+                                            <div className="text-lg font-medium text-white">Sube Reportes Diarios (DDR) o PDFs</div>
+                                            <div className="text-sm text-white/40 mt-1">Soporta PDF, CSV, TXT, MD</div>
+                                            <div className="text-xs text-yellow-500/80 mt-2 font-mono border border-yellow-500/20 bg-yellow-500/5 px-2 py-1 rounded inline-block">
+                                                Max 5 archivos o 10MB total.
+                                            </div>
                                         </div>
-                                    </div>
-                                </>
-                            )}
-                        </label>
-                    </div>
-                    <div className="flex justify-between mt-4">
-                        <button
-                            onClick={() => setStep(1)}
-                            className="text-white/50 hover:text-white px-4 py-2 flex items-center gap-2"
-                        >
-                            <ArrowLeftIcon size={16} /> Atrás
-                        </button>
-                        <button
-                            onClick={() => {
-                                setExtractedData({});
-                                setStep(3);
-                            }}
-                            className="text-sm text-white/40 hover:text-white transition-colors"
-                        >
-                            Omitir (Continuar sin datos)
-                        </button>
-                    </div>
-                </>
-            ) : (
-                <div className="space-y-6">
-                    <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg flex items-center gap-3 text-green-400">
-                        <Check size={20} />
-                        <div className="flex-1">
-                            <div className="font-bold">Datos Extraídos Exitosamente</div>
-                            <div className="text-xs opacity-80 mb-1">Por favor verifica los valores detectados automáticamente.</div>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+                        <div className="flex justify-between mt-4">
+                            <button onClick={() => setStep(1)} className="text-white/50 hover:text-white px-4 py-2 flex items-center gap-2">
+                                <ArrowLeftIcon size={16} /> Atrás
+                            </button>
+                            <button onClick={handleSkipData} className="text-sm text-white/40 hover:text-white transition-colors">
+                                Omitir (Continuar sin datos)
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <div className="space-y-5">
+                        {/* Success Banner */}
+                        <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg flex items-center gap-3 text-green-400">
+                            <Check size={20} className="flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold">Datos Extraídos Exitosamente</div>
+                                <div className="text-xs opacity-80 mb-1">Se detectaron {extractedFieldCount} parámetros técnicos de {files.length} documento{files.length > 1 ? 's' : ''}.</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {files.map((f, i) => (
+                                        <span key={i} className="text-xs bg-green-500/20 px-2 py-0.5 rounded text-green-300 border border-green-500/30">
+                                            {f.name} ({(f.size / 1024).toFixed(1)} KB)
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <button onClick={() => { setExtractedData(null); setFiles([]); setManualOverrides({}); setShowManualInputs(false); setManualFieldsSnapshot([]); }}
+                                className="ml-auto text-xs underline hover:text-green-300 whitespace-nowrap flex-shrink-0">
+                                Reiniciar
+                            </button>
+                        </div>
+
+                        {/* Extracted Data Summary */}
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-white/60 font-medium">Parámetros detectados</span>
+                                <span className="text-xs text-ibm-blue-400 font-mono">{extractedFieldCount} campos</span>
+                            </div>
                             <div className="flex flex-wrap gap-2">
-                                {files.map((f, i) => (
-                                    <span key={i} className="text-xs bg-green-500/20 px-2 py-0.5 rounded text-green-300 border border-green-500/30">
-                                        {f.name} ({(f.size / 1024).toFixed(1)} KB)
-                                    </span>
-                                ))}
+                                {Object.entries(mergedData || {})
+                                    .filter(([k, v]) => k !== 'operation_summary' && v !== null && v !== '' && v !== undefined)
+                                    .map(([key, value]) => {
+                                        const isManual = manualOverrides[key] !== undefined && manualOverrides[key] !== '';
+                                        return (
+                                            <span key={key} className={`text-xs px-2.5 py-1.5 rounded-lg font-mono border ${isManual ? 'bg-ibm-blue-500/10 border-ibm-blue-500/30 text-ibm-blue-300' : 'bg-white/10 border-white/5 text-white/70'}`}>
+                                                <span className="text-white/40">{FIELD_LABELS[key]?.split(' (')[0] || key.replace(/_/g, ' ')}:</span>{' '}
+                                                <span className="text-ibm-blue-400">{String(value)}</span>
+                                                {isManual && <span className="ml-1 text-[9px] text-ibm-blue-500/60">(manual)</span>}
+                                            </span>
+                                        );
+                                    })}
+                                {extractedFieldCount === 0 && <span className="text-xs text-white/30 italic">No se detectaron parámetros numéricos.</span>}
                             </div>
                         </div>
-                        <button
-                            onClick={() => {
-                                setExtractedData(null);
-                                setFiles([]);
-                            }}
-                            className="ml-auto text-xs underline hover:text-green-300 whitespace-nowrap"
-                        >
-                            Re-subir
-                        </button>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(extractedData).map(([key, value]) => {
-                            if (key === 'operation_summary') return null;
-                            return (
-                                <div key={key} className="bg-white/5 p-3 rounded border border-white/10">
-                                    <label className="text-xs text-white/40 uppercase block mb-1">{key.replace(/_/g, ' ')}</label>
-                                    <input
-                                        type="text"
-                                        value={(value as string) || ''}
-                                        onChange={(e) => setExtractedData({ ...extractedData, [key]: e.target.value })}
-                                        className="bg-transparent text-white font-mono w-full focus:outline-none"
-                                    />
+                        {/* Operation Summary */}
+                        {(mergedData as any)?.operation_summary && (
+                            <div className="bg-white/5 p-4 rounded border border-white/10">
+                                <label className="text-xs text-white/40 uppercase block mb-1">Resumen Operacional</label>
+                                <p className="text-white/80 text-sm">{(mergedData as any).operation_summary}</p>
+                            </div>
+                        )}
+
+                        {/* Validation Warning */}
+                        {validation && !validation.valid && (
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-lg space-y-3">
+                                <div className="flex items-center gap-2 text-yellow-400">
+                                    <AlertTriangle size={16} />
+                                    <span className="font-bold text-sm">Datos insuficientes para análisis</span>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                {validation.missingBaseline.length > 0 && (
+                                    <div className="text-xs text-yellow-300/80">
+                                        Faltan campos obligatorios: <span className="font-medium">{validation.missingBaseline.map(f => FIELD_LABELS[f]?.split(' (')[0] || f).join(', ')}</span>
+                                    </div>
+                                )}
+                                {validation.missingSpecific.length > 0 && (
+                                    <div className="text-xs text-yellow-300/80">
+                                        Para "<span className="font-medium">{eventType?.replace(/_/g, ' ')}</span>" se requiere al menos uno de: <span className="font-medium">{validation.missingSpecific.map(f => FIELD_LABELS[f]?.split(' (')[0] || f).join(', ')}</span>
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {files.length < 5 && (
+                                        <button onClick={() => additionalFileRef.current?.click()} disabled={isExtracting}
+                                            className="flex items-center gap-1.5 text-xs bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                            <FilePlus size={13} /> {isExtracting ? 'Extrayendo...' : 'Subir otro documento'}
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setManualFieldsSnapshot(missingFields); setShowManualInputs(true); }}
+                                        className="flex items-center gap-1.5 text-xs bg-ibm-blue-500/10 hover:bg-ibm-blue-500/20 border border-ibm-blue-500/30 text-ibm-blue-400 px-3 py-1.5 rounded-lg transition-colors">
+                                        <Pencil size={13} /> Completar manualmente
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-                    {extractedData.operation_summary && (
-                        <div className="bg-white/5 p-4 rounded border border-white/10">
-                            <label className="text-xs text-white/40 uppercase block mb-1">Resumen Operacional</label>
-                            <p className="text-white/80 text-sm">{extractedData.operation_summary}</p>
+                        <input ref={additionalFileRef} type="file" className="hidden" accept=".pdf,.csv,.txt,.md" multiple
+                            onChange={(e) => handleFileUpload(e, true)} disabled={isExtracting} />
+
+                        {isExtracting && extractedData && (
+                            <div className="flex items-center gap-3 p-4 bg-ibm-blue-500/5 border border-ibm-blue-500/20 rounded-lg animate-pulse">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-ibm-blue-500"></div>
+                                <span className="text-sm text-ibm-blue-300">Extrayendo datos del nuevo documento...</span>
+                            </div>
+                        )}
+
+                        {/* Manual Input — uses snapshot of missing fields so inputs don't vanish mid-typing */}
+                        {showManualInputs && manualFieldsSnapshot.length > 0 && (
+                            <div className="bg-ibm-blue-500/5 border border-ibm-blue-500/20 rounded-lg p-4 space-y-4 animate-fadeIn">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Pencil size={14} className="text-ibm-blue-400" />
+                                        <span className="text-sm font-medium text-white">Completar información faltante</span>
+                                    </div>
+                                    <button onClick={() => setShowManualInputs(false)} className="text-xs text-white/30 hover:text-white/60 transition-colors">Ocultar</button>
+                                </div>
+                                {specificFields.length > 0 && validation && validation.missingSpecific.length > 0 && (
+                                    <div className="text-[11px] text-ibm-blue-400/70 bg-ibm-blue-500/10 px-3 py-1.5 rounded">
+                                        Para este tipo de evento, llena al menos uno de los campos marcados con ★
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {manualFieldsSnapshot.map(field => {
+                                        const isSpecificOnly = !baselineFields.includes(field) && specificFields.includes(field);
+                                        const isFilled = manualOverrides[field] !== undefined && manualOverrides[field] !== '';
+                                        return (
+                                            <div key={field} className="space-y-1">
+                                                <label className="text-xs text-white/50 flex items-center gap-1">
+                                                    {FIELD_LABELS[field] || field.replace(/_/g, ' ')}
+                                                    {isSpecificOnly && <span className="text-yellow-400" title="Al menos uno requerido">★</span>}
+                                                    {isFilled && <Check size={10} className="text-green-400 ml-1" />}
+                                                </label>
+                                                <input type="number" step="any" placeholder="Ingrese valor"
+                                                    value={manualOverrides[field] || ''}
+                                                    onChange={(e) => handleManualChange(field, e.target.value)}
+                                                    className={`w-full bg-white/5 border rounded px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-ibm-blue-500 focus:ring-1 focus:ring-ibm-blue-500/30 placeholder:text-white/20 ${isFilled ? 'border-green-500/30' : 'border-white/10'}`} />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {validation && validation.valid && (
+                            <div className="bg-green-500/5 border border-green-500/20 p-3 rounded-lg flex items-center gap-2 text-green-400">
+                                <Check size={16} />
+                                <span className="text-sm font-medium">Datos mínimos completos — listo para continuar</span>
+                            </div>
+                        )}
+
+                        {validation && validation.valid && files.length < 5 && (
+                            <button onClick={() => additionalFileRef.current?.click()} disabled={isExtracting}
+                                className="flex items-center gap-2 text-xs text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
+                                <FilePlus size={13} /> Agregar más documentos para enriquecer datos ({files.length}/5)
+                            </button>
+                        )}
+
+                        {/* Navigation */}
+                        <div className="flex justify-between pt-4">
+                            <button onClick={() => { setExtractedData(null); setFiles([]); setManualOverrides({}); setShowManualInputs(false); setManualFieldsSnapshot([]); }}
+                                className="text-white/50 hover:text-white px-4 py-2 flex items-center gap-2">
+                                <ArrowLeftIcon size={16} /> Atrás
+                            </button>
+                            <div className="flex items-center gap-4">
+                                <button onClick={handleSkipData} className="text-sm text-white/40 hover:text-white transition-colors">
+                                    Omitir (Continuar sin datos)
+                                </button>
+                                <button
+                                    onClick={() => setStep(3)}
+                                    disabled={validation ? !validation.valid : true}
+                                    className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
+                                >
+                                    Siguiente <ArrowRight size={16} />
+                                </button>
+                            </div>
                         </div>
-                    )}
-
-                    <div className="flex justify-between pt-6">
-                        <button
-                            onClick={() => setStep(1)}
-                            className="text-white/50 hover:text-white px-4 py-2"
-                        >
-                            Atrás
-                        </button>
-                        <button
-                            onClick={handleConfirm}
-                            className="bg-ibm-blue-600 hover:bg-ibm-blue-700 text-white px-6 py-2 rounded flex items-center gap-2"
-                        >
-                            Confirmar y Analizar <ArrowRight size={16} />
-                        </button>
                     </div>
-                </div>
-            )}
-        </div>
-    );
+                )}
+            </div>
+        );
+    };
 
+    // ===== Step 3: Agent Selection =====
     const renderStep3 = () => (
         <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-bold text-white mb-4">3. Selección del Equipo de Investigación (IA)</h3>
+            <h3 className="text-xl font-bold text-white mb-4">3. Equipo de Investigación (IA)</h3>
             <div className="flex justify-between items-center mb-4">
-                <p className="text-white/60">Selecciona los agentes especialistas que analizarán este evento.
+                <p className="text-white/60 text-sm">
+                    Selecciona los agentes especialistas y designa un líder para la investigación.
                     {selectedAgents.length > 0 && !leaderAgent && (
                         <span className="block text-yellow-400 text-xs mt-1 flex items-center gap-1">
                             <AlertTriangle size={12} /> Designa un líder para el análisis
@@ -388,13 +781,13 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                             }
                         }
                     }}
-                    className="text-ibm-blue-400 text-sm hover:text-ibm-blue-300 font-medium"
+                    className="text-ibm-blue-400 text-sm hover:text-ibm-blue-300 font-medium whitespace-nowrap"
                 >
                     {selectedAgents.length === availableAgents.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto custom-scrollbar p-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto custom-scrollbar p-1">
                 {availableAgents.map(agent => (
                     <div
                         key={agent.id}
@@ -404,21 +797,17 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                             : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
                             }`}
                     >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedAgents.includes(agent.id) ? 'bg-ibm-blue-500 border-ibm-blue-500' : 'border-white/30'
-                            }`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedAgents.includes(agent.id) ? 'bg-ibm-blue-500 border-ibm-blue-500' : 'border-white/30'}`}>
                             {selectedAgents.includes(agent.id) && <Check size={12} className="text-white" />}
                         </div>
-                        <div>
-                            <div className="font-medium">{agent.name.replace(/_/g, ' ').toUpperCase()}</div>
-                            <div className="text-xs opacity-70">{agent.role}</div>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{agent.name.replace(/_/g, ' ').toUpperCase()}</div>
+                            <div className="text-xs opacity-70 truncate">{agent.role}</div>
                         </div>
                         {selectedAgents.includes(agent.id) && (
                             <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLeaderAgent(agent.id);
-                                }}
-                                className={`ml-auto px-2 py-1 rounded text-xs font-bold border transition-colors ${leaderAgent === agent.id
+                                onClick={(e) => { e.stopPropagation(); setLeaderAgent(agent.id); }}
+                                className={`flex-shrink-0 px-2 py-1 rounded text-xs font-bold border transition-colors ${leaderAgent === agent.id
                                     ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.2)]'
                                     : 'border-white/20 text-white/40 hover:border-white/60 hover:text-white'
                                     }`}
@@ -431,23 +820,13 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
             </div>
 
             <div className="flex justify-between pt-6">
-                <button
-                    onClick={() => setStep(2)}
-                    className="text-white/50 hover:text-white px-4 py-2"
-                >
-                    Atrás
+                <button onClick={() => setStep(2)} className="text-white/50 hover:text-white px-4 py-2 flex items-center gap-2">
+                    <ArrowLeftIcon size={16} /> Atrás
                 </button>
                 <button
-                    onClick={() => onComplete({
-                        phase,
-                        family: inferredFamily,
-                        event_type: eventType,
-                        parameters: extractedData || {},
-                        workflow: selectedAgents,
-                        leader: leaderAgent
-                    })}
-                    disabled={selectedAgents.length === 0}
-                    className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2"
+                    onClick={handleFinalSubmit}
+                    disabled={selectedAgents.length === 0 || !leaderAgent}
+                    className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
                 >
                     Comenzar Análisis <Play size={16} />
                 </button>
@@ -468,7 +847,6 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
             {step === 3 && renderStep3()}
         </div>
     );
-
 };
 
 export default EventWizard;

@@ -3,7 +3,10 @@
  * Shows MW, Surge ECD, Swab ECD relative to LOT and pore pressure.
  */
 import React from 'react';
-import { motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine } from 'recharts';
+import ChartContainer, { DarkTooltip } from '../ChartContainer';
+import { CHART_DEFAULTS } from '../ChartTheme';
+import { Waves } from 'lucide-react';
 
 interface SurgeSwabWindowProps {
   surgeEcd: number;
@@ -26,119 +29,49 @@ const SurgeSwabWindow: React.FC<SurgeSwabWindowProps> = ({
   swabMargin,
   height = 350,
 }) => {
-  const allValues = [surgeEcd, swabEcd, mudWeight, lotEmw, porePressure];
-  const minVal = Math.min(...allValues) - 0.5;
-  const maxVal = Math.max(...allValues) + 0.5;
-  const range = maxVal - minVal || 1;
+  const data = [
+    { name: 'Swab', value: swabEcd, color: '#06b6d4' },
+    { name: 'MW', value: mudWeight, color: '#ffffff' },
+    { name: 'Surge', value: surgeEcd, color: '#f97316' },
+  ];
 
-  const yPos = (v: number) => ((v - minVal) / range) * 100;
-  // Invert for top-down display (high EMW at top)
-  const barTop = (v: number) => 100 - yPos(v);
+  // Y domain: show full window from below PP to above LOT
+  const yMin = Math.floor(Math.min(porePressure, swabEcd) - 1);
+  const yMax = Math.ceil(Math.max(lotEmw, surgeEcd) + 1);
 
-  const barWidth = 60;
-  const chartHeight = height - 80;
+  const marginOk = surgeMargin === 'OK' && swabMargin === 'OK';
+  const badgeText = marginOk ? 'SAFE' : 'WARNING';
+  const badgeColor = marginOk ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400';
 
   return (
-    <div className="glass-panel p-6 rounded-2xl border border-white/5 print-chart">
-      <div className="flex justify-between items-center mb-4">
-        <h4 className="font-bold text-sm">Operational Window (Surge/Swab)</h4>
-        <div className="flex gap-2">
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${surgeMargin === 'OK' ? 'bg-green-500/20 text-green-400' : surgeMargin === 'WARNING' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-            Surge: {surgeMargin}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${swabMargin === 'OK' ? 'bg-green-500/20 text-green-400' : swabMargin === 'WARNING' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-            Swab: {swabMargin}
-          </span>
-        </div>
-      </div>
-
-      <div className="relative mx-auto" style={{ width: barWidth + 120, height: chartHeight }}>
-        {/* Loss zone (above LOT) */}
-        <div
-          className="absolute bg-red-500/10 border-b border-red-500/30"
-          style={{
-            left: 30,
-            width: barWidth,
-            top: 0,
-            height: `${barTop(lotEmw)}%`,
-          }}
+    <ChartContainer title="Operational Window (Surge/Swab)" icon={Waves} height={height} badge={{ text: badgeText, color: badgeColor }}>
+      <BarChart data={data} margin={{ top: 20, right: 40, bottom: 5, left: 40 }}>
+        <CartesianGrid stroke={CHART_DEFAULTS.gridColor} strokeDasharray="3 3" horizontal vertical={false} />
+        <XAxis
+          dataKey="name"
+          tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 12 }}
+          axisLine={{ stroke: CHART_DEFAULTS.axisColor }}
         />
-
-        {/* Safe window */}
-        <div
-          className="absolute bg-green-500/10"
-          style={{
-            left: 30,
-            width: barWidth,
-            top: `${barTop(lotEmw)}%`,
-            height: `${yPos(lotEmw) - yPos(porePressure)}%`,
-          }}
+        <YAxis
+          domain={[yMin, yMax]}
+          tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
+          axisLine={{ stroke: CHART_DEFAULTS.axisColor }}
+          label={{ value: 'EMW (ppg)', angle: -90, position: 'insideLeft', offset: -25, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-
-        {/* Kick zone (below pore pressure) */}
-        <div
-          className="absolute bg-red-500/10 border-t border-red-500/30"
-          style={{
-            left: 30,
-            width: barWidth,
-            top: `${barTop(porePressure)}%`,
-            bottom: 0,
-          }}
-        />
-
-        {/* Marker lines */}
-        {[
-          { value: lotEmw, label: 'LOT', color: '#ef4444' },
-          { value: porePressure, label: 'PP', color: '#3b82f6' },
-          { value: mudWeight, label: 'MW', color: '#ffffff' },
-          { value: surgeEcd, label: 'Surge', color: '#f97316' },
-          { value: swabEcd, label: 'Swab', color: '#06b6d4' },
-        ].map((marker, i) => (
-          <React.Fragment key={i}>
-            <motion.div
-              className="absolute"
-              style={{
-                left: 30,
-                width: barWidth,
-                top: `${barTop(marker.value)}%`,
-                height: 2,
-                backgroundColor: marker.color,
-                opacity: 0.8,
-              }}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: i * 0.1, duration: 0.3 }}
-            />
-            <span
-              className="absolute text-[10px] font-bold"
-              style={{
-                right: 0,
-                top: `calc(${barTop(marker.value)}% - 7px)`,
-                color: marker.color,
-              }}
-            >
-              {marker.label}: {marker.value.toFixed(1)}
-            </span>
-          </React.Fragment>
-        ))}
-
-        {/* Y-axis scale */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const val = minVal + (range * i) / 4;
-          return (
-            <span
-              key={i}
-              className="absolute text-[9px] text-white/30"
-              style={{ left: 0, top: `${100 - (i / 4) * 100}%`, transform: 'translateY(-50%)' }}
-            >
-              {val.toFixed(1)}
-            </span>
-          );
-        })}
-      </div>
-
-      <p className="text-center text-[10px] text-white/30 mt-2">EMW (ppg)</p>
-    </div>
+        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toFixed(2)} ppg`} />} />
+        {/* LOT reference */}
+        <ReferenceLine y={lotEmw} stroke="#ef4444" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: `LOT ${lotEmw.toFixed(1)}`, fill: '#ef4444', position: 'right', fontSize: 11 }} />
+        {/* Pore Pressure reference */}
+        <ReferenceLine y={porePressure} stroke="#3b82f6" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: `PP ${porePressure.toFixed(1)}`, fill: '#3b82f6', position: 'right', fontSize: 11 }} />
+        {/* MW reference */}
+        <ReferenceLine y={mudWeight} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" strokeWidth={1} label={{ value: `MW ${mudWeight.toFixed(1)}`, fill: 'rgba(255,255,255,0.5)', position: 'left', fontSize: 10 }} />
+        <Bar dataKey="value" name="EMW (ppg)" radius={[4, 4, 0, 0]}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={entry.color} fillOpacity={0.7} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
   );
 };
 

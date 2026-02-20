@@ -57,6 +57,8 @@ const ECDProfileChart: React.FC<ECDProfileChartProps> = ({
         depthKey="tvd"
         xLabel="ECD / EMW (ppg)"
         yLabel="TVD (ft)"
+        xDomain={[0, 20]}
+        xTicks={[0, 5, 10, 15, 20]}
         tooltipFormatter={(val) => `${Number(val).toFixed(2)} ppg`}
       />
     </ChartContainer>

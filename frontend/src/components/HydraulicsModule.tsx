@@ -237,7 +237,21 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                 {/* ECD Profile (if data available) */}
                 {hydResult.ecd && (
                   <ECDProfileChart
-                    data={hydResult.ecd_profile || [{ tvd: hydParams.tvd, ecd: hydResult.ecd.ecd_ppg }]}
+                    data={(() => {
+                      const backendProfile = hydResult.ecd_profile || [];
+                      const mw = hydParams.mud_weight;
+                      const ecdAtTd = hydResult.ecd.ecd_ppg;
+                      const td = hydParams.tvd;
+                      // Use backend data if it has enough points, otherwise generate synthetic profile
+                      if (backendProfile.length >= 5) return backendProfile;
+                      const steps = 11;
+                      return Array.from({ length: steps }, (_, i) => {
+                        const tvd = Math.round((i / (steps - 1)) * td);
+                        // ECD increases linearly from MW at surface to ecdAtTd at TD
+                        const ecd = tvd === 0 ? mw : +(mw + (ecdAtTd - mw) * (tvd / td)).toFixed(2);
+                        return { tvd, ecd };
+                      });
+                    })()}
                     mudWeight={hydParams.mud_weight}
                     lotEmw={14.0}
                     height={300}

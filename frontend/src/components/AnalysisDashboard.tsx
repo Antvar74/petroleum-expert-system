@@ -10,7 +10,8 @@ import {
     FileText,
     Zap,
     Loader2,
-    RotateCcw
+    RotateCcw,
+    ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RCAVisualizer from './RCAVisualizer';
@@ -31,9 +32,10 @@ interface AnalysisDashboardProps {
     analysisId: number;
     workflow: string[];
     onComplete?: () => void;
+    onBack?: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete, onBack }) => {
     const { addToast } = useToast();
 
     // RCA State
@@ -237,6 +239,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                     .pdf-generation .prose { color: black !important; }
                 `}</style>
 
+                {/* Back Navigation */}
+                {onBack && (
+                    <div>
+                        <button
+                            onClick={onBack}
+                            className="flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors group"
+                        >
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            Volver al Asistente de Evento
+                        </button>
+                    </div>
+                )}
+
                 {/* Completed Agents Summary */}
                 {completedAnalyses.length > 0 && (
                     <div className="glass-panel p-6">
@@ -323,6 +338,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     // --- RENDER: Pipeline View ---
     return (
         <div className="w-full mx-auto pb-20">
+            {/* Back Navigation */}
+            {onBack && (
+                <div className="mb-6">
+                    <button
+                        onClick={onBack}
+                        className="flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors group"
+                    >
+                        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                        Volver al Asistente de Evento
+                    </button>
+                </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Progress */}
                 <div className="lg:col-span-1 space-y-6">

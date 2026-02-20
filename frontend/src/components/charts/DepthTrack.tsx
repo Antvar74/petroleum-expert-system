@@ -40,6 +40,7 @@ interface DepthTrackProps {
   yLabel?: string;
   referenceLines?: DepthRefLine[];
   xDomain?: [number | string, number | string];
+  xTicks?: number[];
   showLegend?: boolean;
   tooltipFormatter?: (value: any, name: string) => string;
 }
@@ -52,14 +53,19 @@ const DepthTrack: React.FC<DepthTrackProps> = ({
   yLabel = 'Depth (ft)',
   referenceLines = [],
   xDomain,
+  xTicks,
   showLegend = true,
   tooltipFormatter,
 }) => {
   if (!data?.length) return null;
 
+  // Sort data by depth ascending so Recharts plots correctly
+  const sorted = [...data].sort((a, b) => (a[depthKey] ?? 0) - (b[depthKey] ?? 0));
+  const maxDepth = Math.max(...sorted.map(d => d[depthKey] ?? 0));
+
   return (
     <ComposedChart
-      data={data}
+      data={sorted}
       layout="vertical"
       margin={{ top: 10, right: 30, bottom: 30, left: 60 }}
     >
@@ -73,7 +79,7 @@ const DepthTrack: React.FC<DepthTrackProps> = ({
       <YAxis
         dataKey={depthKey}
         type="number"
-        reversed
+        domain={[0, maxDepth]}
         tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
         tickLine={{ stroke: CHART_DEFAULTS.axisColor }}
         axisLine={{ stroke: CHART_DEFAULTS.axisColor }}
@@ -90,6 +96,7 @@ const DepthTrack: React.FC<DepthTrackProps> = ({
       <XAxis
         type="number"
         domain={xDomain || ['auto', 'auto']}
+        ticks={xTicks}
         tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
         tickLine={{ stroke: CHART_DEFAULTS.axisColor }}
         axisLine={{ stroke: CHART_DEFAULTS.axisColor }}

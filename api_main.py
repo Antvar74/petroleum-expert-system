@@ -68,7 +68,7 @@ coordinator = APICoordinator()
 @app.get("/health")
 async def system_health():
     """Return system connectivity status (LLM provider, DB, agent count)."""
-    import time
+    from sqlalchemy import text as sa_text
     status: Dict[str, Any] = {"api": "ok", "timestamp": datetime.utcnow().isoformat()}
 
     # Check LLM provider
@@ -85,7 +85,7 @@ async def system_health():
     try:
         db_gen = get_db()
         db_session = next(db_gen)
-        db_session.execute("SELECT 1")
+        db_session.execute(sa_text("SELECT 1"))
         status["database"] = "ok"
         db_session.close()
     except Exception:
