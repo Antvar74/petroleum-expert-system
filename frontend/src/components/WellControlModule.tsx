@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Save, AlertTriangle, TrendingDown, BrainCircuit } from 'lucide-react';
@@ -61,11 +61,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   ]);
 
   // Fetch available providers on mount
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
-  });
+  }, []);
 
   const runAIAnalysis = async () => {
     if (!killResult && !volResult && !bullheadResult) return;

@@ -201,10 +201,11 @@ class HydraulicsEngine:
         else:
             # Turbulent: Fanning friction factor
             f = 0.0791 / (re**0.25) if re > 0 else 0.01
+            v_fps = v / 60.0  # Convert ft/min to ft/s for Bourgoyne formula
             if is_annular:
-                dp = (f * mud_weight * v**2 * length) / (21.1 * d_eff)
+                dp = (f * mud_weight * v_fps**2 * length) / (21.1 * d_eff)
             else:
-                dp = (f * mud_weight * v**2 * length) / (25.8 * d_eff)
+                dp = (f * mud_weight * v_fps**2 * length) / (25.8 * d_eff)
 
         return {
             "pressure_loss_psi": round(dp, 1),

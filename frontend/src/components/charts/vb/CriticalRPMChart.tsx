@@ -2,7 +2,7 @@
  * CriticalRPMChart.tsx — Shows operating RPM vs axial/lateral critical RPMs.
  */
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, LabelList } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { Zap } from 'lucide-react';
@@ -21,7 +21,7 @@ const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, ope
     { name: 'Axial 1st', rpm: axial.critical_rpm_1st, color: '#ef4444' },
     { name: 'Axial 2nd', rpm: axial.critical_rpm_2nd, color: '#f97316' },
     { name: 'Lateral', rpm: lateral.critical_rpm, color: '#8b5cf6' },
-  ].filter(d => d.rpm > 0 && d.rpm < 1000);
+  ].filter(d => d.rpm > 0);
 
   return (
     <ChartContainer
@@ -30,11 +30,12 @@ const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, ope
       height={height}
       badge={{ text: `Operando: ${operatingRpm} RPM`, color: 'bg-rose-500/20 text-rose-400' }}
     >
-      <BarChart data={data} margin={CHART_DEFAULTS.margin}>
+      <BarChart data={data} margin={{ ...CHART_DEFAULTS.margin, right: 80 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />
         <XAxis dataKey="name" stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
-        <YAxis stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
-          label={{ value: 'RPM', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
+        <YAxis scale="log" domain={[1, 'auto']} allowDataOverflow
+          stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
+          label={{ value: 'RPM (log)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
         <Tooltip content={<DarkTooltip />} />
         <ReferenceLine y={operatingRpm} stroke="#f43f5e" strokeDasharray="8 4" strokeWidth={2}
           label={{ value: `Operating ${operatingRpm}`, fill: '#f43f5e', fontSize: 11, position: 'right' }} />
@@ -42,6 +43,8 @@ const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, ope
           {data.map((entry, idx) => (
             <Cell key={idx} fill={entry.color} opacity={0.7} />
           ))}
+          <LabelList dataKey="rpm" position="top" fill="rgba(255,255,255,0.7)" fontSize={11}
+            formatter={((v: any) => `${Math.round(Number(v))}`) as any} />
         </Bar>
       </BarChart>
     </ChartContainer>

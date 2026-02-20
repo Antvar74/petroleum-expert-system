@@ -24,15 +24,25 @@ const StabilityGauge: React.FC<StabilityGaugeProps> = ({ stability, height = 320
   const colorMap: Record<string, string> = { green: '#22c55e', yellow: '#eab308', orange: '#f97316', red: '#ef4444' };
   const fillColor = colorMap[stability.color] || '#22c55e';
 
-  // SVG arc
+  // SVG arc — semicircle from left (0) to right (100), passing through top (50)
+  // Background arc: M (cx-r, cy) A r r 0 0 1 (cx+r, cy)  — left to right, upward, sweep=1
+  // Value arc must follow the SAME upper semicircle path, just stop at idx%.
+  // In SVG (Y-down), the upper semicircle has y < cy. Parametrically from left to right:
+  //   angle a goes from 180° (left) to 0° (right), with 90° at top.
+  //   x = cx + r * cos(a),  y = cy - r * sin(a)   ← MINUS sin for upper half
   const cx = 140, cy = 130, r = 100;
-  const startAngle = Math.PI;
-  const endAngle = Math.PI - (angle * Math.PI / 180);
-  const x1 = cx + r * Math.cos(startAngle);
-  const y1 = cy + r * Math.sin(startAngle);
-  const x2 = cx + r * Math.cos(endAngle);
-  const y2 = cy + r * Math.sin(endAngle);
-  const largeArcFlag = angle > 90 ? 1 : 0;
+  const strokeW = 20;
+  // Value arc endpoint: a = 180° - (idx/100)*180° = 180°*(1 - idx/100)
+  const endDeg = 180 * (1 - idx / 100); // degrees: 180=left, 90=top, 0=right
+  const endRad = (endDeg * Math.PI) / 180;
+  // Start is always at left (180°)
+  const x1 = cx - r; // cos(180°) = -1
+  const y1 = cy;     // sin(180°) = 0
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy - r * Math.sin(endRad); // MINUS to place on upper semicircle
+  // For SVG arc with sweep=1 from left to a point on the upper semicircle:
+  // The arc traverses less than 180° so large-arc=0 always (we never exceed a full semicircle)
+  const largeArcFlag = 0;
 
   return (
     <ChartContainer
@@ -47,23 +57,27 @@ const StabilityGauge: React.FC<StabilityGaugeProps> = ({ stability, height = 320
           {/* Background arc */}
           <path
             d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-            fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="20" strokeLinecap="round"
+            fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeW} strokeLinecap="butt"
           />
-          {/* Value arc */}
+          {/* Value arc — butt cap so end doesn't overshoot; circle at start for rounded look */}
           {angle > 0 && (
-            <path
-              d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2}`}
-              fill="none" stroke={fillColor} strokeWidth="20" strokeLinecap="round"
-              style={{ filter: `drop-shadow(0 0 8px ${fillColor}40)` }}
-            />
+            <>
+              <circle cx={x1} cy={y1} r={strokeW / 2} fill={fillColor}
+                style={{ filter: `drop-shadow(0 0 8px ${fillColor}40)` }} />
+              <path
+                d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2}`}
+                fill="none" stroke={fillColor} strokeWidth={strokeW} strokeLinecap="butt"
+                style={{ filter: `drop-shadow(0 0 8px ${fillColor}40)` }}
+              />
+            </>
           )}
           {/* Center text */}
           <text x={cx} y={cy - 10} textAnchor="middle" fill={fillColor} fontSize="36" fontWeight="bold">{idx.toFixed(0)}</text>
           <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">/100</text>
           {/* Scale labels */}
-          <text x={cx - r - 10} y={cy + 20} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="middle">0</text>
-          <text x={cx} y={cy - r - 10} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="middle">50</text>
-          <text x={cx + r + 10} y={cy + 20} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="middle">100</text>
+          <text x={cx - r - 20} y={cy + 20} fill="rgba(255,255,255,0.6)" fontSize="12" fontWeight="500" textAnchor="middle">0</text>
+          <text x={cx} y={cy - r - 14} fill="rgba(255,255,255,0.6)" fontSize="12" fontWeight="500" textAnchor="middle">50</text>
+          <text x={cx + r + 20} y={cy + 20} fill="rgba(255,255,255,0.6)" fontSize="12" fontWeight="500" textAnchor="middle">100</text>
         </svg>
 
         {/* Mode scores bar */}

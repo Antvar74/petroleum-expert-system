@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplets, Play, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import FlowRateSensitivity from './charts/cu/FlowRateSensitivity';
+import AnnularVelocityChart from './charts/cu/AnnularVelocityChart';
+import CuttingsConcentrationGauge from './charts/cu/CuttingsConcentrationGauge';
+import CleanupEfficiencyProfile from './charts/cu/CleanupEfficiencyProfile';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
 
@@ -44,9 +47,9 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
   ]);
 
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  });
+  }, []);
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
@@ -219,6 +222,26 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FlowRateSensitivity data={sensitivityData} currentFlowRate={params.flow_rate} />
+              <AnnularVelocityChart
+                actualVelocity={result.summary?.annular_velocity_ftmin || 0}
+                minimumVelocity={result.summary?.minimum_flow_rate_gpm ? (24.51 * result.summary.minimum_flow_rate_gpm / (params.hole_id ** 2 - params.pipe_od ** 2)) : 120}
+                slipVelocity={result.summary?.slip_velocity_ftmin || 0}
+                transportVelocity={result.summary?.transport_velocity_ftmin || 0}
+              />
+              <CuttingsConcentrationGauge
+                concentration={result.summary?.cuttings_concentration_pct || 0}
+                hci={result.summary?.hole_cleaning_index || 0}
+                ctr={result.summary?.cuttings_transport_ratio || 0}
+                cleaningQuality={result.summary?.cleaning_quality || 'Poor'}
+              />
+              <CleanupEfficiencyProfile
+                data={sensitivityData.map((d, i) => ({
+                  md: i * 100,
+                  annular_velocity: d.hci * 120,
+                  transport_velocity: d.ctr * d.hci * 120,
+                  slip_velocity: result.summary?.slip_velocity_ftmin || 30,
+                }))}
+              />
             </div>
 
             {/* AI Analysis */}

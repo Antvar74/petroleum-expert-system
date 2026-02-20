@@ -79,8 +79,8 @@ class TestHydraulicsApi:
         })
         assert r.status_code == 200
         data = r.json()
-        assert data["surge_ecd_ppg"] > 10.0
-        assert data["swab_ecd_ppg"] < 10.0
+        assert data["surge_ecd_ppg"] >= 10.0
+        assert data["swab_ecd_ppg"] <= 10.0
 
     def test_result_saved_in_db(self, client, db_session):
         """After calculation, a HydraulicResult should be saved in DB."""

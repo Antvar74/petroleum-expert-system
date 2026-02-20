@@ -17,9 +17,9 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
   if (!ecd?.snapshots?.length) return null;
 
   const data = ecd.snapshots.map((snap: any) => ({
-    volume: Math.round(snap.cumulative_bbl * 10) / 10,
+    volume: Math.round(snap.fill_pct * 10) / 10,
     ecd: Math.round(snap.ecd_ppg * 100) / 100,
-    stage: snap.stage,
+    stage: snap.current_fluid ?? `${snap.fill_pct}%`,
   }));
 
   const maxEcd = Math.max(...data.map((d: any) => d.ecd));
@@ -42,7 +42,7 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
           dataKey="volume"
           stroke={CHART_DEFAULTS.axisColor}
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
-          label={{ value: 'Volumen (bbl)', position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          label={{ value: '% Llenado Anular', position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
         <YAxis
           stroke={CHART_DEFAULTS.axisColor}

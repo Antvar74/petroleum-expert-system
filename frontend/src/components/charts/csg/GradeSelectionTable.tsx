@@ -27,7 +27,7 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
   if (!gradeSelection) return null;
 
   const selected = gradeSelection.selected_grade;
-  const evaluated = gradeSelection.evaluated_grades || [];
+  const evaluated = gradeSelection.all_candidates || gradeSelection.evaluated_grades || [];
 
   return (
     <ChartContainer title="Selección de Grado" icon={List} height={height} isFluid>
@@ -69,25 +69,25 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
                       {(g.yield_psi || 0).toLocaleString()}
                     </td>
                     <td className="text-center py-2 px-2">
-                      <span className={g.burst_pass ? 'text-green-400' : 'text-red-400'}>
-                        {g.burst_pass ? '✓' : '✗'}
+                      <span className={(g.passes_burst ?? g.burst_pass) ? 'text-green-400' : 'text-red-400'}>
+                        {(g.passes_burst ?? g.burst_pass) ? '✓' : '✗'}
                       </span>
                     </td>
                     <td className="text-center py-2 px-2">
-                      <span className={g.collapse_pass ? 'text-green-400' : 'text-red-400'}>
-                        {g.collapse_pass ? '✓' : '✗'}
+                      <span className={(g.passes_collapse ?? g.collapse_pass) ? 'text-green-400' : 'text-red-400'}>
+                        {(g.passes_collapse ?? g.collapse_pass) ? '✓' : '✗'}
                       </span>
                     </td>
                     <td className="text-center py-2 px-2">
-                      <span className={g.tension_pass ? 'text-green-400' : 'text-red-400'}>
-                        {g.tension_pass ? '✓' : '✗'}
+                      <span className={(g.passes_tension ?? g.tension_pass) ? 'text-green-400' : 'text-red-400'}>
+                        {(g.passes_tension ?? g.tension_pass) ? '✓' : '✗'}
                       </span>
                     </td>
                     <td className="text-center py-2 px-2">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        g.all_pass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        (g.passes_all ?? g.all_pass) ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {g.all_pass ? 'PASS' : 'FAIL'}
+                        {(g.passes_all ?? g.all_pass) ? 'PASS' : 'FAIL'}
                       </span>
                     </td>
                   </tr>
@@ -100,7 +100,7 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
         {evaluated.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm">
             <p>Grado: <span className="font-bold text-indigo-400">{selected}</span></p>
-            <p className="text-xs mt-1">Yield: {gradeSelection.yield_strength_psi?.toLocaleString()} psi</p>
+            <p className="text-xs mt-1">Yield: {(gradeSelection.selected_details?.yield_psi || gradeSelection.yield_strength_psi || 0).toLocaleString()} psi</p>
           </div>
         )}
       </div>

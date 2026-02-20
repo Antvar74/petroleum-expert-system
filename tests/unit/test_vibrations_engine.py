@@ -173,6 +173,10 @@ class TestLateralVibrations:
         expected = (8.5 - 6.75) / 2.0
         assert result["radial_clearance_in"] == pytest.approx(expected, abs=0.01)
 
+    def test_critical_rpm_physical_range(self, lateral_result):
+        """Lateral critical RPM for 300 ft BHA must be in realistic range (1-500 RPM)."""
+        assert 1 <= lateral_result["critical_rpm"] <= 500
+
     def test_zero_length_returns_error(self, engine):
         """Zero BHA length must produce error."""
         result = engine.calculate_critical_rpm_lateral(

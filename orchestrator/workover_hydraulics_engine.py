@@ -118,7 +118,8 @@ class WorkoverHydraulicsEngine:
                           (yp * ct_length) / (225.0 * d_eff_pipe)
             else:
                 f = 0.0791 / (re_pipe ** 0.25) if re_pipe > 0 else 0.01
-                dp_pipe = (f * mud_weight * v_pipe ** 2 * ct_length) / (25.8 * d_eff_pipe)
+                v_pipe_fps = v_pipe / 60.0  # Convert ft/min to ft/s for Bourgoyne formula
+                dp_pipe = (f * mud_weight * v_pipe_fps ** 2 * ct_length) / (25.8 * d_eff_pipe)
 
         # --- Annular flow (CT in wellbore) ---
         d_eff_ann = hole_id - ct_od
@@ -140,7 +141,8 @@ class WorkoverHydraulicsEngine:
                          (yp * annular_length) / (200.0 * d_eff_ann)
             else:
                 f = 0.0791 / (re_ann ** 0.25) if re_ann > 0 else 0.01
-                dp_ann = (f * mud_weight * v_ann ** 2 * annular_length) / (21.1 * d_eff_ann)
+                v_ann_fps = v_ann / 60.0  # Convert ft/min to ft/s for Bourgoyne formula
+                dp_ann = (f * mud_weight * v_ann_fps ** 2 * annular_length) / (21.1 * d_eff_ann)
 
         total_loss = dp_pipe + dp_ann
 

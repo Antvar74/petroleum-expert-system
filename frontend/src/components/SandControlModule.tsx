@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, Play, RefreshCw } from 'lucide-react';
@@ -46,9 +46,9 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
   ]);
 
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  });
+  }, []);
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: key.includes('sieve') || key.includes('cumulative') ? value : (parseFloat(value) || 0) }));

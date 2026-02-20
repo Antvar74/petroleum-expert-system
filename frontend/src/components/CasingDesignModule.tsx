@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Play, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
@@ -41,9 +41,9 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
   ]);
 
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  });
+  }, []);
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));

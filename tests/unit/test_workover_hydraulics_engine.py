@@ -419,6 +419,8 @@ class TestPhysicalInvariants:
             assert result["pipe_loss_psi"] >= 0, f"Negative pipe loss at q={q}"
             assert result["annular_loss_psi"] >= 0, f"Negative annular loss at q={q}"
             assert result["total_loss_psi"] >= 0, f"Negative total loss at q={q}"
+            assert result["pipe_loss_psi"] < 10000, f"Unrealistic pipe loss at q={q}: {result['pipe_loss_psi']}"
+            assert result["annular_loss_psi"] < 5000, f"Unrealistic annular loss at q={q}: {result['annular_loss_psi']}"
 
     def test_snubbing_force_sign(self):
         """Snubbing force positive when pipe light, negative when pipe heavy."""

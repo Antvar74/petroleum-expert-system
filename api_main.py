@@ -2595,14 +2595,17 @@ def cross_td_to_packer_landing(data: Dict[str, Any] = Body(...)):
 def calculate_gas_migration(data: Dict[str, Any] = Body(...)):
     """Assess gas migration risk post-cementacion (API RP 65-2)."""
     from orchestrator.cementing_engine import CementingEngine
+    cement_top = data.get("cement_top_tvd_ft", 5000)
+    cement_base = data.get("cement_base_tvd_ft", 10000)
     return CementingEngine.calculate_gas_migration_risk(
         reservoir_pressure_psi=data.get("reservoir_pressure_psi", 5000),
-        cement_top_tvd_ft=data.get("cement_top_tvd_ft", 5000),
-        cement_base_tvd_ft=data.get("cement_base_tvd_ft", 10000),
+        cement_column_height_ft=cement_base - cement_top,
         slurry_density_ppg=data.get("slurry_density_ppg", 16.0),
         pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
-        sgs_time_hr=data.get("sgs_time_hr", 4.0),
+        tvd_ft=cement_base,
+        transition_time_hr=data.get("sgs_time_hr", 4.0),
         thickening_time_hr=data.get("thickening_time_hr", 6.0),
+        sgs_10min_lbf_100sqft=data.get("sgs_10min_lbf_100sqft", 20.0),
     )
 
 
@@ -2610,11 +2613,18 @@ def calculate_gas_migration(data: Dict[str, Any] = Body(...)):
 def design_centralizers(data: Dict[str, Any] = Body(...)):
     """Design centralizer spacing and standoff (API RP 10D-2)."""
     from orchestrator.cementing_engine import CementingEngine
+    default_profile = [
+        {"md": 0, "inclination": 0},
+        {"md": 2500, "inclination": 15},
+        {"md": 5000, "inclination": 30},
+        {"md": 7500, "inclination": 45},
+        {"md": 10000, "inclination": 60},
+    ]
     return CementingEngine.design_centralizers(
         casing_od_in=data.get("casing_od_in", 9.625),
         hole_id_in=data.get("hole_id_in", 12.25),
         casing_weight_ppf=data.get("casing_weight_ppf", 47),
-        inclination_profile=data.get("inclination_profile", [0, 15, 30, 45, 60]),
+        inclination_profile=data.get("inclination_profile", default_profile),
         centralizer_type=data.get("centralizer_type", "bow_spring"),
     )
 
@@ -2623,12 +2633,30 @@ def design_centralizers(data: Dict[str, Any] = Body(...)):
 def design_combination_string(data: Dict[str, Any] = Body(...)):
     """Design combination casing string (multi-grade/weight optimization)."""
     from orchestrator.casing_design_engine import CasingDesignEngine
+    tvd = data.get("tvd_ft", 12000)
+    mud_wt = data.get("mud_weight_ppg", 12.0)
+    pore_ppg = data.get("pore_pressure_ppg", 9.0)
+    frac_ppg = data.get("frac_gradient_ppg", 15.0)
+    casing_len = data.get("casing_length_ft", tvd)
+    # Build default burst/collapse profiles if not provided
+    default_burst = data.get("burst_profile", [
+        {"depth_ft": 0, "burst_psi": (frac_ppg - mud_wt) * 0.052 * 0},
+        {"depth_ft": tvd, "burst_psi": (frac_ppg - mud_wt) * 0.052 * tvd},
+    ])
+    default_collapse = data.get("collapse_profile", [
+        {"depth_ft": 0, "collapse_psi": mud_wt * 0.052 * 0},
+        {"depth_ft": tvd, "collapse_psi": mud_wt * 0.052 * tvd},
+    ])
+    casing_weight_ppf = data.get("casing_weight_ppf", 47.0)
+    default_tension = data.get("tension_at_surface_lbs", casing_weight_ppf * casing_len * 0.817)
     return CasingDesignEngine.design_combination_string(
-        casing_od=data.get("casing_od", 9.625),
-        tvd_ft=data.get("tvd_ft", 12000),
-        mud_weight_ppg=data.get("mud_weight_ppg", 12.0),
-        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
-        frac_gradient_ppg=data.get("frac_gradient_ppg", 15.0),
+        tvd_ft=tvd,
+        casing_od_in=data.get("casing_od_in", data.get("casing_od", 9.625)),
+        burst_profile=default_burst,
+        collapse_profile=default_collapse,
+        tension_at_surface_lbs=default_tension,
+        casing_length_ft=casing_len,
+        mud_weight_ppg=mud_wt,
         sf_burst=data.get("sf_burst", 1.1),
         sf_collapse=data.get("sf_collapse", 1.0),
         sf_tension=data.get("sf_tension", 1.6),
@@ -2640,12 +2668,13 @@ def calculate_running_loads(data: Dict[str, Any] = Body(...)):
     """Calculate casing running loads (hookload, shock, bending)."""
     from orchestrator.casing_design_engine import CasingDesignEngine
     return CasingDesignEngine.calculate_running_loads(
-        casing_od=data.get("casing_od", 9.625),
         casing_weight_ppf=data.get("casing_weight_ppf", 47),
-        grade=data.get("grade", "L-80"),
-        total_length_ft=data.get("total_length_ft", 10000),
+        casing_length_ft=data.get("casing_length_ft", data.get("total_length_ft", 10000)),
+        casing_od_in=data.get("casing_od_in", data.get("casing_od", 9.625)),
+        casing_id_in=data.get("casing_id_in", 8.535),
         mud_weight_ppg=data.get("mud_weight_ppg", 10.0),
-        max_dls_deg_100ft=data.get("max_dls_deg_100ft", 3.0),
+        survey=data.get("survey", None),
+        friction_factor=data.get("friction_factor", 0.30),
     )
 
 

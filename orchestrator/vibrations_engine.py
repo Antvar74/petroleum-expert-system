@@ -163,10 +163,15 @@ class VibrationsEngine:
         if w_buoyed <= 0 or i_moment <= 0:
             return {"error": "Invalid BHA parameters"}
 
-        # Paslay-Dawson critical RPM
-        # RPM_crit = 4760 / (L * sqrt(BF*w / (E*I)))
-        denominator = bha_length_ft * math.sqrt(w_buoyed / (e * i_moment))
-        rpm_critical = 4760.0 / denominator if denominator > 0 else 999
+        # Lateral critical RPM — Euler-Bernoulli pinned-pinned 1st mode:
+        # omega_n = (pi/L_in)^2 * sqrt(E*I*g / w_lbin)   [rad/s]
+        # N_crit  = omega_n * 60 / (2*pi)
+        #         = (30*pi / L_in^2) * sqrt(E*I*g / w_lbin)
+        g_in = 386.4  # in/s^2, gravitational constant for lbm→slug conversion
+        l_in = bha_length_ft * 12.0
+        w_lbin = w_buoyed / 12.0  # lb/ft → lb/in
+        numerator = 30.0 * math.pi * math.sqrt(e * i_moment * g_in / w_lbin)
+        rpm_critical = numerator / (l_in ** 2) if l_in > 0 else 999
 
         # Radial clearance
         clearance = (hole_diameter_in - bha_od_in) / 2.0

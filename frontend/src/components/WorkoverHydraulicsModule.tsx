@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Play, RefreshCw } from 'lucide-react';
@@ -45,9 +45,9 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
   ]);
 
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  });
+  }, []);
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
@@ -149,7 +149,7 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
               {[
                 { label: 'Pérdida Presión', value: `${result.summary?.total_pressure_loss_psi} psi`, color: 'text-teal-400' },
                 { label: 'Peso Flotado', value: `${result.summary?.buoyed_weight_lb} lb`, color: 'text-cyan-400' },
-                { label: 'Fuerza Snubbing', value: `${result.summary?.snubbing_force_lb} lb`, color: result.summary?.pipe_light ? 'text-red-400' : 'text-green-400' },
+                { label: 'Fuerza Snubbing', value: `${Math.abs(result.summary?.snubbing_force_lb ?? 0)} lb ${result.summary?.pipe_light ? '(Empujar)' : '(Pesado)'}`, color: result.summary?.pipe_light ? 'text-red-400' : 'text-green-400' },
                 { label: 'Alcance Máx', value: `${result.summary?.max_reach_ft} ft`, color: 'text-purple-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">

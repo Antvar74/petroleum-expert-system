@@ -23,12 +23,12 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
 
   // Merge burst and collapse profiles by depth
   const depthSet = new Set<number>();
-  (burstLoad?.profile || []).forEach((p: any) => depthSet.add(p.depth_ft));
-  (collapseLoad?.profile || []).forEach((p: any) => depthSet.add(p.depth_ft));
+  (burstLoad?.profile || []).forEach((p: any) => depthSet.add(p.tvd_ft));
+  (collapseLoad?.profile || []).forEach((p: any) => depthSet.add(p.tvd_ft));
   const depths = Array.from(depthSet).sort((a, b) => a - b);
 
-  const burstMap = new Map((burstLoad?.profile || []).map((p: any) => [p.depth_ft, p.net_burst_psi]));
-  const collMap = new Map((collapseLoad?.profile || []).map((p: any) => [p.depth_ft, p.net_collapse_psi]));
+  const burstMap = new Map((burstLoad?.profile || []).map((p: any) => [p.tvd_ft, p.burst_load_psi]));
+  const collMap = new Map((collapseLoad?.profile || []).map((p: any) => [p.tvd_ft, p.collapse_load_psi]));
 
   const data = depths.map(d => ({
     depth: d,
@@ -40,7 +40,7 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
 
   return (
     <ChartContainer title="Envolvente Burst / Collapse" icon={Shield} height={height}>
-      <ComposedChart data={data} layout="vertical" margin={{ ...CHART_DEFAULTS.margin, left: 50, right: 30 }}>
+      <ComposedChart data={data} layout="vertical" margin={{ ...CHART_DEFAULTS.margin, left: 50, right: 30, bottom: 40 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />
         <XAxis
           type="number"
@@ -57,7 +57,7 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
           label={{ value: 'TVD (ft)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
         <Tooltip content={<DarkTooltip formatter={(v: any) => `${Math.abs(Number(v)).toFixed(0)} psi`} />} />
-        <Legend wrapperStyle={{ color: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
+        <Legend wrapperStyle={{ color: CHART_DEFAULTS.axisColor, fontSize: 11, paddingTop: 12 }} />
         {/* Burst load area (positive) */}
         <Area type="monotone" dataKey="burst" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1}
           strokeWidth={2} name="Carga Burst" dot={false} />

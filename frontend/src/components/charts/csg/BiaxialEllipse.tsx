@@ -74,7 +74,7 @@ const BiaxialEllipse: React.FC<BiaxialEllipseProps> = ({ biaxial, height = 350 }
         </svg>
 
         {/* Data summary */}
-        <div className="grid grid-cols-3 gap-3 text-xs border-t border-white/10 pt-3">
+        <div className="grid grid-cols-3 gap-3 text-xs border-t border-white/10 pt-3 pb-4">
           <div className="text-center">
             <div className="text-gray-500">Collapse Original</div>
             <div className="font-mono font-bold text-white">{originalCollapse} psi</div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplets, Plus, Trash2, Play, Waves, BrainCircuit } from 'lucide-react';
@@ -58,11 +58,11 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   ]);
 
   // Fetch available providers on mount
-  useState(() => {
+  useEffect(() => {
     axios.get(`${API_BASE_URL}/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
-  });
+  }, []);
 
   const runAIAnalysis = async () => {
     if (!hydResult && !surgeResult) return;
