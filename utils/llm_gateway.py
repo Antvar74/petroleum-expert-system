@@ -20,9 +20,7 @@ class LLMGateway:
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         if self.gemini_key:
             genai.configure(api_key=self.gemini_key)
-            # Using gemini-2.5-flash for BOTH modes — it's the only model currently passing quota checks
-            self.gemini_flash = genai.GenerativeModel('gemini-2.5-flash')
-            self.gemini_pro = genai.GenerativeModel('gemini-2.5-flash')
+            # Model instances are created per-call now to support system_instruction
             print("✅ Gemini API Configured (Using Gemini 2.5 Flash)")
         else:
             print("⚠️ Gemini API Key not found.")
@@ -52,9 +50,12 @@ class LLMGateway:
         async def try_gemini():
             if not self.gemini_key: return None, "Gemini Key Missing"
             try:
-                full_prompt = f"System: {system_prompt}\n\nUser: {prompt}" if system_prompt else prompt
-                model = self.gemini_pro if mode == "reasoning" else self.gemini_flash
-                response = await model.generate_content_async(full_prompt)
+                # Use system_instruction parameter instead of concatenating to prompt
+                model_kwargs = {}
+                if system_prompt:
+                    model_kwargs["system_instruction"] = system_prompt
+                model = genai.GenerativeModel('gemini-2.5-flash', **model_kwargs)
+                response = await model.generate_content_async(prompt)
                 return response.text, None
             except Exception as e:
                 return None, str(e)

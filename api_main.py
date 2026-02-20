@@ -310,7 +310,11 @@ def submit_response(analysis_id: int, agent_id: str, response: Dict[str, str], d
 def get_synthesis_query(analysis_id: int, db: Session = Depends(get_db)):
     """Get the final synthesis prompt"""
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis_record:
+        raise HTTPException(status_code=404, detail="Analysis session not found")
     problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+    if not problem_record:
+        raise HTTPException(status_code=404, detail="Problem not found for this analysis")
     
     # Wrap problem record in OperationalProblem dataclass to use coordinator's method
     op_problem = OperationalProblem(
@@ -421,7 +425,11 @@ async def run_auto_step(analysis_id: int, agent_id: str, db: Session = Depends(g
 async def run_auto_synthesis(analysis_id: int, db: Session = Depends(get_db)):
     """Automatically run the final synthesis using the local LLM"""
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis_record:
+        raise HTTPException(status_code=404, detail="Analysis session not found")
     problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+    if not problem_record:
+        raise HTTPException(status_code=404, detail="Problem not found for this analysis")
     
     op_problem = OperationalProblem(
         well_name=problem_record.well.name,
@@ -568,32 +576,39 @@ async def extract_event_parameters(files: List[UploadFile] = File(...)):
     Accepts multiple files and combines their content.
     Returns JSON for the frontend wizard to pre-fill.
     """
+    import tempfile
     try:
         combined_text = ""
-        
+
         for file in files:
-            # Save temp file
-            temp_filename = f"temp_{file.filename}"
-            with open(temp_filename, "wb") as buffer:
-                buffer.write(await file.read())
-                
-            # 1. Load Text using unified loader
-            from utils.data_loader import load_data_context
-            text_content = load_data_context(temp_filename)
-            
-            # Append with separator
-            combined_text += f"\n\n--- BEGIN FILE: {file.filename} ---\n{text_content}\n--- END FILE: {file.filename} ---\n"
-            
-            # Cleanup
-            if os.path.exists(temp_filename):
-                os.remove(temp_filename)
-            
+            # Determine extension safely (prevent path traversal)
+            safe_name = os.path.basename(file.filename or "upload.txt")
+            _, ext = os.path.splitext(safe_name)
+            ext = ext if ext else ".txt"
+
+            # Use secure temp file instead of predictable filename in CWD
+            tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+            try:
+                tmp.write(await file.read())
+                tmp.close()
+
+                # 1. Load Text using unified loader
+                from utils.data_loader import load_data_context
+                text_content = load_data_context(tmp.name)
+
+                # Append with separator
+                combined_text += f"\n\n--- BEGIN FILE: {safe_name} ---\n{text_content}\n--- END FILE: {safe_name} ---\n"
+            finally:
+                # Guaranteed cleanup
+                if os.path.exists(tmp.name):
+                    os.remove(tmp.name)
+
         # 2. Extract Parameters using LLM (Combined context)
         # Note: DataExtractionAgent truncates to 15k chars to fit context window
         extracted_data = await data_extractor.extract_parameters(combined_text)
-        
+
         return extracted_data
-        
+
     except Exception as e:
         print(f"❌ Extraction Endpoint Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -624,6 +639,7 @@ def create_event(event_data: Dict[str, Any], db: Session = Depends(get_db)):
             well_id=event_data.get("well_id"),
             phase=event_data.get("phase"),
             family=event_data.get("family"),
+            event_type=event_data.get("event_type"),
             description=event_data.get("parameters", {}).get("operation_summary", "No description"),
             status="analyzing"
         )
@@ -658,7 +674,7 @@ def create_event(event_data: Dict[str, Any], db: Session = Depends(get_db)):
             well_id=event_data.get("well_id"),
             depth_md=safe_float(params.get("depth_md"), 0),
             depth_tvd=safe_float(params.get("depth_tvd"), 0),
-            description=f"[{event_data.get('family').upper()}] {params.get('operation_summary', '')}",
+            description=f"[{(event_data.get('family') or 'UNKNOWN').upper()}] {params.get('operation_summary', '')}",
             operation=event_data.get("phase"),
             formation="Unknown", # Could be extracted
             mud_weight=safe_float(params.get("mud_weight"), None),

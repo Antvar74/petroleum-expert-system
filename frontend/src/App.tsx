@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { ArrowLeft, Activity, GitBranch } from 'lucide-react';
+import { API_BASE_URL } from './config';
 import Sidebar from './components/Sidebar';
 import WellSelector from './components/WellSelector';
-import EventWizard from './components/EventWizard'; // Changed from ProblemForm
+import EventWizard from './components/EventWizard';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import RCAVisualizer from './components/RCAVisualizer';
 import TorqueDragModule from './components/TorqueDragModule';
@@ -20,10 +21,6 @@ import VibrationsModule from './components/VibrationsModule';
 import CementingModule from './components/CementingModule';
 import CasingDesignModule from './components/CasingDesignModule';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
-
-
-
-const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');

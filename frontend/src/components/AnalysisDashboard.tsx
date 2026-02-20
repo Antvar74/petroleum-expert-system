@@ -6,18 +6,14 @@ import {
     ChevronRight,
     BrainCircuit,
     ShieldCheck,
-    AlertCircle,
+    AlertTriangle,
     FileText,
     Zap,
-    AlertTriangle,
-    ClipboardCopy
+    Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import PhysicsResults from './PhysicsResults';
 import RCAVisualizer from './RCAVisualizer';
 import { API_BASE_URL } from '../config';
-
-
 
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
@@ -28,51 +24,33 @@ interface AnalysisDashboardProps {
     onComplete?: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete }) => {
     // RCA State
     const [rcaReport, setRcaReport] = useState<any>(null);
     const [isGeneratingRCA, setIsGeneratingRCA] = useState(false);
 
-    const handleGenerateRCA = async () => {
-        if (!eventId) return;
-        setIsGeneratingRCA(true);
-        try {
-            const res = await axios.post(`${API_BASE_URL}/events/${eventId}/rca`);
-            setRcaReport(res.data);
-        } catch (error) {
-            console.error("Error generating RCA:", error);
-            alert("Failed to generate Root Cause Analysis.");
-        } finally {
-            setIsGeneratingRCA(false);
-        }
-    };
-
+    // Pipeline State
     const [currentStep, setCurrentStep] = useState(0);
-
     const [query, setQuery] = useState<any>(null);
-    const [response, setResponse] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [completedAnalyses, setCompletedAnalyses] = useState<any[]>([]);
+    const [completedAnalyses, setCompletedAnalyses] = useState<{ role: string; confidence: string; agent: string }[]>([]);
     const [isSynthesisMode, setIsSynthesisMode] = useState(false);
     const [finalReport, setFinalReport] = useState<any>(null);
-    const [isAutomated, setIsAutomated] = useState(false);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+    const [isAutoRunAll, setIsAutoRunAll] = useState(false);
 
-    // Physics Engine State
+    // Event ID for RCA
     const [eventId, setEventId] = useState<number | null>(null);
 
     useEffect(() => {
-        // Fetch analysis details to get problem_id/event_id for Physics Engine
         const fetchAnalysisDetails = async () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/analysis/${analysisId}`);
-                // Verify structure: might need adjustment based on exact API response
-                // Assuming analysis -> problem -> additional_data -> event_id
                 if (res.data?.problem?.additional_data?.event_id) {
                     setEventId(res.data.problem.additional_data.event_id);
                 }
             } catch (e) {
-                console.warn("Could not load event ID for physics:", e);
+                console.warn("Could not load event ID for RCA:", e);
             }
         };
         fetchAnalysisDetails();
@@ -81,10 +59,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     useEffect(() => {
         if (currentStep < workflow.length) {
             fetchQuery(workflow[currentStep]);
-        } else {
+        } else if (!isSynthesisMode) {
             fetchSynthesisQuery();
         }
-    }, [currentStep]);
+    }, [currentStep, workflow]);
 
     const fetchQuery = async (agentId: string) => {
         try {
@@ -105,151 +83,141 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         }
     };
 
-
-
     const handleAutoRun = async () => {
         setIsProcessing(true);
         try {
             if (!isSynthesisMode) {
                 const agentId = workflow[currentStep];
                 const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/auto`);
-                setCompletedAnalyses([...completedAnalyses, { role: query.role, confidence: res.data.confidence }]);
-                setResponse('');
-                setCurrentStep(currentStep + 1);
+                setCompletedAnalyses(prev => [...prev, {
+                    role: query?.role || agentId,
+                    confidence: res.data.confidence || 'MEDIUM',
+                    agent: agentId
+                }]);
+                setCurrentStep(prev => prev + 1);
             } else {
                 const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
                 setFinalReport(res.data.analysis);
             }
         } catch (error) {
             console.error("Error in automated analysis:", error);
-            alert("Error connecting to local LLM. Make sure Ollama is running.");
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const handleSubmitResponse = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!response.trim()) return;
-
-        setIsProcessing(true);
-        try {
-            if (!isSynthesisMode) {
-                const agentId = workflow[currentStep];
-                const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/response`, { text: response });
-                setCompletedAnalyses([...completedAnalyses, { role: query.role, confidence: res.data.confidence }]);
-                setResponse('');
-                setCurrentStep(currentStep + 1);
-            } else {
-                await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/response`, { text: response });
-                setFinalReport(response);
+    const handleRunAll = async () => {
+        setIsAutoRunAll(true);
+        for (let i = currentStep; i < workflow.length; i++) {
+            try {
+                setIsProcessing(true);
+                const agentId = workflow[i];
+                const queryRes = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/query`);
+                setQuery(queryRes.data);
+                const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/auto`);
+                setCompletedAnalyses(prev => [...prev, {
+                    role: queryRes.data?.role || agentId,
+                    confidence: res.data.confidence || 'MEDIUM',
+                    agent: agentId
+                }]);
+                setCurrentStep(i + 1);
+            } catch (error) {
+                console.error(`Error running agent ${workflow[i]}:`, error);
                 setIsProcessing(false);
+                setIsAutoRunAll(false);
+                return;
             }
+        }
+        // Run synthesis
+        try {
+            setIsSynthesisMode(true);
+            const synthQuery = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/synthesis/query`);
+            setQuery(synthQuery.data);
+            const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
+            setFinalReport(res.data.analysis);
         } catch (error) {
-            console.error("Error submitting response:", error);
+            console.error("Error in synthesis:", error);
         } finally {
             setIsProcessing(false);
+            setIsAutoRunAll(false);
         }
     };
 
-    const generatePDFConfig = () => {
-        return {
-            margin: 10,
-            filename: `PetroExpert_Analysis_${analysisId}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+    const handleGenerateRCA = async () => {
+        if (!eventId) return;
+        setIsGeneratingRCA(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/events/${eventId}/rca`);
+            setRcaReport(res.data);
+        } catch (error) {
+            console.error("Error generating RCA:", error);
+        } finally {
+            setIsGeneratingRCA(false);
+        }
     };
+
+    const generatePDFConfig = () => ({
+        margin: 10,
+        filename: `PetroExpert_Analysis_${analysisId}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    });
 
     const handleSavePDF = async () => {
         setIsGeneratingPDF(true);
         try {
             const element = document.querySelector('.print-report-container');
             if (element) {
-                // Temporarily make everything visible for PDF generation
-                // Force white background and black text for generation
                 element.classList.add('pdf-generation');
-
-                // Show header
                 const header = element.querySelector('.print-header');
                 if (header) header.classList.remove('hidden');
-
                 const opt = generatePDFConfig();
-                // @ts-ignore - html2pdf types are loose
+                // @ts-ignore
                 await html2pdf().set(opt).from(element).save();
-
-                // Restore
                 if (header) header.classList.add('hidden');
                 element.classList.remove('pdf-generation');
             }
         } catch (error) {
             console.error("Error generating PDF:", error);
-            alert("Failed to generate PDF. Please try again.");
         } finally {
             setIsGeneratingPDF(false);
         }
     };
 
-    const handleSharePDF = async () => {
-        if (!navigator.share) {
-            alert("Sharing is not supported on this device/browser.");
-            return;
-        }
-
-        setIsGeneratingPDF(true);
-        try {
-            const element = document.querySelector('.print-report-container');
-            if (element) {
-                // Show header temporarly
-                const header = element.querySelector('.print-header');
-                if (header) header.classList.remove('hidden');
-
-                const opt = generatePDFConfig();
-                // @ts-ignore - html2pdf types are loose
-                const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
-
-                // Restore header hidden
-                if (header) header.classList.add('hidden');
-
-                const file = new File([pdfBlob], `PetroExpert_Analysis_${analysisId}.pdf`, { type: 'application/pdf' });
-
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: 'PetroExpert Analysis Report',
-                        text: `Attached is the analysis report #${analysisId}.`,
-                    });
-                } else {
-                    alert("System does not support sharing files.");
-                }
-            }
-        } catch (error) {
-            console.error("Error sharing PDF:", error);
-            // Don't alert if user cancelled share
-            if ((error as Error).name !== 'AbortError') {
-                alert("Failed to share PDF.");
-            }
-        } finally {
-            setIsGeneratingPDF(false);
-        }
+    const confidenceColor = (c: string) => {
+        if (c === 'HIGH') return 'text-green-400 bg-green-500/10 border-green-500/30';
+        if (c === 'LOW') return 'text-red-400 bg-red-500/10 border-red-500/30';
+        return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
     };
 
-
+    // --- RENDER: Final Report with Synthesis ---
     if (finalReport) {
         return (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto py-12">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto py-12 space-y-8">
                 <style>{`
-                    .pdf-generation {
-                        background-color: white !important;
-                        color: black !important;
-                    }
-                    .pdf-generation .prose {
-                        color: black !important;
-                    }
+                    .pdf-generation { background-color: white !important; color: black !important; }
+                    .pdf-generation .prose { color: black !important; }
                 `}</style>
+
+                {/* Completed Agents Summary */}
+                {completedAnalyses.length > 0 && (
+                    <div className="glass-panel p-6">
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-green-400 mb-4 flex items-center gap-2">
+                            <Check size={16} /> Especialistas Consultados ({completedAnalyses.length})
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {completedAnalyses.map((a, i) => (
+                                <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold border ${confidenceColor(a.confidence)}`}>
+                                    {a.role} — {a.confidence}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Synthesis Report */}
                 <div className="glass-panel p-8 print-report-container">
-                    {/* Print Header - Only visible when printing or generating PDF */}
                     <div className="hidden print-header">
                         <div className="print-header-logo">
                             PETROEXPERT <span className="text-sm font-normal text-gray-500">System v3.0 Elite</span>
@@ -260,183 +228,135 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 mb-8 print-no-show">
+                    <div className="flex items-center gap-4 mb-8">
                         <div className="w-12 h-12 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center text-green-500">
                             <ShieldCheck size={24} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold">Integrated Executive Synthesis</h2>
-                            <p className="text-white/40">Multi-agent analysis complete. Results synthesized below.</p>
+                            <h2 className="text-2xl font-bold">Sintesis Ejecutiva Integrada</h2>
+                            <p className="text-white/40">Analisis multi-agente completado. Resultados sintetizados.</p>
                         </div>
                     </div>
 
-                    <div className="prose prose-invert max-w-none bg-black/30 p-8 rounded-2xl border border-white/5 whitespace-pre-wrap font-sans text-white/80 leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar print:bg-white print:text-black print:border-none print:p-0 print:max-h-none">
+                    <div className="prose prose-invert max-w-none bg-black/30 p-8 rounded-2xl border border-white/5 whitespace-pre-wrap font-sans text-white/80 leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar">
                         {finalReport}
                     </div>
 
-                    <div className="mt-8 flex justify-end gap-4 print-no-show">
-                        <button
-                            className="btn-secondary"
-                            onClick={handleSavePDF}
-                            disabled={isGeneratingPDF}
-                        >
+                    <div className="mt-8 flex justify-end gap-4">
+                        <button className="btn-secondary" onClick={handleSavePDF} disabled={isGeneratingPDF}>
                             <FileText size={18} />
-                            {isGeneratingPDF ? 'Generating...' : 'Save PDF'}
+                            {isGeneratingPDF ? 'Generando...' : 'Guardar PDF'}
                         </button>
 
-                        <button
-                            className="btn-secondary"
-                            onClick={handleSharePDF}
-                            disabled={isGeneratingPDF}
-                        >
-                            <ClipboardCopy size={18} />
-                            {isGeneratingPDF ? 'Preparing...' : 'Share PDF'}
-                        </button>
-
-                        <button
-                            onClick={() => onComplete && onComplete()}
-                            className="btn-primary bg-industrial-600 hover:bg-industrial-500 shadow-industrial-900/40"
-                        >
-                            <Zap size={18} />
-                            Generate RCA Visuals
-                        </button>
+                        {eventId && !rcaReport && (
+                            <button
+                                onClick={handleGenerateRCA}
+                                disabled={isGeneratingRCA}
+                                className="btn-primary bg-red-600 hover:bg-red-500 shadow-red-900/40"
+                            >
+                                {isGeneratingRCA ? (
+                                    <><Loader2 size={18} className="animate-spin" /> Generando RCA...</>
+                                ) : (
+                                    <><AlertTriangle size={18} /> Generar RCA (API RP 585)</>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
+
+                {/* RCA Section */}
+                {rcaReport && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-red-500">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold">Hallazgos de Investigacion</h2>
+                                <p className="text-white/40">RCA estructurado basado en evidencia fisica.</p>
+                            </div>
+                        </div>
+                        <RCAVisualizer report={rcaReport} />
+                    </motion.div>
+                )}
             </motion.div>
         );
     }
 
+    // --- RENDER: Pipeline View ---
     return (
         <div className="w-full mx-auto pb-20">
-            {/* Physics Engine Results */}
-            {eventId && (
-                <div className="space-y-8">
-                    <PhysicsResults eventId={eventId} />
-
-                    {/* RCA Section */}
-                    <AnimatePresence>
-                        {!rcaReport ? (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex justify-center"
-                            >
-                                <button
-                                    onClick={handleGenerateRCA}
-                                    disabled={isGeneratingRCA}
-                                    className="btn-primary bg-red-600 hover:bg-red-500 shadow-red-900/40 text-lg py-4 px-8"
-                                >
-                                    {isGeneratingRCA ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            Analyzing Event Evidence...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <AlertTriangle size={24} />
-                                            Generate API RP 585 Root Cause Analysis
-                                        </>
-                                    )}
-                                </button>
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                            >
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-red-500">
-                                        <AlertTriangle size={24} />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold">Investigation Findings</h2>
-                                        <p className="text-white/40">Structured RCA based on physical evidence.</p>
-                                    </div>
-                                </div>
-                                <RCAVisualizer report={rcaReport} />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Progress */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="glass-panel p-6">
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-industrial-500 mb-6 flex items-center gap-2">
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-industrial-500 mb-4 flex items-center gap-2">
                             <BrainCircuit size={16} />
-                            Specialist Pipeline
+                            Pipeline de Especialistas
                         </h3>
-                        <div className="space-y-4">
-                            {workflow.map((agent, index) => (
-                                <div key={agent} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${index === currentStep ? 'bg-industrial-600/10 border border-industrial-600/20 text-white' :
-                                    index < currentStep ? 'text-green-400' : 'text-white/20'
+
+                        {/* Progress Bar */}
+                        <div className="mb-4">
+                            <div className="flex justify-between text-xs text-white/40 mb-1">
+                                <span>Progreso</span>
+                                <span>{Math.min(currentStep, workflow.length)} / {workflow.length}</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-industrial-500 rounded-full transition-all duration-500"
+                                    style={{ width: `${(Math.min(currentStep, workflow.length) / workflow.length) * 100}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {workflow.map((agent, index) => {
+                                const completed = completedAnalyses.find(a => a.agent === agent);
+                                return (
+                                    <div key={`${agent}-${index}`} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                                        index === currentStep && !isSynthesisMode ? 'bg-industrial-600/10 border border-industrial-600/20 text-white' :
+                                        index < currentStep ? 'text-green-400' : 'text-white/20'
                                     }`}>
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${index === currentStep ? 'border-industrial-500 bg-industrial-500/10' :
-                                        index < currentStep ? 'border-green-500 bg-green-500/10' : 'border-white/5 bg-white/5'
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                                            index === currentStep && !isSynthesisMode ? 'border-industrial-500 bg-industrial-500/10' :
+                                            index < currentStep ? 'border-green-500 bg-green-500/10' : 'border-white/5 bg-white/5'
                                         }`}>
-                                        {index < currentStep ? <Check size={14} /> : <span>{index + 1}</span>}
+                                            {index < currentStep ? <Check size={14} /> : <span>{index + 1}</span>}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold uppercase truncate">{agent.replace(/_/g, ' ')}</p>
+                                            {index === currentStep && !isSynthesisMode && (
+                                                <span className="text-[10px] text-industrial-400 animate-pulse">CONSULTANDO...</span>
+                                            )}
+                                        </div>
+                                        {completed && (
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceColor(completed.confidence)}`}>
+                                                {completed.confidence}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold uppercase">{agent.replace('_', ' ')}</p>
-                                        {index === currentStep && <span className="text-[10px] animate-pulse">ACTIVE CONSULTATION</span>}
-                                    </div>
-                                </div>
-                            ))}
-                            <div className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isSynthesisMode ? 'bg-industrial-600/10 border border-industrial-600/20 text-white' : 'text-white/20'
+                                );
+                            })}
+
+                            {/* Synthesis step */}
+                            <div className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                                isSynthesisMode ? 'bg-industrial-600/10 border border-industrial-600/20 text-white' : 'text-white/20'
+                            }`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                                    isSynthesisMode ? 'border-industrial-500 bg-industrial-500/10' : 'border-white/5 bg-white/5'
                                 }`}>
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${isSynthesisMode ? 'border-industrial-500 bg-industrial-500/10' : 'border-white/5 bg-white/5'
-                                    }`}>
                                     <Terminal size={14} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase">Final Synthesis</p>
+                                    <p className="text-xs font-bold uppercase">Sintesis Final</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="glass-panel p-6 bg-amber-500/5 border-amber-500/10">
-                        <div className="flex gap-3 text-amber-500 mb-2">
-                            <AlertCircle size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider">How to proceed</span>
-                        </div>
-                        <p className="text-xs text-amber-500/60 leading-relaxed">
-                            Because this tool operates in <strong>interactive mode</strong>, you must copy the generated system prompt and paste it into Claude to get the expert opinion.
-                        </p>
-                    </div>
                 </div>
 
-                {/* Right Column: Interaction */}
+                {/* Right Column: Agent Execution */}
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <div className="flex items-center gap-3">
-                            <div className={cn(
-                                "p-2 rounded-lg",
-                                isAutomated ? "bg-industrial-500/20 text-industrial-400" : "bg-white/10 text-white/40"
-                            )}>
-                                <BrainCircuit size={20} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold uppercase tracking-wider">Analysis Mode</p>
-                                <p className="text-xs text-white/40">{isAutomated ? 'Automated (Local LLM via Ollama)' : 'Interactive (Manual Copy/Paste)'}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setIsAutomated(!isAutomated)}
-                            className={cn(
-                                "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                                isAutomated ? "bg-industrial-600" : "bg-white/10"
-                            )}
-                        >
-                            <span className={cn(
-                                "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                                isAutomated ? "translate-x-5" : "translate-x-0"
-                            )} />
-                        </button>
-                    </div>
-
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStep + (isSynthesisMode ? 'synth' : 'step')}
@@ -446,74 +366,53 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             className="space-y-6"
                         >
                             {query && (
-                                <div className="space-y-6">
-                                    {!isAutomated ? (
-                                        <>
-                                            <div className="glass-panel p-6 border-industrial-600/20 relative overflow-hidden group">
-                                                <div className="flex items-center gap-3 mb-4">
-                                                    <h3 className="text-lg font-bold text-white/80">
-                                                        Prompt for {isSynthesisMode ? 'Synthesis' : query.role}
-                                                    </h3>
-                                                </div>
-                                                <div className="bg-black/40 rounded-xl p-4 font-mono text-xs text-white/30 h-48 overflow-hidden select-none border border-white/5">
-                                                    {query.query}
-                                                </div>
-                                            </div>
+                                <div className="glass-panel p-12 flex flex-col items-center justify-center text-center space-y-6">
+                                    <div className="w-20 h-20 bg-industrial-600/20 rounded-full flex items-center justify-center text-industrial-500 relative">
+                                        <BrainCircuit size={40} className={isProcessing ? "animate-pulse" : ""} />
+                                        {isProcessing && (
+                                            <div className="absolute inset-0 border-4 border-industrial-500 border-t-transparent rounded-full animate-spin" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold mb-2">
+                                            {isProcessing
+                                                ? `Agente analizando...`
+                                                : `Listo para consultar ${isSynthesisMode ? 'Sintesis' : query.role}`}
+                                        </h3>
+                                        <p className="text-sm text-white/40 max-w-md">
+                                            {isProcessing
+                                                ? "El modelo de IA esta procesando los datos operacionales y hallazgos previos. Esto puede tomar unos segundos."
+                                                : "Haz clic en el boton para ejecutar el analisis automatizado de este paso."}
+                                        </p>
+                                    </div>
 
-                                            <form onSubmit={handleSubmitResponse} className="space-y-4">
-                                                <div className="relative">
-                                                    <textarea
-                                                        required
-                                                        value={response}
-                                                        onChange={(e) => setResponse(e.target.value)}
-                                                        placeholder={`Paste Claude's response for ${isSynthesisMode ? 'the Final Synthesis' : query.role} here...`}
-                                                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-sm text-white focus:outline-none focus:border-industrial-500 transition-all min-h-[300px] shadow-inner"
-                                                    />
-                                                    <div className="absolute bottom-4 right-4">
-                                                        <button
-                                                            type="submit"
-                                                            disabled={isProcessing || !response.trim()}
-                                                            className="btn-primary"
-                                                        >
-                                                            {isProcessing ? 'Processing Analysis...' : (
-                                                                <>
-                                                                    {isSynthesisMode ? 'Complete Final Report' : 'Submit & Continue'}
-                                                                    <ChevronRight size={18} />
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </form>
-                                        </>
-                                    ) : (
-                                        <div className="glass-panel p-12 flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-300">
-                                            <div className="w-20 h-20 bg-industrial-600/20 rounded-full flex items-center justify-center text-industrial-500 relative">
-                                                <BrainCircuit size={40} className={isProcessing ? "animate-pulse" : ""} />
-                                                {isProcessing && (
-                                                    <div className="absolute inset-0 border-4 border-industrial-500 border-t-transparent rounded-full animate-spin" />
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold mb-2">
-                                                    {isProcessing ? 'Agent is analyzing...' : `Ready to Consult ${isSynthesisMode ? 'Synthesis' : query.role}`}
-                                                </h3>
-                                                <p className="text-sm text-white/40 max-w-md">
-                                                    {isProcessing
-                                                        ? "The local LLM is processing the operational data and previous specialist findings. This may take a few seconds."
-                                                        : "Ollama is ready. Click the button below to start the automated analysis for this step."}
-                                                </p>
-                                            </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={handleAutoRun}
+                                            disabled={isProcessing || isAutoRunAll}
+                                            className="btn-primary h-12 px-8 text-base shadow-xl shadow-industrial-900/40 disabled:opacity-50"
+                                        >
+                                            {isProcessing ? (
+                                                <><Loader2 size={18} className="animate-spin" /> Procesando...</>
+                                            ) : (
+                                                <>{isSynthesisMode ? 'Ejecutar Sintesis' : 'Ejecutar Paso'} <Zap size={18} /></>
+                                            )}
+                                        </button>
+
+                                        {!isSynthesisMode && currentStep < workflow.length && (
                                             <button
-                                                onClick={handleAutoRun}
-                                                disabled={isProcessing}
-                                                className="btn-primary h-12 px-8 text-base shadow-xl shadow-industrial-900/40"
+                                                onClick={handleRunAll}
+                                                disabled={isProcessing || isAutoRunAll}
+                                                className="h-12 px-6 text-sm rounded-lg border border-industrial-500/30 text-industrial-400 hover:bg-industrial-500/10 transition-colors disabled:opacity-50 flex items-center gap-2"
                                             >
-                                                {isProcessing ? 'Processing...' : `Run ${isSynthesisMode ? 'Synthesis' : 'Automated Analysis'}`}
-                                                {!isProcessing && <Zap size={18} />}
+                                                {isAutoRunAll ? (
+                                                    <><Loader2 size={16} className="animate-spin" /> Ejecutando todos...</>
+                                                ) : (
+                                                    <><ChevronRight size={16} /> Ejecutar Todos</>
+                                                )}
                                             </button>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </motion.div>
@@ -523,10 +422,5 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         </div>
     );
 };
-
-// Simplified cn helper for the component
-function cn(...inputs: any[]) {
-    return inputs.filter(Boolean).join(' ');
-}
 
 export default AnalysisDashboard;

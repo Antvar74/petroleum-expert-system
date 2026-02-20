@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Check, ArrowRight, Activity, Droplet, PenTool, Shield, Users, Play } from 'lucide-react';
+import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, Droplet, PenTool, Shield, Users, Play, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -22,10 +22,39 @@ const FAMILIES = [
     { id: 'human', label: 'Factores Humanos', icon: Users, description: 'Procedimientos, Comunicación, Error' },
 ];
 
+const EVENT_TYPES: Record<string, { id: string; label: string }[]> = {
+    drilling: [
+        { id: 'stuck_pipe', label: 'Pega de Tubería' },
+        { id: 'lost_circulation', label: 'Pérdida de Circulación' },
+        { id: 'kick', label: 'Kick / Influjo' },
+        { id: 'bha_failure', label: 'Falla de BHA' },
+        { id: 'torque_drag', label: 'Torque/Drag Excesivo' },
+        { id: 'severe_vibration', label: 'Vibración Severa' },
+        { id: 'wellbore_instability', label: 'Inestabilidad del Hoyo' },
+        { id: 'other', label: 'Otro' },
+    ],
+    completion: [
+        { id: 'perforation_failure', label: 'Falla de Cañoneo' },
+        { id: 'formation_damage', label: 'Daño de Formación' },
+        { id: 'sand_production', label: 'Producción de Arena' },
+        { id: 'packer_failure', label: 'Falla de Packer' },
+        { id: 'gravel_pack_failure', label: 'Falla de Empaque' },
+        { id: 'other', label: 'Otro' },
+    ],
+    workover: [
+        { id: 'ct_failure', label: 'Falla de Coiled Tubing' },
+        { id: 'bop_failure', label: 'Falla de BOP' },
+        { id: 'stuck_string', label: 'Atascamiento' },
+        { id: 'surface_equipment', label: 'Falla de Equipo Superficie' },
+        { id: 'other', label: 'Otro' },
+    ],
+};
+
 const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     const [step, setStep] = useState(1);
     const [phase, setPhase] = useState<string | null>(null);
     const [family, setFamily] = useState<string | null>(null);
+    const [eventType, setEventType] = useState<string | null>(null);
     const [files, setFiles] = useState<File[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractedData, setExtractedData] = useState<any>(null);
@@ -103,6 +132,32 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         setSelectedAgents(newSelection);
     };
 
+    const renderStepIndicator = () => (
+        <div className="flex items-center justify-center gap-2 mb-8">
+            {[
+                { num: 1, label: 'Identificación' },
+                { num: 2, label: 'Datos' },
+                { num: 3, label: 'Especialistas' },
+            ].map((s, i) => (
+                <React.Fragment key={s.num}>
+                    <div className="flex flex-col items-center gap-1">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                            step === s.num ? 'border-ibm-blue-500 bg-ibm-blue-500/20 text-ibm-blue-400' :
+                            step > s.num ? 'border-green-500 bg-green-500/20 text-green-400' :
+                            'border-white/20 bg-white/5 text-white/30'
+                        }`}>
+                            {step > s.num ? <Check size={14} /> : s.num}
+                        </div>
+                        <span className={`text-xs ${step === s.num ? 'text-ibm-blue-400' : step > s.num ? 'text-green-400' : 'text-white/30'}`}>
+                            {s.label}
+                        </span>
+                    </div>
+                    {i < 2 && <div className={`w-16 h-0.5 mb-5 ${step > s.num ? 'bg-green-500' : 'bg-white/10'}`} />}
+                </React.Fragment>
+            ))}
+        </div>
+    );
+
     const renderStep1 = () => (
         <div className="space-y-6 animate-fadeIn">
             <h3 className="text-xl font-bold text-white mb-4">1. Identificación del Evento</h3>
@@ -113,7 +168,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                     {PHASES.map((p) => (
                         <button
                             key={p.id}
-                            onClick={() => setPhase(p.id)}
+                            onClick={() => { setPhase(p.id); setEventType(null); }}
                             className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${phase === p.id
                                 ? 'bg-ibm-blue-600/20 border-ibm-blue-500 text-white'
                                 : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
@@ -127,6 +182,26 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
             </div>
 
             {phase && (
+                <div className="space-y-4 animate-fadeIn">
+                    <label className="text-sm text-ibm-gray-300">Tipo de Evento</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {(EVENT_TYPES[phase] || []).map((et) => (
+                            <button
+                                key={et.id}
+                                onClick={() => setEventType(et.id)}
+                                className={`p-3 rounded-lg border text-left transition-all ${eventType === et.id
+                                    ? 'bg-ibm-blue-600/20 border-ibm-blue-500 text-white'
+                                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+                                    }`}
+                            >
+                                <div className="font-medium text-sm">{et.label}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {phase && eventType && (
                 <div className="space-y-4 animate-fadeIn">
                     <label className="text-sm text-ibm-gray-300">Familia del Evento</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -159,7 +234,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                 </button>
 
                 <button
-                    disabled={!phase || !family}
+                    disabled={!phase || !family || !eventType}
                     onClick={() => setStep(2)}
                     className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
                 >
@@ -183,8 +258,9 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                             accept=".pdf,.csv,.txt,.md"
                             multiple
                             onChange={handleFileUpload}
+                            disabled={isExtracting}
                         />
-                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
+                        <label htmlFor="file-upload" className={`flex flex-col items-center gap-4 ${isExtracting ? 'pointer-events-none' : 'cursor-pointer'}`}>
                             {isExtracting ? (
                                 <>
                                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ibm-blue-500"></div>
@@ -199,18 +275,24 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                                         <div className="text-lg font-medium text-white">Sube Reportes Diarios (DDR) o PDFs</div>
                                         <div className="text-sm text-white/40 mt-1">Soporta PDF, CSV, TXT, MD</div>
                                         <div className="text-xs text-yellow-500/80 mt-2 font-mono border border-yellow-500/20 bg-yellow-500/5 px-2 py-1 rounded inline-block">
-                                            ⚠️ Máx 5 archivos o 10MB total. Se procesarán los primeros 15k caracteres.
+                                            Max 5 archivos o 10MB total. Se procesaran los primeros 15k caracteres.
                                         </div>
                                     </div>
                                 </>
                             )}
                         </label>
                     </div>
-                    <div className="flex justify-center mt-4">
+                    <div className="flex justify-between mt-4">
+                        <button
+                            onClick={() => setStep(1)}
+                            className="text-white/50 hover:text-white px-4 py-2 flex items-center gap-2"
+                        >
+                            <ArrowLeftIcon size={16} /> Atrás
+                        </button>
                         <button
                             onClick={() => {
-                                setExtractedData({}); // Set empty data to proceed
-                                setStep(3); // Go to agent selection
+                                setExtractedData({});
+                                setStep(3);
                             }}
                             className="text-sm text-white/40 hover:text-white transition-colors"
                         >
@@ -249,10 +331,10 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                             if (key === 'operation_summary') return null;
                             return (
                                 <div key={key} className="bg-white/5 p-3 rounded border border-white/10">
-                                    <label className="text-xs text-white/40 uppercase block mb-1">{key.replace('_', ' ')}</label>
+                                    <label className="text-xs text-white/40 uppercase block mb-1">{key.replace(/_/g, ' ')}</label>
                                     <input
                                         type="text"
-                                        defaultValue={value as string}
+                                        value={(value as string) || ''}
                                         onChange={(e) => setExtractedData({ ...extractedData, [key]: e.target.value })}
                                         className="bg-transparent text-white font-mono w-full focus:outline-none"
                                     />
@@ -291,13 +373,24 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         <div className="space-y-6 animate-fadeIn">
             <h3 className="text-xl font-bold text-white mb-4">3. Selección del Equipo de Investigación (IA)</h3>
             <div className="flex justify-between items-center mb-4">
-                <p className="text-white/60">Selecciona los agentes especialistas que analizarán este evento.</p>
+                <p className="text-white/60">Selecciona los agentes especialistas que analizarán este evento.
+                    {selectedAgents.length > 0 && !leaderAgent && (
+                        <span className="block text-yellow-400 text-xs mt-1 flex items-center gap-1">
+                            <AlertTriangle size={12} /> Designa un líder para el análisis
+                        </span>
+                    )}
+                </p>
                 <button
                     onClick={() => {
                         if (selectedAgents.length === availableAgents.length) {
                             setSelectedAgents([]);
+                            setLeaderAgent(null);
                         } else {
-                            setSelectedAgents(availableAgents.map(a => a.id));
+                            const allIds = availableAgents.map(a => a.id);
+                            setSelectedAgents(allIds);
+                            if (!leaderAgent) {
+                                setLeaderAgent(allIds.includes('drilling_engineer') ? 'drilling_engineer' : allIds[0]);
+                            }
                         }
                     }}
                     className="text-ibm-blue-400 text-sm hover:text-ibm-blue-300 font-medium"
@@ -321,7 +414,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                             {selectedAgents.includes(agent.id) && <Check size={12} className="text-white" />}
                         </div>
                         <div>
-                            <div className="font-medium">{agent.name.replace('_', ' ').toUpperCase()}</div>
+                            <div className="font-medium">{agent.name.replace(/_/g, ' ').toUpperCase()}</div>
                             <div className="text-xs opacity-70">{agent.role}</div>
                         </div>
                         {selectedAgents.includes(agent.id) && (
@@ -350,7 +443,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                     Atrás
                 </button>
                 <button
-                    onClick={() => onComplete({ phase, family, files, parameters: extractedData || {}, workflow: selectedAgents, leader: leaderAgent })}
+                    onClick={() => onComplete({ phase, family, event_type: eventType, parameters: extractedData || {}, workflow: selectedAgents, leader: leaderAgent })}
                     disabled={selectedAgents.length === 0}
                     className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2"
                 >
@@ -362,9 +455,11 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
 
     return (
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl p-8 w-full max-w-7xl mx-auto shadow-2xl">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold font-mono">ASISTENTE DE ANÁLISIS DE EVENTOS</h2>
             </div>
+
+            {renderStepIndicator()}
 
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}

@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Optional, Any
 from .coordinator import StuckPipeCoordinator
 from models import OperationalProblem, AnalysisResult

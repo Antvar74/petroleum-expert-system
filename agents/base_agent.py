@@ -33,16 +33,19 @@ class BaseAgent:
     
     def analyze_interactive(self, problem_description: str, context: Optional[Dict] = None) -> Dict:
         """
-        Generate formatted query for manual execution in Claude
-        User will copy this query, paste in Claude, and return the response
-        
+        Generate formatted query for execution via LLM Gateway.
+
         Args:
             problem_description: Description of the problem to analyze
             context: Additional context including well data and previous analyses
-            
+
         Returns:
             Dictionary containing the formatted query and eventual response
         """
+        # Reset conversation history at the start of each new analysis
+        # to prevent cross-session contamination (agents are singletons)
+        self.conversation_history = []
+
         # Generate the complete query with system prompt and context
         formatted_query = self._generate_formatted_query(problem_description, context)
         
@@ -154,31 +157,6 @@ USER REQUEST:
         
         # Default to medium if unclear
         return "MEDIUM"
-    
-    def save_response(self, response_text: str, filepath: str):
-        """
-        Save a response to a file for later use
-        
-        Args:
-            response_text: The response to save
-            filepath: Where to save it
-        """
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(response_text)
-    
-    def load_response(self, filepath: str) -> str:
-        """
-        Load a previously saved response
-        
-        Args:
-            filepath: Path to the saved response
-            
-        Returns:
-            The loaded response text
-        """
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return f.read()
     
     def get_history(self) -> List[Dict]:
         """
