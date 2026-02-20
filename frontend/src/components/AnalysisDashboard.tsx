@@ -9,14 +9,23 @@ import {
     AlertTriangle,
     FileText,
     Zap,
-    Loader2
+    Loader2,
+    RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RCAVisualizer from './RCAVisualizer';
 import { API_BASE_URL } from '../config';
+import { useToast } from './ui/Toast';
 
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+
+interface CompletedAnalysis {
+    role: string;
+    confidence: string;
+    agent: string;
+    analysis?: string;
+}
 
 interface AnalysisDashboardProps {
     analysisId: number;
@@ -25,6 +34,8 @@ interface AnalysisDashboardProps {
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete }) => {
+    const { addToast } = useToast();
+
     // RCA State
     const [rcaReport, setRcaReport] = useState<any>(null);
     const [isGeneratingRCA, setIsGeneratingRCA] = useState(false);
@@ -33,11 +44,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     const [currentStep, setCurrentStep] = useState(0);
     const [query, setQuery] = useState<any>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [completedAnalyses, setCompletedAnalyses] = useState<{ role: string; confidence: string; agent: string }[]>([]);
+    const [completedAnalyses, setCompletedAnalyses] = useState<CompletedAnalysis[]>([]);
     const [isSynthesisMode, setIsSynthesisMode] = useState(false);
     const [finalReport, setFinalReport] = useState<any>(null);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [isAutoRunAll, setIsAutoRunAll] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
     // Event ID for RCA
     const [eventId, setEventId] = useState<number | null>(null);
@@ -66,25 +79,32 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
 
     const fetchQuery = async (agentId: string) => {
         try {
+            setErrorMessage(null);
             const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/query`);
             setQuery(response.data);
         } catch (error) {
-            console.error("Error fetching query:", error);
+            const msg = `Error cargando consulta para ${agentId.replace(/_/g, ' ')}`;
+            setErrorMessage(msg);
+            addToast(msg, 'error');
         }
     };
 
     const fetchSynthesisQuery = async () => {
         try {
+            setErrorMessage(null);
             setIsSynthesisMode(true);
             const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/synthesis/query`);
             setQuery(response.data);
         } catch (error) {
-            console.error("Error fetching synthesis query:", error);
+            const msg = 'Error cargando consulta de síntesis';
+            setErrorMessage(msg);
+            addToast(msg, 'error');
         }
     };
 
     const handleAutoRun = async () => {
         setIsProcessing(true);
+        setErrorMessage(null);
         try {
             if (!isSynthesisMode) {
                 const agentId = workflow[currentStep];
@@ -92,15 +112,21 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 setCompletedAnalyses(prev => [...prev, {
                     role: query?.role || agentId,
                     confidence: res.data.confidence || 'MEDIUM',
-                    agent: agentId
+                    agent: agentId,
+                    analysis: res.data.analysis
                 }]);
+                addToast(`${(query?.role || agentId).replace(/_/g, ' ')} completado`, 'success', 3000);
                 setCurrentStep(prev => prev + 1);
             } else {
                 const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
                 setFinalReport(res.data.analysis);
+                addToast('Síntesis ejecutiva completada', 'success');
             }
         } catch (error) {
-            console.error("Error in automated analysis:", error);
+            const agentName = isSynthesisMode ? 'síntesis' : (query?.role || workflow[currentStep]);
+            const msg = `Error ejecutando ${agentName}: ${error instanceof Error ? error.message : 'Error de servidor'}`;
+            setErrorMessage(msg);
+            addToast(msg, 'error', 8000);
         } finally {
             setIsProcessing(false);
         }
@@ -108,6 +134,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
 
     const handleRunAll = async () => {
         setIsAutoRunAll(true);
+        setErrorMessage(null);
         for (let i = currentStep; i < workflow.length; i++) {
             try {
                 setIsProcessing(true);
@@ -118,11 +145,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 setCompletedAnalyses(prev => [...prev, {
                     role: queryRes.data?.role || agentId,
                     confidence: res.data.confidence || 'MEDIUM',
-                    agent: agentId
+                    agent: agentId,
+                    analysis: res.data.analysis
                 }]);
                 setCurrentStep(i + 1);
             } catch (error) {
-                console.error(`Error running agent ${workflow[i]}:`, error);
+                const msg = `Error en agente ${workflow[i].replace(/_/g, ' ')}. Pipeline detenido.`;
+                setErrorMessage(msg);
+                addToast(msg, 'error', 8000);
                 setIsProcessing(false);
                 setIsAutoRunAll(false);
                 return;
@@ -135,8 +165,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
             setQuery(synthQuery.data);
             const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
             setFinalReport(res.data.analysis);
+            addToast('Pipeline completo — síntesis generada', 'success');
         } catch (error) {
-            console.error("Error in synthesis:", error);
+            const msg = 'Error generando síntesis final';
+            setErrorMessage(msg);
+            addToast(msg, 'error', 8000);
         } finally {
             setIsProcessing(false);
             setIsAutoRunAll(false);
@@ -149,8 +182,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         try {
             const res = await axios.post(`${API_BASE_URL}/events/${eventId}/rca`);
             setRcaReport(res.data);
+            addToast('Reporte RCA generado exitosamente', 'success');
         } catch (error) {
-            console.error("Error generating RCA:", error);
+            addToast('Error generando reporte RCA', 'error');
         } finally {
             setIsGeneratingRCA(false);
         }
@@ -233,8 +267,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             <ShieldCheck size={24} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold">Sintesis Ejecutiva Integrada</h2>
-                            <p className="text-white/40">Analisis multi-agente completado. Resultados sintetizados.</p>
+                            <h2 className="text-2xl font-bold">Síntesis Ejecutiva Integrada</h2>
+                            <p className="text-white/40">Análisis multi-agente completado. Resultados sintetizados.</p>
                         </div>
                     </div>
 
@@ -272,8 +306,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                 <AlertTriangle size={24} />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold">Hallazgos de Investigacion</h2>
-                                <p className="text-white/40">RCA estructurado basado en evidencia fisica.</p>
+                                <h2 className="text-2xl font-bold">Hallazgos de Investigación</h2>
+                                <p className="text-white/40">RCA estructurado basado en evidencia física.</p>
                             </div>
                         </div>
                         <RCAVisualizer report={rcaReport} />
@@ -326,7 +360,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-bold uppercase truncate">{agent.replace(/_/g, ' ')}</p>
                                             {index === currentStep && !isSynthesisMode && (
-                                                <span className="text-[10px] text-industrial-400 animate-pulse">CONSULTANDO...</span>
+                                                <span className="text-[10px] text-industrial-400 animate-pulse">ANALIZANDO...</span>
                                             )}
                                         </div>
                                         {completed && (
@@ -348,7 +382,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                     <Terminal size={14} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase">Sintesis Final</p>
+                                    <p className="text-xs font-bold uppercase">Síntesis Final</p>
                                 </div>
                             </div>
                         </div>
@@ -356,7 +390,64 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 </div>
 
                 {/* Right Column: Agent Execution */}
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Error Banner */}
+                    {errorMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3"
+                        >
+                            <AlertTriangle size={20} className="text-red-400 shrink-0" />
+                            <p className="text-sm text-red-300 flex-1">{errorMessage}</p>
+                            <button
+                                onClick={() => { setErrorMessage(null); handleAutoRun(); }}
+                                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 shrink-0"
+                            >
+                                <RotateCcw size={12} /> Reintentar
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {/* Completed Analyses - Expandable */}
+                    {completedAnalyses.length > 0 && (
+                        <div className="space-y-2">
+                            {completedAnalyses.map((a, i) => (
+                                <div key={`${a.agent}-${i}`} className="glass-panel overflow-hidden">
+                                    <button
+                                        onClick={() => setExpandedAgent(expandedAgent === a.agent ? null : a.agent)}
+                                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
+                                    >
+                                        <div className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                                            <Check size={12} className="text-green-400" />
+                                        </div>
+                                        <span className="text-sm font-bold flex-1">{a.role}</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceColor(a.confidence)}`}>
+                                            {a.confidence}
+                                        </span>
+                                        <ChevronRight size={14} className={`text-white/30 transition-transform ${expandedAgent === a.agent ? 'rotate-90' : ''}`} />
+                                    </button>
+                                    <AnimatePresence>
+                                        {expandedAgent === a.agent && a.analysis && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="px-4 pb-4 pt-0">
+                                                    <div className="bg-black/30 rounded-xl p-4 text-sm text-white/70 whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar leading-relaxed">
+                                                        {a.analysis}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStep + (isSynthesisMode ? 'synth' : 'step')}
@@ -377,12 +468,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                         <h3 className="text-xl font-bold mb-2">
                                             {isProcessing
                                                 ? `Agente analizando...`
-                                                : `Listo para consultar ${isSynthesisMode ? 'Sintesis' : query.role}`}
+                                                : `Listo para consultar ${isSynthesisMode ? 'Síntesis' : query.role}`}
                                         </h3>
                                         <p className="text-sm text-white/40 max-w-md">
                                             {isProcessing
-                                                ? "El modelo de IA esta procesando los datos operacionales y hallazgos previos. Esto puede tomar unos segundos."
-                                                : "Haz clic en el boton para ejecutar el analisis automatizado de este paso."}
+                                                ? "El modelo de IA está procesando los datos operacionales y hallazgos previos. Esto puede tomar unos segundos."
+                                                : "Haz clic en el botón para ejecutar el análisis automatizado de este paso."}
                                         </p>
                                     </div>
 
@@ -395,7 +486,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                             {isProcessing ? (
                                                 <><Loader2 size={18} className="animate-spin" /> Procesando...</>
                                             ) : (
-                                                <>{isSynthesisMode ? 'Ejecutar Sintesis' : 'Ejecutar Paso'} <Zap size={18} /></>
+                                                <>{isSynthesisMode ? 'Ejecutar Síntesis' : 'Ejecutar Paso'} <Zap size={18} /></>
                                             )}
                                         </button>
 

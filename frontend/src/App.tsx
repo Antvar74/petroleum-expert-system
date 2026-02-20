@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Activity, GitBranch } from 'lucide-react';
+import { ArrowLeft, Activity, GitBranch, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from './config';
+import { ToastProvider, useToast } from './components/ui/Toast';
 import Sidebar from './components/Sidebar';
 import WellSelector from './components/WellSelector';
 import EventWizard from './components/EventWizard';
@@ -22,10 +23,13 @@ import CementingModule from './components/CementingModule';
 import CasingDesignModule from './components/CasingDesignModule';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
-function App() {
+function AppContent() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedWell, setSelectedWell] = useState<any>(null);
   const [activeAnalysis, setActiveAnalysis] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState('');
+  const { addToast } = useToast();
 
   const handleWellSelect = (well: any) => {
     setSelectedWell(well);
@@ -33,8 +37,10 @@ function App() {
   };
 
   const handleEventSubmit = async (eventData: any) => {
+    setIsSubmitting(true);
     try {
       // 1. Create the Structured Event record
+      setSubmitStep('Creando registro del evento...');
       const payload = {
         ...eventData,
         well_id: selectedWell.id
@@ -44,15 +50,15 @@ function App() {
       const { id: eventId, problem_id: legacyProblemId } = response.data;
 
       // 2. Trigger Physics Calculation (Async)
-      // We don't block the UI for this, but we fire it off.
+      setSubmitStep('Ejecutando cálculos de física...');
       try {
         await axios.post(`${API_BASE_URL}/events/${eventId}/calculate`);
       } catch (calcError) {
         console.warn("Physics calculation failed:", calcError);
       }
 
-      // 3. Initialize analysis using legacy pipeline (for now)
-      // We use the legacy_problem_id to bridge to the existing Agents
+      // 3. Initialize analysis using legacy pipeline
+      setSubmitStep('Inicializando pipeline de agentes...');
       const analysisResponse = await axios.post(`${API_BASE_URL}/problems/${legacyProblemId}/analysis/init`, {
         workflow: eventData.workflow || "standard",
         leader: eventData.leader
@@ -60,9 +66,13 @@ function App() {
 
       setActiveAnalysis(analysisResponse.data);
       setCurrentView('analysis');
+      addToast('Pipeline de análisis iniciado correctamente', 'success');
     } catch (error) {
       console.error("Error creating event/analysis:", error);
-      alert(`Failed to start analysis: ${error instanceof Error ? error.message : String(error)}`);
+      addToast(`Error al iniciar análisis: ${error instanceof Error ? error.message : String(error)}`, 'error', 8000);
+    } finally {
+      setIsSubmitting(false);
+      setSubmitStep('');
     }
   };
 
@@ -76,8 +86,8 @@ function App() {
         return (
           <div className="w-full mx-auto py-12">
             <div className="mb-12">
-              <h2 className="text-3xl font-bold mb-2">New Event Analysis: {selectedWell?.name}</h2>
-              <p className="text-white/40">Use the AI Wizard to identify the event and extract technical parameters.</p>
+              <h2 className="text-3xl font-bold mb-2">Nuevo Análisis de Evento: {selectedWell?.name}</h2>
+              <p className="text-white/40">Usa el Asistente IA para identificar el evento y extraer parámetros técnicos.</p>
             </div>
             <EventWizard
               onComplete={handleEventSubmit}
@@ -99,15 +109,15 @@ function App() {
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
               <Activity className="text-white/20" size={32} />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">No Analysis in Progress</h3>
+            <h3 className="text-xl font-bold text-white mb-2">Sin Análisis en Progreso</h3>
             <p className="text-white/40 mb-6 max-w-md">
-              Start a new event analysis from the Dashboard to see the Agent Pipeline in action.
+              Inicia un nuevo análisis de evento desde el Dashboard para ver el Pipeline de Agentes en acción.
             </p>
             <button
               onClick={() => setCurrentView('dashboard')}
               className="px-6 py-2 bg-industrial-600 hover:bg-industrial-700 text-white rounded-lg transition-colors font-medium"
             >
-              Go to Dashboard
+              Ir al Dashboard
             </button>
           </div>
         );
@@ -120,15 +130,15 @@ function App() {
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
               <GitBranch className="text-white/20" size={32} />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">No Root Cause Analysis</h3>
+            <h3 className="text-xl font-bold text-white mb-2">Sin Análisis de Causa Raíz</h3>
             <p className="text-white/40 mb-6 max-w-md">
-              Complete an event analysis to generate an RCA report.
+              Completa un análisis de evento para generar un reporte RCA.
             </p>
             <button
               onClick={() => setCurrentView('dashboard')}
               className="px-6 py-2 bg-industrial-600 hover:bg-industrial-700 text-white rounded-lg transition-colors font-medium"
             >
-              Start New Analysis
+              Iniciar Nuevo Análisis
             </button>
           </div>
         );
@@ -178,37 +188,37 @@ function App() {
               <button
                 onClick={() => setSelectedWell(null)}
                 className="p-2 mr-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                title="Back to Projects"
+                title="Volver a Proyectos"
               >
                 <ArrowLeft size={20} />
               </button>
             )}
             <div className="p-2 bg-industrial-600/10 rounded-lg text-industrial-500">
-              {currentView === 'dashboard' && <span className="font-bold">Operational Problem Report</span>}
-              {currentView === 'analysis' && <span className="font-bold">Multi-Agent Specialist Pipeline</span>}
-              {currentView === 'rca' && <span className="font-bold">Elite Root Cause Analysis</span>}
-              {currentView === 'module-dashboard' && <span className="font-bold">Engineering Dashboard</span>}
+              {currentView === 'dashboard' && <span className="font-bold">Reporte de Problema Operacional</span>}
+              {currentView === 'analysis' && <span className="font-bold">Pipeline Multi-Agente Especialista</span>}
+              {currentView === 'rca' && <span className="font-bold">Análisis de Causa Raíz (RCA)</span>}
+              {currentView === 'module-dashboard' && <span className="font-bold">Dashboard de Ingeniería</span>}
               {currentView === 'torque-drag' && <span className="font-bold">Torque & Drag Real-Time</span>}
-              {currentView === 'hydraulics' && <span className="font-bold">Hydraulics / ECD Dynamic</span>}
-              {currentView === 'stuck-pipe' && <span className="font-bold">Stuck Pipe Analyzer</span>}
-              {currentView === 'well-control' && <span className="font-bold">Well Control / Kill Sheet</span>}
-              {currentView === 'wellbore-cleanup' && <span className="font-bold">Wellbore Cleanup / Hole Cleaning</span>}
-              {currentView === 'packer-forces' && <span className="font-bold">Packer Forces / Tubing Analysis</span>}
-              {currentView === 'workover-hydraulics' && <span className="font-bold">Workover Hydraulics / CT Operations</span>}
-              {currentView === 'sand-control' && <span className="font-bold">Sand Control / Gravel Pack Design</span>}
-              {currentView === 'completion-design' && <span className="font-bold">Completion Design / Perforating & Fracture</span>}
-              {currentView === 'shot-efficiency' && <span className="font-bold">Shot Efficiency / Petrophysics & Intervals</span>}
-              {currentView === 'vibrations' && <span className="font-bold">Vibrations & Stability / Drillstring Dynamics</span>}
-              {currentView === 'cementing' && <span className="font-bold">Cementing Simulation / Displacement & ECD</span>}
-              {currentView === 'casing-design' && <span className="font-bold">Casing Design / API 5C3 Burst-Collapse-Tension</span>}
+              {currentView === 'hydraulics' && <span className="font-bold">Hidráulica / ECD Dinámico</span>}
+              {currentView === 'stuck-pipe' && <span className="font-bold">Analizador de Pega de Tubería</span>}
+              {currentView === 'well-control' && <span className="font-bold">Control de Pozo / Kill Sheet</span>}
+              {currentView === 'wellbore-cleanup' && <span className="font-bold">Limpieza de Hoyo</span>}
+              {currentView === 'packer-forces' && <span className="font-bold">Fuerzas de Packer / Análisis de Tubing</span>}
+              {currentView === 'workover-hydraulics' && <span className="font-bold">Hidráulica de Workover / CT</span>}
+              {currentView === 'sand-control' && <span className="font-bold">Control de Arena / Gravel Pack</span>}
+              {currentView === 'completion-design' && <span className="font-bold">Diseño de Completación / Cañoneo & Fractura</span>}
+              {currentView === 'shot-efficiency' && <span className="font-bold">Eficiencia de Disparo / Petrofísica</span>}
+              {currentView === 'vibrations' && <span className="font-bold">Vibraciones & Estabilidad / Dinámica de Sarta</span>}
+              {currentView === 'cementing' && <span className="font-bold">Simulación de Cementación / Desplazamiento & ECD</span>}
+              {currentView === 'casing-design' && <span className="font-bold">Diseño de Casing / API 5C3 Burst-Collapse-Tension</span>}
             </div>
           </div>
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <p className="text-xs font-bold uppercase tracking-widest text-white/20">Asset Status</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-white/20">Estado del Activo</p>
               <p className="text-sm font-semibold text-green-500 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                Live: {selectedWell?.name || 'No well selected'}
+                Activo: {selectedWell?.name || 'Sin pozo seleccionado'}
               </p>
             </div>
           </div>
@@ -218,7 +228,31 @@ function App() {
           {renderContent()}
         </section>
       </main>
+
+      {/* Loading Overlay */}
+      {isSubmitting && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-industrial-950 border border-white/10 rounded-2xl p-10 flex flex-col items-center gap-5 shadow-2xl max-w-sm">
+            <Loader2 size={40} className="text-industrial-500 animate-spin" />
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-white mb-1">Inicializando Análisis</h3>
+              <p className="text-sm text-white/50 animate-pulse">{submitStep}</p>
+            </div>
+            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-industrial-500 rounded-full animate-[loading_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

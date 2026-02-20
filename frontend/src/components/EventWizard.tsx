@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, Droplet, PenTool, Shield, Users, Play, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useToast } from './ui/Toast';
 
 interface EventWizardProps {
     onComplete: (eventData: any) => void;
@@ -51,6 +52,7 @@ const EVENT_TYPES: Record<string, { id: string; label: string }[]> = {
 };
 
 const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
+    const { addToast } = useToast();
     const [step, setStep] = useState(1);
     const [phase, setPhase] = useState<string | null>(null);
     const [family, setFamily] = useState<string | null>(null);
@@ -79,13 +81,13 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
 
             // Validation
             if (selectedFiles.length > 5) {
-                alert("Máximo 5 archivos permitidos.");
+                addToast("Máximo 5 archivos permitidos.", 'warning');
                 return;
             }
 
             const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
             if (totalSize > 10 * 1024 * 1024) { // 10MB
-                alert("El tamaño total excede los 10MB.");
+                addToast("El tamaño total excede los 10MB.", 'warning');
                 return;
             }
 
@@ -105,7 +107,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                 setExtractedData(response.data);
             } catch (error) {
                 console.error("Extraction error:", error);
-                alert("Error extracting data. Please enter manually.");
+                addToast("Error al extraer datos. Ingrese los parámetros manualmente.", 'error');
             } finally {
                 setIsExtracting(false);
             }
