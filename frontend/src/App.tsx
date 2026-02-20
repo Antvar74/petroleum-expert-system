@@ -47,7 +47,7 @@ function AppContent() {
       };
 
       const response = await axios.post(`${API_BASE_URL}/events`, payload);
-      const { id: eventId, problem_id: legacyProblemId } = response.data;
+      const { id: eventId } = response.data;
 
       // 2. Trigger Physics Calculation (Async)
       setSubmitStep('Ejecutando cálculos de física...');
@@ -57,9 +57,9 @@ function AppContent() {
         console.warn("Physics calculation failed:", calcError);
       }
 
-      // 3. Initialize analysis using legacy pipeline
+      // 3. Initialize analysis directly from Event (no legacy Problem bridge)
       setSubmitStep('Inicializando pipeline de agentes...');
-      const analysisResponse = await axios.post(`${API_BASE_URL}/problems/${legacyProblemId}/analysis/init`, {
+      const analysisResponse = await axios.post(`${API_BASE_URL}/events/${eventId}/analysis/init`, {
         workflow: eventData.workflow || "standard",
         leader: eventData.leader
       });

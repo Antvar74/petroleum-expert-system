@@ -183,7 +183,11 @@ OUTPUT FORMAT (Strict JSON):
   },
   "corrective_actions": [
     "Immediate: ...",
-    "Preventive: ..."
+    "Short-term: ..."
+  ],
+  "prevention_actions": [
+    "Long-term systemic improvement 1",
+    "Long-term systemic improvement 2"
   ],
   "confidence_score": 0.0 to 1.0 (float)
 }
@@ -209,6 +213,7 @@ INSTRUCTIONS:
 - If CCI is Poor, consider flow rate or rheology.
 - If Mechanical Risk is High, consider tortuosity or BHA design.
 - Connect the 'Physics' findings to the 'Parameters' to form the logical chain.
+- Separate CORRECTIVE (immediate fixes) from PREVENTION (long-term systemic improvements).
 - Generate the JSON output.
 """
         

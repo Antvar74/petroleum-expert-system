@@ -59,7 +59,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         const fetchAnalysisDetails = async () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/analysis/${analysisId}`);
-                if (res.data?.problem?.additional_data?.event_id) {
+                // Try direct event_id first, fallback to legacy bridge
+                if (res.data?.event_id) {
+                    setEventId(res.data.event_id);
+                } else if (res.data?.problem?.additional_data?.event_id) {
                     setEventId(res.data.problem.additional_data.event_id);
                 }
             } catch (e) {

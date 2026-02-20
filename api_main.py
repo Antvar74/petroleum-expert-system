@@ -228,26 +228,49 @@ def init_analysis(
 
 @app.get("/analysis/{analysis_id}")
 def get_analysis_details(analysis_id: int, db: Session = Depends(get_db)):
-    """Get full analysis details including problem context"""
+    """Get full analysis details including problem/event context"""
     analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis session not found")
-        
-    return {
+
+    result = {
         "id": analysis.id,
         "problem_id": analysis.problem_id,
+        "event_id": getattr(analysis, 'event_id', None),
         "workflow": analysis.workflow_used,
         "individual_analyses": analysis.individual_analyses,
         "final_synthesis": analysis.final_synthesis,
-        "problem": {
-            "id": analysis.problem.id,
-            "description": analysis.problem.description,
-            "additional_data": analysis.problem.additional_data,
-            "well": {
-                "name": analysis.problem.well.name
-            }
-        }
     }
+
+    # Try event-based context first
+    ev_id = getattr(analysis, 'event_id', None)
+    if ev_id:
+        from models.models_v2 import Event
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            result["event"] = {
+                "id": event.id,
+                "phase": event.phase,
+                "family": event.family,
+                "event_type": event.event_type,
+                "description": event.description
+            }
+            result["event_id"] = event.id
+
+    # Fallback to legacy problem context
+    if analysis.problem_id:
+        problem = db.query(Problem).filter(Problem.id == analysis.problem_id).first()
+        if problem:
+            result["problem"] = {
+                "id": problem.id,
+                "description": problem.description,
+                "additional_data": problem.additional_data,
+                "well": {"name": problem.well.name} if problem.well else {}
+            }
+            if not result.get("event_id") and problem.additional_data:
+                result["event_id"] = problem.additional_data.get("event_id")
+
+    return result
 
 @app.get("/analysis/{analysis_id}/agent/{agent_id}/query")
 def get_query(analysis_id: int, agent_id: str, db: Session = Depends(get_db)):
@@ -255,20 +278,41 @@ def get_query(analysis_id: int, agent_id: str, db: Session = Depends(get_db)):
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
     if not analysis_record:
         raise HTTPException(status_code=404, detail="Analysis session not found")
-        
-    problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
-    
-    # Reconstruct context from previous analyses in this session
-    context = {
-        "well_data": {
-            "well_name": problem.well.name,
-            "depth_md": problem.depth_md,
-            "description": problem.description
-        },
-        "previous_analyses": analysis_record.individual_analyses or []
-    }
-    
-    query_data = coordinator.get_agent_query(agent_id, problem.description, context)
+
+    # Build context from either Event or legacy Problem
+    context = {"previous_analyses": analysis_record.individual_analyses or []}
+    description = "No description available"
+
+    ev_id = getattr(analysis_record, 'event_id', None)
+    if ev_id:
+        from models.models_v2 import Event, ParameterSet
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            context["well_data"] = {
+                "well_name": event.well.name if event.well else "Unknown",
+                "description": event.description,
+                "phase": event.phase,
+                "family": event.family,
+                "event_type": event.event_type
+            }
+            params = db.query(ParameterSet).filter(ParameterSet.event_id == ev_id).first()
+            if params:
+                context["well_data"]["depth_md"] = params.depth_md
+                context["well_data"]["depth_tvd"] = params.depth_tvd
+                context["well_data"]["mud_weight"] = params.mud_weight
+            description = event.description or description
+
+    if analysis_record.problem_id and "well_data" not in context:
+        problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+        if problem:
+            context["well_data"] = {
+                "well_name": problem.well.name if problem.well else "Unknown",
+                "depth_md": problem.depth_md,
+                "description": problem.description
+            }
+            description = problem.description
+
+    query_data = coordinator.get_agent_query(agent_id, description, context)
     return query_data
 
 @app.post("/analysis/{analysis_id}/agent/{agent_id}/response")
@@ -284,14 +328,24 @@ def submit_response(analysis_id: int, agent_id: str, response: Dict[str, str], d
     # Find or create placeholder for this agent
     agent_analysis = next((a for a in individual_analyses if a["agent"] == agent_id), None)
     
-    # We need the original query to update the response
-    problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
-    context = {
-        "well_data": {"well_name": problem.well.name},
-        "previous_analyses": [a for a in individual_analyses if a["agent"] != agent_id]
-    }
-    
-    fresh_analysis = coordinator.get_agent_query(agent_id, problem.description, context)
+    # Build context from Event or legacy Problem
+    description = "No description"
+    context = {"previous_analyses": [a for a in individual_analyses if a["agent"] != agent_id]}
+
+    ev_id = getattr(analysis_record, 'event_id', None)
+    if ev_id:
+        from models.models_v2 import Event
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            context["well_data"] = {"well_name": event.well.name if event.well else "Unknown"}
+            description = event.description or description
+    if analysis_record.problem_id and "well_data" not in context:
+        problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+        if problem:
+            context["well_data"] = {"well_name": problem.well.name}
+            description = problem.description
+
+    fresh_analysis = coordinator.get_agent_query(agent_id, description, context)
     updated_analysis = coordinator.process_agent_response(agent_id, fresh_analysis, response.get("text", ""))
     
     # Update list
@@ -312,21 +366,41 @@ def get_synthesis_query(analysis_id: int, db: Session = Depends(get_db)):
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
     if not analysis_record:
         raise HTTPException(status_code=404, detail="Analysis session not found")
-    problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
-    if not problem_record:
-        raise HTTPException(status_code=404, detail="Problem not found for this analysis")
-    
-    # Wrap problem record in OperationalProblem dataclass to use coordinator's method
-    op_problem = OperationalProblem(
-        well_name=problem_record.well.name,
-        depth_md=problem_record.depth_md,
-        depth_tvd=problem_record.depth_tvd,
-        description=problem_record.description,
-        operation=problem_record.operation
-    )
-    
+
+    # Build OperationalProblem from event or legacy problem
+    ev_id = getattr(analysis_record, 'event_id', None)
+    op_problem = None
+
+    if ev_id:
+        from models.models_v2 import Event, ParameterSet
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            params = db.query(ParameterSet).filter(ParameterSet.event_id == ev_id).first()
+            op_problem = OperationalProblem(
+                well_name=event.well.name if event.well else "Unknown",
+                depth_md=params.depth_md if params else 0,
+                depth_tvd=params.depth_tvd if params else 0,
+                description=event.description or "",
+                operation=event.phase or ""
+            )
+
+    if not op_problem and analysis_record.problem_id:
+        problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+        if not problem_record:
+            raise HTTPException(status_code=404, detail="Problem not found for this analysis")
+        op_problem = OperationalProblem(
+            well_name=problem_record.well.name,
+            depth_md=problem_record.depth_md,
+            depth_tvd=problem_record.depth_tvd,
+            description=problem_record.description,
+            operation=problem_record.operation
+        )
+
+    if not op_problem:
+        raise HTTPException(status_code=404, detail="No event or problem found for this analysis")
+
     query = coordinator.get_synthesis_query(
-        op_problem, 
+        op_problem,
         analysis_record.individual_analyses,
         leader_id=analysis_record.leader_agent_id or "drilling_engineer"
     )
@@ -373,19 +447,33 @@ async def run_auto_step(analysis_id: int, agent_id: str, db: Session = Depends(g
     if not analysis_record:
         raise HTTPException(status_code=404, detail="Analysis session not found")
         
-    problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
     individual_analyses = list(analysis_record.individual_analyses or [])
-    
-    # Context for the agent
-    context = {
-        "well_data": {"well_name": problem.well.name},
-        "previous_analyses": individual_analyses
-    }
-    
+
+    # Build context from Event or legacy Problem
+    context = {"previous_analyses": individual_analyses}
+    description = "No description"
+
+    ev_id = getattr(analysis_record, 'event_id', None)
+    if ev_id:
+        from models.models_v2 import Event
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            context["well_data"] = {
+                "well_name": event.well.name if event.well else "Unknown",
+                "description": event.description
+            }
+            description = event.description or description
+
+    if analysis_record.problem_id and "well_data" not in context:
+        problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+        if problem:
+            context["well_data"] = {"well_name": problem.well.name}
+            description = problem.description
+
     # [REAL DATA INJECTION]
     # Check for [REAL_DATA:filename.ext] tag
     import re
-    match = re.search(r"\[REAL_DATA:(.*?)\]", problem.description)
+    match = re.search(r"\[REAL_DATA:(.*?)\]", description)
     if match:
         filename = match.group(1).strip()
         print(f"🚀 DETECTED REAL DATA FLAG: Injecting {filename} Data Context")
@@ -406,7 +494,7 @@ async def run_auto_step(analysis_id: int, agent_id: str, db: Session = Depends(g
             print(f"❌ Failed to load data context: {e}")
 
     # Run automated analysis
-    updated_analysis = await coordinator.run_automated_step(agent_id, problem.description, context)
+    updated_analysis = await coordinator.run_automated_step(agent_id, description, context)
     
     # Save to db
     existing = next((a for a in individual_analyses if a["agent"] == agent_id), None)
@@ -427,28 +515,49 @@ async def run_auto_synthesis(analysis_id: int, db: Session = Depends(get_db)):
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
     if not analysis_record:
         raise HTTPException(status_code=404, detail="Analysis session not found")
-    problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
-    if not problem_record:
-        raise HTTPException(status_code=404, detail="Problem not found for this analysis")
-    
-    op_problem = OperationalProblem(
-        well_name=problem_record.well.name,
-        depth_md=problem_record.depth_md,
-        depth_tvd=problem_record.depth_tvd,
-        description=problem_record.description,
-        operation=problem_record.operation
-    )
-    
+
+    # Build OperationalProblem from event or legacy problem
+    ev_id = getattr(analysis_record, 'event_id', None)
+    op_problem = None
+
+    if ev_id:
+        from models.models_v2 import Event, ParameterSet
+        event = db.query(Event).filter(Event.id == ev_id).first()
+        if event:
+            params = db.query(ParameterSet).filter(ParameterSet.event_id == ev_id).first()
+            op_problem = OperationalProblem(
+                well_name=event.well.name if event.well else "Unknown",
+                depth_md=params.depth_md if params else 0,
+                depth_tvd=params.depth_tvd if params else 0,
+                description=event.description or "",
+                operation=event.phase or ""
+            )
+
+    if not op_problem and analysis_record.problem_id:
+        problem_record = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+        if not problem_record:
+            raise HTTPException(status_code=404, detail="Problem not found for this analysis")
+        op_problem = OperationalProblem(
+            well_name=problem_record.well.name,
+            depth_md=problem_record.depth_md,
+            depth_tvd=problem_record.depth_tvd,
+            description=problem_record.description,
+            operation=problem_record.operation
+        )
+
+    if not op_problem:
+        raise HTTPException(status_code=404, detail="No event or problem found for this analysis")
+
     final_synthesis = await coordinator.run_automated_synthesis(
-        op_problem, 
+        op_problem,
         analysis_record.individual_analyses,
         leader_agent_id=analysis_record.leader_agent_id or "drilling_engineer"
     )
-    
+
     analysis_record.final_synthesis = final_synthesis
     analysis_record.overall_confidence = final_synthesis["confidence"]
     db.commit()
-    
+
     return final_synthesis
 
 # --- Programs (v3.0 Phase 2) ---
@@ -700,6 +809,53 @@ def create_event(event_data: Dict[str, Any], db: Session = Depends(get_db)):
         print(f"❌ Create Event Error: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/events/{event_id}/analysis/init")
+def init_event_analysis(
+    event_id: int,
+    body: Dict[str, Any] = Body({}),
+    db: Session = Depends(get_db)
+):
+    """Initialize analysis directly from an Event (no Problem bridge needed)."""
+    from models.models_v2 import Event
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    workflow = body.get("workflow", "standard")
+    leader = body.get("leader")
+
+    if isinstance(workflow, list):
+        agent_ids = workflow
+        valid_agents = list(coordinator.agents.keys())
+        for aid in agent_ids:
+            if aid not in valid_agents:
+                raise HTTPException(status_code=400, detail=f"Invalid agent: {aid}")
+    else:
+        agent_ids = coordinator.get_workflow(workflow)
+
+    new_analysis = Analysis(
+        problem_id=None,
+        event_id=event_id,
+        workflow_used=agent_ids,
+        leader_agent_id=leader,
+        individual_analyses=[],
+        overall_confidence="PENDING"
+    )
+    db.add(new_analysis)
+    db.commit()
+    db.refresh(new_analysis)
+
+    return {
+        "id": new_analysis.id,
+        "analysis_id": new_analysis.id,
+        "event_id": event_id,
+        "workflow": agent_ids,
+        "leader": leader,
+        "current_agent_index": 0
+    }
+
+
 from orchestrator.calculation_engine import CalculationEngine
 calc_engine = CalculationEngine()
 
@@ -759,12 +915,25 @@ async def generate_structured_rca(event_id: int, db: Session = Depends(get_db)):
         if not params:
             raise HTTPException(status_code=400, detail="Parameters not found. Run extraction first.")
             
-        # 2. Run/Fetch Physics Calculations
-        # (Re-running to ensure fresh data)
+        # 2. Check for existing RCA (avoid duplication)
+        existing_rca = db.query(RCAReport).filter(RCAReport.event_id == event_id).first()
+        if existing_rca:
+            return {
+                "root_cause_category": existing_rca.root_cause_category,
+                "root_cause_description": existing_rca.root_cause_description,
+                "five_whys": existing_rca.five_whys,
+                "fishbone_factors": existing_rca.fishbone_factors,
+                "corrective_actions": existing_rca.corrective_actions,
+                "prevention_actions": existing_rca.prevention_actions,
+                "confidence_score": existing_rca.confidence_score,
+                "cached": True
+            }
+
+        # 3. Run/Fetch Physics Calculations
         param_dict = {c.name: getattr(params, c.name) for c in params.__table__.columns}
         physics_results = calc_engine.calculate_all(param_dict)
-        
-        # 3. Call RCA Agent
+
+        # 4. Call RCA Agent
         event_details = {
             "phase": event.phase,
             "family": event.family,
@@ -787,6 +956,7 @@ async def generate_structured_rca(event_id: int, db: Session = Depends(get_db)):
             five_whys=rca_output.get("five_whys"),
             fishbone_factors=rca_output.get("fishbone_factors"),
             corrective_actions=rca_output.get("corrective_actions"),
+            prevention_actions=rca_output.get("prevention_actions"),
             confidence_score=rca_output.get("confidence_score")
         )
         db.add(new_report)
@@ -800,6 +970,33 @@ async def generate_structured_rca(event_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/events/{event_id}/rca")
+def get_existing_rca(event_id: int, db: Session = Depends(get_db)):
+    """Get existing RCA report for an event without regenerating."""
+    from models.models_v2 import RCAReport
+    report = db.query(RCAReport).filter(RCAReport.event_id == event_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="No RCA report found for this event")
+    return {
+        "root_cause_category": report.root_cause_category,
+        "root_cause_description": report.root_cause_description,
+        "five_whys": report.five_whys,
+        "fishbone_factors": report.fishbone_factors,
+        "corrective_actions": report.corrective_actions,
+        "prevention_actions": report.prevention_actions,
+        "confidence_score": report.confidence_score
+    }
+
+@app.delete("/events/{event_id}/rca")
+def delete_rca_report(event_id: int, db: Session = Depends(get_db)):
+    """Delete existing RCA report to allow regeneration."""
+    from models.models_v2 import RCAReport
+    report = db.query(RCAReport).filter(RCAReport.event_id == event_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="No RCA report found")
+    db.delete(report)
+    db.commit()
+    return {"message": "RCA report deleted. You can now regenerate."}
 
 
 # --- Data Management ---

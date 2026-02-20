@@ -80,7 +80,8 @@ class Analysis(Base):
     __tablename__ = "analyses"
     
     id = Column(Integer, primary_key=True, index=True)
-    problem_id = Column(Integer, ForeignKey("problems.id"))
+    problem_id = Column(Integer, ForeignKey("problems.id"), nullable=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
     workflow_used = Column(JSON, nullable=False) # List of agent names
     confidence_summary = Column(JSON, nullable=True)
     overall_confidence = Column(String, nullable=True)
@@ -97,6 +98,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Migration: add event_id column to analyses if missing
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    columns = [col["name"] for col in insp.get_columns("analyses")]
+    if "event_id" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE analyses ADD COLUMN event_id INTEGER REFERENCES events(id)"))
 
 def get_db():
     db = SessionLocal()
