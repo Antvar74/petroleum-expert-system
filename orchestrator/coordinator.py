@@ -12,6 +12,8 @@ from agents import (
     HydrologistAgent
 )
 from agents.rca_lead import RCALeadAgent
+from agents.rca_classifier import RCAClassifierAgent
+from agents.rca_synthesizer import RCASynthesizerAgent
 from agents.cementing_engineer import CementingEngineerAgent
 from agents.optimization_engineer import OptimizationEngineerAgent
 from agents.hse_engineer import HSEEngineerAgent
@@ -33,23 +35,28 @@ class StuckPipeCoordinator:
             "well_engineer": WellEngineerAgent(),
             "hydrologist": HydrologistAgent(),
             "rca_lead": RCALeadAgent(),
+            "rca_classifier": RCAClassifierAgent(),
+            "rca_synthesizer": RCASynthesizerAgent(),
             "cementing_engineer": CementingEngineerAgent(),
             "optimization_engineer": OptimizationEngineerAgent(),
             "hse_engineer": HSEEngineerAgent(),
             "geomechanic_engineer": GeomechanicsEngineerAgent(),
             "directional_engineer": DirectionalEngineerAgent()
         }
-        
-        # Standard workflow for stuck pipe analysis
-        # NOTE: rca_lead appears only once here. The final synthesis is handled
-        # separately by the /synthesis/auto endpoint using the designated leader.
+
+        # Standard workflow for event investigation.
+        # rca_classifier runs first (incident classification per API RP 585),
+        # then technical specialists, then rca_synthesizer produces the final
+        # integrated report. The /synthesis/auto endpoint can still use a
+        # designated leader for executive-level synthesis when needed.
         self.standard_workflow = [
-            "rca_lead",           # 1. Incident Classification (Level 1-3)
+            "rca_classifier",     # 1. Incident Classification (Level 1-3)
             "drilling_engineer",  # 2. General evaluation and leadership
             "hydrologist",        # 3. Pressures (input for mud engineer)
             "geologist",          # 4. Formations (input for all)
             "mud_engineer",       # 5. Fluids (with pressure and geo context)
-            "well_engineer",      # 6. Trajectory and design (final synthesis)
+            "well_engineer",      # 6. Trajectory and design
+            "rca_synthesizer",    # 7. Final synthesis and RCA report
         ]
     
     def _generate_synthesis_query(self, problem: OperationalProblem, analyses: List[Dict], leader_id: str = "drilling_engineer") -> str:

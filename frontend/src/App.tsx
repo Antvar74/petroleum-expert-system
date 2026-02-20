@@ -179,7 +179,7 @@ function AppContent() {
 
   return (
     <div className="w-full flex h-screen overflow-hidden bg-industrial-950 text-white selection:bg-industrial-500/30">
-      <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+      <Sidebar currentView={currentView} setCurrentView={setCurrentView} selectedWell={selectedWell} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 border-b border-white/5 bg-black/20 backdrop-blur-md flex items-center justify-between px-12 z-10">

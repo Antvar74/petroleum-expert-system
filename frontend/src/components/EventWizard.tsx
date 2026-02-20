@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, Droplet, PenTool, Shield, Users, Play, AlertTriangle } from 'lucide-react';
+import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, PenTool, Play, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
@@ -15,47 +15,47 @@ const PHASES = [
     { id: 'workover', label: 'Workover', icon: PenTool },
 ];
 
-const FAMILIES = [
-    { id: 'well', label: 'Pozo / Geomecánica', icon: Activity, description: 'Inestabilidad, Colapso, Pérdidas' },
-    { id: 'fluids', label: 'Fluidos / Presión', icon: Droplet, description: 'Kicks, Pérdidas, ECD, Ballooning' },
-    { id: 'mechanics', label: 'Sarta / Mecánicos', icon: PenTool, description: 'Pegas, Fallas de BHA, Torque/Drag' },
-    { id: 'control', label: 'Control de Pozo', icon: Shield, description: 'BOP, Fallas de Barrera, Brotes' },
-    { id: 'human', label: 'Factores Humanos', icon: Users, description: 'Procedimientos, Comunicación, Error' },
-];
-
-const EVENT_TYPES: Record<string, { id: string; label: string }[]> = {
+const EVENT_TYPES: Record<string, { id: string; label: string; family: string }[]> = {
     drilling: [
-        { id: 'stuck_pipe', label: 'Pega de Tubería' },
-        { id: 'lost_circulation', label: 'Pérdida de Circulación' },
-        { id: 'kick', label: 'Kick / Influjo' },
-        { id: 'bha_failure', label: 'Falla de BHA' },
-        { id: 'torque_drag', label: 'Torque/Drag Excesivo' },
-        { id: 'severe_vibration', label: 'Vibración Severa' },
-        { id: 'wellbore_instability', label: 'Inestabilidad del Hoyo' },
-        { id: 'other', label: 'Otro' },
+        { id: 'stuck_pipe', label: 'Pega de Tubería', family: 'mechanics' },
+        { id: 'lost_circulation', label: 'Pérdida de Circulación', family: 'fluids' },
+        { id: 'kick', label: 'Kick / Influjo', family: 'fluids' },
+        { id: 'bha_failure', label: 'Falla de BHA', family: 'mechanics' },
+        { id: 'torque_drag', label: 'Torque/Drag Excesivo', family: 'mechanics' },
+        { id: 'severe_vibration', label: 'Vibración Severa', family: 'mechanics' },
+        { id: 'wellbore_instability', label: 'Inestabilidad del Hoyo', family: 'well' },
+        { id: 'other', label: 'Otro', family: 'well' },
     ],
     completion: [
-        { id: 'perforation_failure', label: 'Falla de Cañoneo' },
-        { id: 'formation_damage', label: 'Daño de Formación' },
-        { id: 'sand_production', label: 'Producción de Arena' },
-        { id: 'packer_failure', label: 'Falla de Packer' },
-        { id: 'gravel_pack_failure', label: 'Falla de Empaque' },
-        { id: 'other', label: 'Otro' },
+        { id: 'perforation_failure', label: 'Falla de Cañoneo', family: 'mechanics' },
+        { id: 'formation_damage', label: 'Daño de Formación', family: 'well' },
+        { id: 'sand_production', label: 'Producción de Arena', family: 'well' },
+        { id: 'packer_failure', label: 'Falla de Packer', family: 'mechanics' },
+        { id: 'gravel_pack_failure', label: 'Falla de Empaque', family: 'mechanics' },
+        { id: 'other', label: 'Otro', family: 'well' },
     ],
     workover: [
-        { id: 'ct_failure', label: 'Falla de Coiled Tubing' },
-        { id: 'bop_failure', label: 'Falla de BOP' },
-        { id: 'stuck_string', label: 'Atascamiento' },
-        { id: 'surface_equipment', label: 'Falla de Equipo Superficie' },
-        { id: 'other', label: 'Otro' },
+        { id: 'ct_failure', label: 'Falla de Coiled Tubing', family: 'mechanics' },
+        { id: 'bop_failure', label: 'Falla de BOP', family: 'control' },
+        { id: 'stuck_string', label: 'Atascamiento', family: 'mechanics' },
+        { id: 'surface_equipment', label: 'Falla de Equipo Superficie', family: 'mechanics' },
+        { id: 'other', label: 'Otro', family: 'well' },
     ],
+};
+
+// Family labels for display (auto-inferred, not manually selected)
+const FAMILY_LABELS: Record<string, string> = {
+    well: 'Pozo / Geomecánica',
+    fluids: 'Fluidos / Presión',
+    mechanics: 'Sarta / Mecánicos',
+    control: 'Control de Pozo',
+    human: 'Factores Humanos',
 };
 
 const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     const { addToast } = useToast();
     const [step, setStep] = useState(1);
     const [phase, setPhase] = useState<string | null>(null);
-    const [family, setFamily] = useState<string | null>(null);
     const [eventType, setEventType] = useState<string | null>(null);
     const [files, setFiles] = useState<File[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
@@ -63,6 +63,14 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
     const [leaderAgent, setLeaderAgent] = useState<string | null>(null);
     const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+
+    // Auto-infer family from event type selection
+    const inferredFamily = React.useMemo(() => {
+        if (!phase || !eventType) return null;
+        const types = EVENT_TYPES[phase] || [];
+        const match = types.find(t => t.id === eventType);
+        return match?.family || 'well';
+    }, [phase, eventType]);
 
     React.useEffect(() => {
         // Fetch agents on mount
@@ -203,27 +211,12 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                 </div>
             )}
 
-            {phase && eventType && (
-                <div className="space-y-4 animate-fadeIn">
-                    <label className="text-sm text-ibm-gray-300">Familia del Evento</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {FAMILIES.map((f) => (
-                            <button
-                                key={f.id}
-                                onClick={() => setFamily(f.id)}
-                                className={`p-4 rounded-lg border text-left flex items-center gap-4 transition-all ${family === f.id
-                                    ? 'bg-ibm-blue-600/20 border-ibm-blue-500 text-white'
-                                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-                                    }`}
-                            >
-                                <f.icon size={20} className={family === f.id ? 'text-ibm-blue-400' : ''} />
-                                <div>
-                                    <div className="font-medium">{f.label}</div>
-                                    <div className="text-xs text-white/30">{f.description}</div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
+            {/* Auto-inferred family shown as read-only chip */}
+            {phase && eventType && inferredFamily && (
+                <div className="animate-fadeIn flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 border border-white/10">
+                    <span className="text-xs text-white/40 uppercase tracking-wider">Familia:</span>
+                    <span className="text-sm text-ibm-blue-400 font-medium">{FAMILY_LABELS[inferredFamily] || inferredFamily}</span>
+                    <span className="text-[10px] text-white/20 ml-auto italic">auto-clasificado</span>
                 </div>
             )}
 
@@ -236,7 +229,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                 </button>
 
                 <button
-                    disabled={!phase || !family || !eventType}
+                    disabled={!phase || !eventType}
                     onClick={() => setStep(2)}
                     className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
                 >
@@ -445,7 +438,14 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                     Atrás
                 </button>
                 <button
-                    onClick={() => onComplete({ phase, family, event_type: eventType, parameters: extractedData || {}, workflow: selectedAgents, leader: leaderAgent })}
+                    onClick={() => onComplete({
+                        phase,
+                        family: inferredFamily,
+                        event_type: eventType,
+                        parameters: extractedData || {},
+                        workflow: selectedAgents,
+                        leader: leaderAgent
+                    })}
                     disabled={selectedAgents.length === 0}
                     className="bg-ibm-blue-600 hover:bg-ibm-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded flex items-center gap-2"
                 >

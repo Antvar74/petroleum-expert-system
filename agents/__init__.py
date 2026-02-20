@@ -10,6 +10,8 @@ from .geologist import GeologistAgent
 from .well_engineer import WellEngineerAgent
 from .hydrologist import HydrologistAgent
 from .rca_lead import RCALeadAgent
+from .rca_classifier import RCAClassifierAgent
+from .rca_synthesizer import RCASynthesizerAgent
 from .cementing_engineer import CementingEngineerAgent
 from .geomechanic_engineer import GeomechanicsEngineerAgent
 from .directional_engineer import DirectionalEngineerAgent
@@ -22,6 +24,8 @@ __all__ = [
     'WellEngineerAgent',
     'HydrologistAgent',
     'RCALeadAgent',
+    'RCAClassifierAgent',
+    'RCASynthesizerAgent',
     'CementingEngineerAgent',
     'GeomechanicsEngineerAgent',
     'DirectionalEngineerAgent'

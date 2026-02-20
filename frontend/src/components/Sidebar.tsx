@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard,
     Settings,
@@ -18,15 +18,67 @@ import {
     Target,
     Vibrate,
     Cylinder,
-    ShieldCheck
+    ShieldCheck,
+    Wifi,
+    WifiOff
 } from 'lucide-react';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+
+interface SelectedWell {
+    id: number;
+    name: string;
+    location?: string;
+}
 
 interface SidebarProps {
     currentView: string;
     setCurrentView: (view: string) => void;
+    selectedWell?: SelectedWell | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
+interface SystemHealth {
+    api: string;
+    llm: { status: string; providers?: any };
+    agents: number;
+    database: string;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selectedWell }) => {
+    const [health, setHealth] = useState<SystemHealth | null>(null);
+    const [healthError, setHealthError] = useState(false);
+
+    useEffect(() => {
+        const checkHealth = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
+                setHealth(res.data);
+                setHealthError(false);
+            } catch {
+                setHealthError(true);
+            }
+        };
+
+        checkHealth();
+        const interval = setInterval(checkHealth, 30000); // Check every 30s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Compute health display
+    const isHealthy = health && !healthError && health.api === 'ok';
+    const llmOk = health?.llm?.status === 'ok';
+    const healthLabel = healthError ? 'Offline' : (!llmOk ? 'LLM Error' : 'Operational');
+    const healthColor = healthError ? 'text-red-500' : (!llmOk ? 'text-yellow-500' : 'text-green-500');
+    const healthBarWidth = healthError ? 'w-1/5' : (!llmOk ? 'w-3/5' : 'w-4/5');
+    const healthBarColor = healthError ? 'bg-red-500' : (!llmOk ? 'bg-yellow-500' : 'bg-industrial-500');
+
+    // Well display
+    const wellInitials = selectedWell
+        ? selectedWell.name.split(/[\s-]+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+        : 'PE';
+    const wellDisplayName = selectedWell?.name || 'PetroExpert';
+    const wellSubtitle = selectedWell?.location || 'Sin pozo seleccionado';
+
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'analysis', label: 'Pipeline de Agentes', icon: Activity },
@@ -84,22 +136,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView }) => {
 
             <div className="flex-shrink-0 p-8 border-t border-white/5 bg-white/5">
                 <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-industrial-500/20 border border-industrial-500/30 flex items-center justify-center text-industrial-500 font-bold">
-                        AV
+                    <div className="w-10 h-10 rounded-full bg-industrial-500/20 border border-industrial-500/30 flex items-center justify-center text-industrial-500 font-bold text-xs">
+                        {wellInitials}
                     </div>
-                    <div>
-                        <p className="text-xs font-bold text-white">Antonio Var.</p>
-                        <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Operations Dir.</p>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{wellDisplayName}</p>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold truncate">{wellSubtitle}</p>
                     </div>
                 </div>
                 <div className="bg-industrial-950 p-4 rounded-xl border border-white/5">
                     <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">System Health</span>
-                        <span className="text-[10px] font-bold text-green-500 uppercase tracking-tighter">Optimal</span>
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter flex items-center gap-1.5">
+                            {isHealthy ? <Wifi size={10} className="text-green-500" /> : <WifiOff size={10} className="text-red-500" />}
+                            System Health
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase tracking-tighter ${healthColor}`}>{healthLabel}</span>
                     </div>
                     <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full w-4/5 bg-industrial-500 rounded-full shadow-[0_0_8px_rgba(var(--industrial-500-rgb),0.5)]" />
+                        <div className={`h-full ${healthBarWidth} ${healthBarColor} rounded-full shadow-[0_0_8px_rgba(var(--industrial-500-rgb),0.5)] transition-all duration-500`} />
                     </div>
+                    {health?.agents && (
+                        <div className="mt-2 text-[9px] text-white/20 font-mono">
+                            {health.agents} agents | {llmOk ? 'Gemini OK' : 'LLM N/A'}
+                        </div>
+                    )}
                 </div>
             </div>
         </aside>

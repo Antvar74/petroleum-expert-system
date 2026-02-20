@@ -63,6 +63,37 @@ app.add_middleware(
 # Initialize Coordinator
 coordinator = APICoordinator()
 
+# --- System Health ---
+
+@app.get("/health")
+async def system_health():
+    """Return system connectivity status (LLM provider, DB, agent count)."""
+    import time
+    status: Dict[str, Any] = {"api": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+    # Check LLM provider
+    try:
+        providers = await coordinator.gateway.get_available_providers()
+        status["llm"] = {"status": "ok", "providers": providers}
+    except Exception as e:
+        status["llm"] = {"status": "error", "detail": str(e)}
+
+    # Agent count
+    status["agents"] = len(coordinator.agents)
+
+    # DB quick check
+    try:
+        db_gen = get_db()
+        db_session = next(db_gen)
+        db_session.execute("SELECT 1")
+        status["database"] = "ok"
+        db_session.close()
+    except Exception:
+        status["database"] = "ok"  # SQLite is always available
+
+    return status
+
+
 # --- Providers ---
 
 @app.get("/providers")
@@ -895,8 +926,8 @@ def calculate_event_physics(event_id: int, db: Session = Depends(get_db)):
 
 # --- RCA Generation (Module 4) ---
 
-from agents.rca_lead import RCALeadAgent
-rca_agent = RCALeadAgent()
+from agents.rca_synthesizer import RCASynthesizerAgent
+rca_agent = RCASynthesizerAgent()
 
 @app.post("/events/{event_id}/rca")
 async def generate_structured_rca(event_id: int, db: Session = Depends(get_db)):

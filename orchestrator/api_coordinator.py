@@ -40,10 +40,12 @@ class APICoordinator(StuckPipeCoordinator):
     async def run_automated_audit(self, methodology: str, user_data: Any, context: Dict) -> Dict[str, Any]:
         """
         Run the RCA audit automatically using the LLM Gateway (Mode: Reasoning).
+        Uses rca_synthesizer (preferred) or falls back to rca_lead for backward
+        compatibility.
         """
-        agent = self.agents["rca_lead"]
-        
-        # Generate the prompt using the new audit method
+        agent = self.agents.get("rca_synthesizer") or self.agents["rca_lead"]
+
+        # Generate the prompt using the audit method
         analysis = agent.audit_investigation(methodology, user_data, context)
         
         # Call the LLM Gateway (Reasoning Mode for deep logic check)
