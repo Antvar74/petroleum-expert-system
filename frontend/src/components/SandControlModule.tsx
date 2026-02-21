@@ -10,6 +10,7 @@ import GravelPackSchematic from './charts/sc/GravelPackSchematic';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface SandControlModuleProps {
@@ -44,6 +45,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -72,7 +74,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

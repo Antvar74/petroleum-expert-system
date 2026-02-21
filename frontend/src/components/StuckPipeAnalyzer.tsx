@@ -10,6 +10,7 @@ import DecisionTreeDiagram from './charts/sp/DecisionTreeDiagram';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface StuckPipeAnalyzerProps {
@@ -55,6 +56,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -96,10 +98,10 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   };
 
   const tabs = [
-    { id: 'diagnosis', label: 'Diagnosis Wizard' },
-    { id: 'freepoint', label: 'Free Point Calculator' },
-    { id: 'risk', label: 'Risk Matrix' },
-    { id: 'actions', label: 'Action Plan' },
+    { id: 'diagnosis', label: t('stuckPipe.tabs.diagnosis') },
+    { id: 'freepoint', label: t('stuckPipe.tabs.freepoint') },
+    { id: 'risk', label: t('stuckPipe.tabs.risk') },
+    { id: 'actions', label: t('stuckPipe.tabs.actions') },
   ];
 
   // --- Diagnosis ---
@@ -110,7 +112,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     try {
       const res = await axios.post(`${API_BASE_URL}/stuck-pipe/diagnose/start`);
       setCurrentQuestion(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -135,7 +137,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
       } else {
         setCurrentQuestion(res.data);
       }
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -145,7 +147,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     try {
       const res = await axios.post(`${API_BASE_URL}/stuck-pipe/free-point`, fpParams);
       setFpResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -173,7 +175,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
       });
       // Fetch recommended actions using the mechanism
       fetchActions(riskParams.mechanism);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -213,7 +215,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Lock className="text-industrial-500" size={28} />
-        <h2 className="text-2xl font-bold">Stuck Pipe Analyzer</h2>
+        <h2 className="text-2xl font-bold">{t('stuckPipe.title')}</h2>
       </div>
 
       <div className="flex gap-2 mb-8">
@@ -232,9 +234,9 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
             {!currentQuestion && !diagnosisResult && (
               <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
                 <Lock className="mx-auto mb-4 text-white/20" size={48} />
-                <h3 className="text-xl font-bold mb-2">Stuck Pipe Diagnostic Decision Tree</h3>
-                <p className="text-white/40 mb-6 max-w-md mx-auto">Answer a series of questions to identify the stuck pipe mechanism.</p>
-                <button onClick={startDiagnosis} className="btn-primary">Start Diagnosis</button>
+                <h3 className="text-xl font-bold mb-2">{t('stuckPipe.diagnosis.title')}</h3>
+                <p className="text-white/40 mb-6 max-w-md mx-auto">{t('stuckPipe.diagnosis.description')}</p>
+                <button onClick={startDiagnosis} className="btn-primary">{t('stuckPipe.diagnosis.start')}</button>
               </div>
             )}
 
@@ -262,14 +264,14 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
             {/* Current question */}
             {currentQuestion && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel p-8 rounded-2xl border border-white/5">
-                <p className="text-xs text-white/40 mb-2">Question {diagnosisPath.length + 1}</p>
+                <p className="text-xs text-white/40 mb-2">{t('stuckPipe.diagnosis.question', { num: diagnosisPath.length + 1 })}</p>
                 <h3 className="text-xl font-bold mb-6">{currentQuestion.question}</h3>
                 <div className="flex gap-4">
                   <button onClick={() => answerQuestion('yes')} disabled={loading} className="flex-1 py-4 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-xl text-green-400 font-bold text-lg transition-all disabled:opacity-50">
-                    YES
+                    {t('common.yes')}
                   </button>
                   <button onClick={() => answerQuestion('no')} disabled={loading} className="flex-1 py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 font-bold text-lg transition-all disabled:opacity-50">
-                    NO
+                    {t('common.no')}
                   </button>
                 </div>
               </motion.div>
@@ -281,12 +283,12 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                 <div className="glass-panel p-8 rounded-2xl border border-industrial-500/20 bg-industrial-500/5">
                   <div className="flex items-center gap-3 mb-4">
                     <Target className="text-industrial-500" size={24} />
-                    <h3 className="text-xl font-bold text-industrial-400">Mechanism Identified</h3>
+                    <h3 className="text-xl font-bold text-industrial-400">{t('stuckPipe.diagnosis.mechanismIdentified')}</h3>
                   </div>
                   <p className="text-2xl font-bold mb-3">{diagnosisResult.mechanism}</p>
                   <p className="text-white/60 mb-4">{diagnosisResult.description}</p>
                   <div>
-                    <p className="text-xs text-white/40 mb-2 uppercase tracking-wider font-bold">Key Indicators:</p>
+                    <p className="text-xs text-white/40 mb-2 uppercase tracking-wider font-bold">{t('stuckPipe.diagnosis.keyIndicators')}</p>
                     <ul className="space-y-1">
                       {diagnosisResult.indicators?.map((ind: string, i: number) => (
                         <li key={i} className="text-sm text-white/60 flex items-start gap-2">
@@ -296,7 +298,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                     </ul>
                   </div>
                 </div>
-                <button onClick={startDiagnosis} className="text-sm text-white/40 hover:text-white underline">Restart Diagnosis</button>
+                <button onClick={startDiagnosis} className="text-sm text-white/40 hover:text-white underline">{t('stuckPipe.diagnosis.restart')}</button>
               </motion.div>
             )}
           </motion.div>
@@ -306,20 +308,20 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
         {activeTab === 'freepoint' && (
           <motion.div key="freepoint" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Free Point Calculation (Stretch Method)</h3>
+              <h3 className="font-bold text-lg mb-4">{t('stuckPipe.freepoint.title')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div><label className="text-xs text-white/40 block mb-1">Pipe OD (in)</label><input type="number" step="0.1" value={fpParams.pipe_od} onChange={(e) => setFpParams({ ...fpParams, pipe_od: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Pipe ID (in)</label><input type="number" step="0.001" value={fpParams.pipe_id} onChange={(e) => setFpParams({ ...fpParams, pipe_id: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.freepoint.pipeOD')}</label><input type="number" step="0.1" value={fpParams.pipe_od} onChange={(e) => setFpParams({ ...fpParams, pipe_od: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.freepoint.pipeID')}</label><input type="number" step="0.001" value={fpParams.pipe_id} onChange={(e) => setFpParams({ ...fpParams, pipe_id: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Pipe Grade</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('stuckPipe.freepoint.pipeGrade')}</label>
                   <select value={fpParams.pipe_grade} onChange={(e) => setFpParams({ ...fpParams, pipe_grade: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
                     {['E75', 'X95', 'G105', 'S135', 'V150'].map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
-                <div><label className="text-xs text-white/40 block mb-1">Stretch (inches)</label><input type="number" step="0.1" value={fpParams.stretch_inches} onChange={(e) => setFpParams({ ...fpParams, stretch_inches: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Pull Force (lbs)</label><input type="number" value={fpParams.pull_force_lbs} onChange={(e) => setFpParams({ ...fpParams, pull_force_lbs: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.freepoint.stretch')}</label><input type="number" step="0.1" value={fpParams.stretch_inches} onChange={(e) => setFpParams({ ...fpParams, stretch_inches: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.freepoint.pullForce')}</label><input type="number" value={fpParams.pull_force_lbs} onChange={(e) => setFpParams({ ...fpParams, pull_force_lbs: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
               </div>
-              <button onClick={runFreePoint} disabled={loading} className="btn-primary disabled:opacity-50">{loading ? 'Calculating...' : 'Calculate Free Point'}</button>
+              <button onClick={runFreePoint} disabled={loading} className="btn-primary disabled:opacity-50">{loading ? t('common.calculating') : t('stuckPipe.freepoint.calculate')}</button>
             </div>
 
             {fpResult && !fpResult.error && (
@@ -336,18 +338,18 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                   {/* Summary cards */}
                   <div className="md:col-span-2 grid grid-cols-2 gap-4 content-start">
                     <div className="glass-panel p-5 rounded-xl border border-industrial-500/20 text-center col-span-2">
-                      <p className="text-xs text-white/40 mb-2">Free Point Depth</p>
+                      <p className="text-xs text-white/40 mb-2">{t('stuckPipe.freepoint.depth')}</p>
                       <p className="text-4xl font-bold text-industrial-400">{fpResult.free_point_depth_ft?.toLocaleString()}</p>
                       <p className="text-xs text-white/30">ft</p>
                     </div>
                     <div className="glass-panel p-5 rounded-xl border border-white/5 text-center">
-                      <p className="text-xs text-white/40 mb-2">Pipe Area</p>
+                      <p className="text-xs text-white/40 mb-2">{t('stuckPipe.freepoint.pipeArea')}</p>
                       <p className="text-xl font-bold text-white">{fpResult.pipe_area_sqin} in²</p>
                     </div>
                     <div className={`glass-panel p-5 rounded-xl border text-center ${fpResult.pull_safe ? 'border-green-500/20' : 'border-red-500/20'}`}>
-                      <p className="text-xs text-white/40 mb-2">Pull vs Yield</p>
+                      <p className="text-xs text-white/40 mb-2">{t('stuckPipe.freepoint.pullVsYield')}</p>
                       <p className={`text-xl font-bold ${fpResult.pull_safe ? 'text-green-400' : 'text-red-400'}`}>{fpResult.pull_pct_of_yield}%</p>
-                      <p className="text-xs text-white/30">{fpResult.pull_safe ? 'SAFE' : 'EXCEEDS 80%'}</p>
+                      <p className="text-xs text-white/30">{fpResult.pull_safe ? t('common.safe') : t('stuckPipe.freepoint.exceeds80')}</p>
                     </div>
                   </div>
                 </div>
@@ -360,23 +362,23 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
         {activeTab === 'risk' && (
           <motion.div key="risk" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Risk Assessment</h3>
+              <h3 className="font-bold text-lg mb-4">{t('stuckPipe.risk.title')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Mechanism</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.mechanism')}</label>
                   <select value={riskParams.mechanism} onChange={(e) => setRiskParams({ ...riskParams, mechanism: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
-                    <option value="">Select...</option>
+                    <option value="">{t('common.select')}</option>
                     {['Differential Sticking', 'Mechanical Sticking', 'Hole Cleaning / Pack-Off', 'Wellbore Instability', 'Key Seating', 'Undergauge Hole', 'Formation Flow / Kick', 'Pack-Off / Bridge'].map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
-                <div><label className="text-xs text-white/40 block mb-1">MW (ppg)</label><input type="number" step="0.1" value={riskParams.mud_weight} onChange={(e) => setRiskParams({ ...riskParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Pore Pressure (ppg)</label><input type="number" step="0.1" value={riskParams.pore_pressure} onChange={(e) => setRiskParams({ ...riskParams, pore_pressure: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Inclination (°)</label><input type="number" value={riskParams.inclination} onChange={(e) => setRiskParams({ ...riskParams, inclination: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Stationary (hours)</label><input type="number" step="0.5" value={riskParams.stationary_hours} onChange={(e) => setRiskParams({ ...riskParams, stationary_hours: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Torque (ft-lb)</label><input type="number" value={riskParams.torque} onChange={(e) => setRiskParams({ ...riskParams, torque: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Overpull (klb)</label><input type="number" value={riskParams.overpull} onChange={(e) => setRiskParams({ ...riskParams, overpull: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.mw')}</label><input type="number" step="0.1" value={riskParams.mud_weight} onChange={(e) => setRiskParams({ ...riskParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.porePressure')}</label><input type="number" step="0.1" value={riskParams.pore_pressure} onChange={(e) => setRiskParams({ ...riskParams, pore_pressure: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.inclination')}</label><input type="number" value={riskParams.inclination} onChange={(e) => setRiskParams({ ...riskParams, inclination: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.stationary')}</label><input type="number" step="0.5" value={riskParams.stationary_hours} onChange={(e) => setRiskParams({ ...riskParams, stationary_hours: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.torque')}</label><input type="number" value={riskParams.torque} onChange={(e) => setRiskParams({ ...riskParams, torque: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('stuckPipe.risk.overpull')}</label><input type="number" value={riskParams.overpull} onChange={(e) => setRiskParams({ ...riskParams, overpull: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
               </div>
-              <button onClick={runRisk} disabled={loading || !riskParams.mechanism} className="btn-primary disabled:opacity-50">{loading ? 'Assessing...' : 'Assess Risk'}</button>
+              <button onClick={runRisk} disabled={loading || !riskParams.mechanism} className="btn-primary disabled:opacity-50">{loading ? t('stuckPipe.risk.assessing') : t('stuckPipe.risk.assess')}</button>
             </div>
 
             {riskResult && (
@@ -415,24 +417,29 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                     <ListChecks className="text-industrial-500" size={24} />
                     <h3 className="font-bold text-lg">Action Plan: {riskParams.mechanism}</h3>
                   </div>
-                  <p className="text-white/40 text-sm">Recommended actions are prioritized by urgency category.</p>
+                  <p className="text-white/40 text-sm">{t('stuckPipe.actions.description')}</p>
                 </div>
 
-                {['Immediate', 'Short-Term', 'Contingency'].map((category) => {
+                {(['Immediate', 'Short-Term', 'Contingency'] as const).map((category) => {
                   // Hardcode common actions based on mechanism for display
                   const actionColors: Record<string, string> = {
                     'Immediate': 'border-red-500/20 bg-red-500/5',
                     'Short-Term': 'border-yellow-500/20 bg-yellow-500/5',
                     'Contingency': 'border-blue-500/20 bg-blue-500/5',
                   };
+                  const categoryLabels: Record<string, string> = {
+                    'Immediate': t('stuckPipe.actions.immediate'),
+                    'Short-Term': t('stuckPipe.actions.shortTerm'),
+                    'Contingency': t('stuckPipe.actions.contingency'),
+                  };
 
                   return (
                     <div key={category} className={`glass-panel p-6 rounded-2xl border ${actionColors[category]}`}>
                       <h4 className="font-bold mb-3 flex items-center gap-2">
                         <AlertTriangle size={16} className={category === 'Immediate' ? 'text-red-400' : category === 'Short-Term' ? 'text-yellow-400' : 'text-blue-400'} />
-                        {category} Actions
+                        {categoryLabels[category]} {t('stuckPipe.actions.actionsLabel')}
                       </h4>
-                      <p className="text-white/40 text-sm italic">Run Risk Assessment to populate specific actions for this mechanism.</p>
+                      <p className="text-white/40 text-sm italic">{t('stuckPipe.actions.runRiskFirst')}</p>
                     </div>
                   );
                 })}
@@ -440,8 +447,8 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
             ) : (
               <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
                 <ListChecks className="mx-auto mb-4 text-white/20" size={48} />
-                <h3 className="text-xl font-bold mb-2">No Mechanism Selected</h3>
-                <p className="text-white/40 max-w-md mx-auto">Complete the Diagnosis Wizard or select a mechanism in the Risk Matrix tab to see recommended actions.</p>
+                <h3 className="text-xl font-bold mb-2">{t('stuckPipe.actions.noMechanism')}</h3>
+                <p className="text-white/40 max-w-md mx-auto">{t('stuckPipe.actions.noMechanismDesc')}</p>
               </div>
             )}
           </motion.div>

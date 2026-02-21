@@ -11,6 +11,7 @@ import WellboreTrajectory from './charts/td/WellboreTrajectory';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface TorqueDragModuleProps {
@@ -24,10 +25,19 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const [activeTab, setActiveTab] = useState('survey');
   const [loading, setLoading] = useState(false);
 
-  // Survey state
+  // Survey state — default: J-type well profile with build & hold sections
   const [surveyStations, setSurveyStations] = useState<any[]>([
-    { md: 0, inclination: 0, azimuth: 0 },
-    { md: 1000, inclination: 0, azimuth: 0 },
+    { md: 0, inclination: 0, azimuth: 135 },
+    { md: 1000, inclination: 0, azimuth: 135 },
+    { md: 2000, inclination: 0, azimuth: 135 },
+    { md: 3000, inclination: 5, azimuth: 135 },
+    { md: 4000, inclination: 15, azimuth: 135 },
+    { md: 5000, inclination: 30, azimuth: 135 },
+    { md: 6000, inclination: 45, azimuth: 135 },
+    { md: 7000, inclination: 45, azimuth: 135 },
+    { md: 8000, inclination: 45, azimuth: 135 },
+    { md: 9000, inclination: 45, azimuth: 135 },
+    { md: 10000, inclination: 45, azimuth: 135 },
   ]);
   const [computedSurvey, setComputedSurvey] = useState<any[]>([]);
 
@@ -69,6 +79,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -134,7 +145,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/survey`, surveyStations);
       setComputedSurvey(res.data.stations);
     } catch (e: any) {
-      alert(t('torqueDrag.errorUploadSurvey') + ': ' + (e.response?.data?.detail || e.message));
+      addToast(t('torqueDrag.errorUploadSurvey') + ': ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };
@@ -163,9 +174,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/wells/${wellId}/drillstring`, drillstring);
-      alert(t('torqueDrag.drillstring.savedSuccess'));
+      addToast(t('torqueDrag.drillstring.savedSuccess'), 'success');
     } catch (e: any) {
-      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
+      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };
@@ -183,28 +194,43 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       const res = await axios.post(url, body);
       setTdResult(res.data);
     } catch (e: any) {
-      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
+      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };
 
   // --- Multi-operation compare ---
   const runCompare = async () => {
-    if (!wellId) return;
     setCompareLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/torque-drag/compare`, {
-        friction_cased: tdParams.friction_cased,
-        friction_open: tdParams.friction_open,
-        mud_weight: tdParams.mud_weight,
-        wob: tdParams.wob,
-        rpm: tdParams.rpm,
-        casing_shoe_md: tdParams.casing_shoe_md,
-        operations: ['trip_out', 'trip_in', 'rotating', 'sliding'],
-      });
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/torque-drag/compare`
+        : `${API_BASE_URL}/calculate/torque-drag/compare`;
+      const body = wellId
+        ? {
+            friction_cased: tdParams.friction_cased,
+            friction_open: tdParams.friction_open,
+            mud_weight: tdParams.mud_weight,
+            wob: tdParams.wob,
+            rpm: tdParams.rpm,
+            casing_shoe_md: tdParams.casing_shoe_md,
+            operations: ['trip_out', 'trip_in', 'rotating', 'sliding'],
+          }
+        : {
+            survey: surveyStations,
+            drillstring,
+            friction_cased: tdParams.friction_cased,
+            friction_open: tdParams.friction_open,
+            mud_weight: tdParams.mud_weight,
+            wob: tdParams.wob,
+            rpm: tdParams.rpm,
+            casing_shoe_md: tdParams.casing_shoe_md,
+            operations: ['trip_out', 'trip_in', 'rotating', 'sliding'],
+          };
+      const res = await axios.post(url, body);
       setCompareResult(res.data);
     } catch (e: any) {
-      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
+      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
     }
     setCompareLoading(false);
   };
@@ -220,13 +246,16 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const runBackCalc = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/torque-drag/back-calculate`, {
-        well_id: wellId,
-        ...backCalcParams,
-      });
+      const url = wellId
+        ? `${API_BASE_URL}/torque-drag/back-calculate`
+        : `${API_BASE_URL}/calculate/torque-drag/back-calculate`;
+      const body = wellId
+        ? { well_id: wellId, ...backCalcParams }
+        : { survey: surveyStations, drillstring, ...backCalcParams };
+      const res = await axios.post(url, body);
       setBackCalcResult(res.data);
     } catch (e: any) {
-      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
+      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

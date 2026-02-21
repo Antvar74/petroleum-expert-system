@@ -11,6 +11,7 @@ import SurgeSwabWindow from './charts/hyd/SurgeSwabWindow';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface HydraulicsModuleProps {
@@ -55,6 +56,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -91,10 +93,10 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   };
 
   const tabs = [
-    { id: 'circuit', label: 'Circuit Setup' },
-    { id: 'hydraulics', label: 'Full Hydraulics' },
-    { id: 'bit', label: 'Bit Optimization' },
-    { id: 'surge', label: 'Surge/Swab' },
+    { id: 'circuit', label: t('hydraulics.tabs.circuit') },
+    { id: 'hydraulics', label: t('hydraulics.tabs.hydraulics') },
+    { id: 'bit', label: t('hydraulics.tabs.bit') },
+    { id: 'surge', label: t('hydraulics.tabs.surge') },
   ];
 
   const saveSections = async () => {
@@ -104,8 +106,8 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
       await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulic-sections`, sections);
       const nozSizes = nozzles.sizes.split(',').map(Number).filter(n => n > 0);
       await axios.post(`${API_BASE_URL}/wells/${wellId}/bit-nozzles`, { nozzle_sizes: nozSizes, bit_diameter: nozzles.bit_diameter });
-      alert('Circuit & nozzles saved');
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+      addToast(t('hydraulics.circuit.circuitSaved'), 'success');
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -121,7 +123,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         : { ...hydParams, nozzle_sizes: nozSizes, sections };
       const res = await axios.post(url, body);
       setHydResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -133,7 +135,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         : `${API_BASE_URL}/calculate/hydraulics/surge-swab`;
       const res = await axios.post(url, surgeParams);
       setSurgeResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -143,7 +145,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Droplets className="text-industrial-500" size={28} />
-        <h2 className="text-2xl font-bold">Hydraulics & ECD Analysis</h2>
+        <h2 className="text-2xl font-bold">{t('hydraulics.title')}</h2>
       </div>
 
       <div className="flex gap-2 mb-8">
@@ -163,17 +165,17 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-lg">Hydraulic Circuit Sections</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => setSections([...sections, { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 }])} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm"><Plus size={14} /> Add</button>
-                  <button onClick={saveSections} disabled={loading} className="px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold disabled:opacity-50">{loading ? 'Saving...' : 'Save All'}</button>
+                  <button onClick={() => setSections([...sections, { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 }])} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm"><Plus size={14} /> {t('common.add')}</button>
+                  <button onClick={saveSections} disabled={loading} className="px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold disabled:opacity-50">{loading ? t('common.saving') : t('hydraulics.circuit.saveAll')}</button>
                 </div>
               </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-white/40 border-b border-white/5">
-                    <th className="text-left py-2 px-2">Type</th>
-                    <th className="text-left py-2 px-2">Length (ft)</th>
-                    <th className="text-left py-2 px-2">OD (in)</th>
-                    <th className="text-left py-2 px-2">ID (in)</th>
+                    <th className="text-left py-2 px-2">{t('hydraulics.circuit.type')}</th>
+                    <th className="text-left py-2 px-2">{t('hydraulics.circuit.length')}</th>
+                    <th className="text-left py-2 px-2">{t('hydraulics.circuit.od')}</th>
+                    <th className="text-left py-2 px-2">{t('hydraulics.circuit.id')}</th>
                     <th className="w-10"></th>
                   </tr>
                 </thead>
@@ -195,14 +197,14 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
               </table>
 
               <div className="mt-6 pt-4 border-t border-white/5">
-                <h4 className="font-bold text-sm mb-3">Bit Nozzles</h4>
+                <h4 className="font-bold text-sm mb-3">{t('hydraulics.nozzles.title')}</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-white/40 block mb-1">Nozzle Sizes (32nds, comma-sep)</label>
+                    <label className="text-xs text-white/40 block mb-1">{t('hydraulics.nozzles.sizes')}</label>
                     <input type="text" value={nozzles.sizes} onChange={(e) => setNozzles({ ...nozzles, sizes: e.target.value })} className="input-field w-full py-2 px-3 text-sm" placeholder="12,12,12" />
                   </div>
                   <div>
-                    <label className="text-xs text-white/40 block mb-1">Bit Diameter (in)</label>
+                    <label className="text-xs text-white/40 block mb-1">{t('hydraulics.nozzles.bitDiameter')}</label>
                     <input type="number" step="0.125" value={nozzles.bit_diameter} onChange={(e) => setNozzles({ ...nozzles, bit_diameter: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" />
                   </div>
                 </div>
@@ -215,27 +217,27 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         {activeTab === 'hydraulics' && (
           <motion.div key="hydraulics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Hydraulic Parameters</h3>
+              <h3 className="font-bold text-lg mb-4">{t('hydraulics.params.title')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div><label className="text-xs text-white/40 block mb-1">Flow Rate (gpm)</label><input type="number" value={hydParams.flow_rate} onChange={(e) => setHydParams({ ...hydParams, flow_rate: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Mud Weight (ppg)</label><input type="number" step="0.1" value={hydParams.mud_weight} onChange={(e) => setHydParams({ ...hydParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">PV (cP)</label><input type="number" value={hydParams.pv} onChange={(e) => setHydParams({ ...hydParams, pv: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">YP (lb/100ft²)</label><input type="number" value={hydParams.yp} onChange={(e) => setHydParams({ ...hydParams, yp: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">TVD (ft)</label><input type="number" value={hydParams.tvd} onChange={(e) => setHydParams({ ...hydParams, tvd: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.flowRate')}</label><input type="number" value={hydParams.flow_rate} onChange={(e) => setHydParams({ ...hydParams, flow_rate: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.mudWeight')}</label><input type="number" step="0.1" value={hydParams.mud_weight} onChange={(e) => setHydParams({ ...hydParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.pv')}</label><input type="number" value={hydParams.pv} onChange={(e) => setHydParams({ ...hydParams, pv: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.yp')}</label><input type="number" value={hydParams.yp} onChange={(e) => setHydParams({ ...hydParams, yp: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.tvd')}</label><input type="number" value={hydParams.tvd} onChange={(e) => setHydParams({ ...hydParams, tvd: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Rheology Model</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.rheologyModel')}</label>
                   <select value={hydParams.rheology_model} onChange={(e) => setHydParams({ ...hydParams, rheology_model: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
-                    <option value="bingham_plastic">Bingham Plastic</option>
-                    <option value="power_law">Power Law</option>
+                    <option value="bingham_plastic">{t('hydraulics.params.bingham')}</option>
+                    <option value="power_law">{t('hydraulics.params.powerLaw')}</option>
                   </select>
                 </div>
                 {hydParams.rheology_model === 'power_law' && <>
-                  <div><label className="text-xs text-white/40 block mb-1">n (flow index)</label><input type="number" step="0.01" value={hydParams.n} onChange={(e) => setHydParams({ ...hydParams, n: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                  <div><label className="text-xs text-white/40 block mb-1">K (consistency)</label><input type="number" value={hydParams.k} onChange={(e) => setHydParams({ ...hydParams, k: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                  <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.flowIndex')}</label><input type="number" step="0.01" value={hydParams.n} onChange={(e) => setHydParams({ ...hydParams, n: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                  <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.params.consistency')}</label><input type="number" value={hydParams.k} onChange={(e) => setHydParams({ ...hydParams, k: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
                 </>}
               </div>
               <button onClick={runHydraulics} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Play size={16} /> {loading ? 'Calculating...' : 'Calculate Full Circuit'}
+                <Play size={16} /> {loading ? t('common.calculating') : t('hydraulics.params.calculateCircuit')}
               </button>
             </div>
 
@@ -283,15 +285,15 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
 
                 {/* Section details table */}
                 <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                  <h4 className="font-bold mb-4">Section Results</h4>
+                  <h4 className="font-bold mb-4">{t('hydraulics.results.sectionResults')}</h4>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-white/40 border-b border-white/5">
-                        <th className="text-left py-2 px-2">Section</th>
-                        <th className="text-right py-2 px-2">dP (psi)</th>
-                        <th className="text-right py-2 px-2">Velocity (ft/min)</th>
-                        <th className="text-center py-2 px-2">Flow Regime</th>
-                        <th className="text-right py-2 px-2">Re</th>
+                        <th className="text-left py-2 px-2">{t('hydraulics.results.section')}</th>
+                        <th className="text-right py-2 px-2">{t('hydraulics.results.dp')}</th>
+                        <th className="text-right py-2 px-2">{t('hydraulics.results.velocity')}</th>
+                        <th className="text-center py-2 px-2">{t('hydraulics.results.flowRegime')}</th>
+                        <th className="text-right py-2 px-2">{t('hydraulics.results.re')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -319,7 +321,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
               <BitHydraulicsGauges bitData={hydResult.bit_hydraulics} />
             ) : (
               <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
-                <p className="text-white/40">Run Full Hydraulics first to see bit optimization results.</p>
+                <p className="text-white/40">{t('hydraulics.bit.runFirst')}</p>
               </div>
             )}
           </motion.div>
@@ -329,24 +331,24 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         {activeTab === 'surge' && (
           <motion.div key="surge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Surge & Swab Analysis</h3>
+              <h3 className="font-bold text-lg mb-4">{t('hydraulics.surge.title')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div><label className="text-xs text-white/40 block mb-1">Mud Weight (ppg)</label><input type="number" step="0.1" value={surgeParams.mud_weight} onChange={(e) => setSurgeParams({ ...surgeParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">PV (cP)</label><input type="number" value={surgeParams.pv} onChange={(e) => setSurgeParams({ ...surgeParams, pv: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">YP (lb/100ft²)</label><input type="number" value={surgeParams.yp} onChange={(e) => setSurgeParams({ ...surgeParams, yp: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">TVD (ft)</label><input type="number" value={surgeParams.tvd} onChange={(e) => setSurgeParams({ ...surgeParams, tvd: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Pipe OD (in)</label><input type="number" step="0.1" value={surgeParams.pipe_od} onChange={(e) => setSurgeParams({ ...surgeParams, pipe_od: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Hole ID (in)</label><input type="number" step="0.1" value={surgeParams.hole_id} onChange={(e) => setSurgeParams({ ...surgeParams, hole_id: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
-                <div><label className="text-xs text-white/40 block mb-1">Trip Speed (ft/min)</label><input type="number" value={surgeParams.pipe_velocity_fpm} onChange={(e) => setSurgeParams({ ...surgeParams, pipe_velocity_fpm: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.mudWeight')}</label><input type="number" step="0.1" value={surgeParams.mud_weight} onChange={(e) => setSurgeParams({ ...surgeParams, mud_weight: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.pv')}</label><input type="number" value={surgeParams.pv} onChange={(e) => setSurgeParams({ ...surgeParams, pv: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.yp')}</label><input type="number" value={surgeParams.yp} onChange={(e) => setSurgeParams({ ...surgeParams, yp: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.tvd')}</label><input type="number" value={surgeParams.tvd} onChange={(e) => setSurgeParams({ ...surgeParams, tvd: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.pipeOD')}</label><input type="number" step="0.1" value={surgeParams.pipe_od} onChange={(e) => setSurgeParams({ ...surgeParams, pipe_od: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.holeID')}</label><input type="number" step="0.1" value={surgeParams.hole_id} onChange={(e) => setSurgeParams({ ...surgeParams, hole_id: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
+                <div><label className="text-xs text-white/40 block mb-1">{t('hydraulics.surge.tripSpeed')}</label><input type="number" value={surgeParams.pipe_velocity_fpm} onChange={(e) => setSurgeParams({ ...surgeParams, pipe_velocity_fpm: +e.target.value })} className="input-field w-full py-2 px-3 text-sm" /></div>
                 <div className="flex items-end pb-1">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={surgeParams.pipe_open} onChange={(e) => setSurgeParams({ ...surgeParams, pipe_open: e.target.checked })} className="accent-industrial-500" />
-                    <span className="text-sm">Open Ended Pipe</span>
+                    <span className="text-sm">{t('hydraulics.surge.openEnded')}</span>
                   </label>
                 </div>
               </div>
               <button onClick={runSurgeSwab} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Waves size={16} /> {loading ? 'Calculating...' : 'Calculate Surge/Swab'}
+                <Waves size={16} /> {loading ? t('common.calculating') : t('hydraulics.surge.calculate')}
               </button>
             </div>
 
@@ -367,29 +369,29 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                 {/* Value cards */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="glass-panel p-5 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-2">Surge ECD</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.surgeECD')}</p>
                     <p className="text-2xl font-bold text-red-400">{surgeResult.surge_ecd_ppg} ppg</p>
                     <p className="text-xs text-white/30">+{surgeResult.surge_emw_ppg} ppg</p>
                   </div>
                   <div className="glass-panel p-5 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-2">Swab ECD</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.swabECD')}</p>
                     <p className="text-2xl font-bold text-blue-400">{surgeResult.swab_ecd_ppg} ppg</p>
                     <p className="text-xs text-white/30">-{surgeResult.swab_emw_ppg} ppg</p>
                   </div>
                   <div className="glass-panel p-5 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-2">Effective Velocity</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.effectiveVelocity')}</p>
                     <p className="text-2xl font-bold text-white">{surgeResult.effective_velocity_fpm} ft/min</p>
                   </div>
                   <div className={`glass-panel p-5 rounded-xl border text-center ${surgeResult.surge_margin?.includes('CRITICAL') ? 'border-red-500/30 bg-red-500/5' : surgeResult.surge_margin?.includes('WARNING') ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-green-500/30 bg-green-500/5'}`}>
-                    <p className="text-xs text-white/40 mb-2">Surge Margin</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.surgeMargin')}</p>
                     <p className={`text-sm font-bold ${surgeResult.surge_margin?.includes('CRITICAL') ? 'text-red-400' : surgeResult.surge_margin?.includes('WARNING') ? 'text-yellow-400' : 'text-green-400'}`}>{surgeResult.surge_margin}</p>
                   </div>
                   <div className={`glass-panel p-5 rounded-xl border text-center ${surgeResult.swab_margin?.includes('CRITICAL') ? 'border-red-500/30 bg-red-500/5' : surgeResult.swab_margin?.includes('WARNING') ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-green-500/30 bg-green-500/5'}`}>
-                    <p className="text-xs text-white/40 mb-2">Swab Margin</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.swabMargin')}</p>
                     <p className={`text-sm font-bold ${surgeResult.swab_margin?.includes('CRITICAL') ? 'text-red-400' : surgeResult.swab_margin?.includes('WARNING') ? 'text-yellow-400' : 'text-green-400'}`}>{surgeResult.swab_margin}</p>
                   </div>
                   <div className="glass-panel p-5 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-2">Pressure (psi)</p>
+                    <p className="text-xs text-white/40 mb-2">{t('hydraulics.surge.pressure')}</p>
                     <p className="text-2xl font-bold text-industrial-400">{surgeResult.surge_pressure_psi}</p>
                   </div>
                 </div>

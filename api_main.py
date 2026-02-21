@@ -441,9 +441,11 @@ def get_synthesis_query(analysis_id: int, db: Session = Depends(get_db)):
 def submit_synthesis(analysis_id: int, response: Dict[str, str], db: Session = Depends(get_db)):
     """Submit the final synthesis response from Claude"""
     analysis_record = db.query(Analysis).filter(Analysis.id == analysis_id).first()
-    
+    if not analysis_record:
+        raise HTTPException(status_code=404, detail="Analysis session not found")
+
     synthesis_text = response.get("text", "")
-    
+
     # Use leader to analyze confidence
     leader_id = analysis_record.leader_agent_id or "drilling_engineer"
     leader_agent = coordinator.agents.get(leader_id, coordinator.agents["drilling_engineer"])
@@ -647,19 +649,23 @@ async def generate_rca_report(analysis_id: int, payload: Dict[str, Any] = Body(.
     if not analysis_record:
         raise HTTPException(status_code=404, detail="Analysis session not found")
         
-    problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first()
+    problem = db.query(Problem).filter(Problem.id == analysis_record.problem_id).first() if analysis_record.problem_id else None
     individual_analyses = list(analysis_record.individual_analyses or [])
-    
-    # Context
+
+    # Context — guard against missing problem / well
+    well_name = "Unknown Well"
+    if problem and hasattr(problem, 'well') and problem.well:
+        well_name = problem.well.name
     context = {
-        "well_data": {"well_name": problem.well.name},
+        "well_data": {"well_name": well_name},
         "previous_analyses": individual_analyses
     }
-    
+
     # [REAL DATA INJECTION] (RCA)
     import re
     # Match [REAL_DATA:filename.ext]
-    match = re.search(r"\[REAL_DATA:(.*?)\]", problem.description)
+    problem_description = problem.description if problem else ""
+    match = re.search(r"\[REAL_DATA:(.*?)\]", problem_description)
     if match:
         filename = match.group(1).strip()
         print(f"🚀 DETECTED REAL DATA FLAG (RCA): Injecting {filename}")
@@ -3519,12 +3525,11 @@ def standalone_packer_forces(data: Dict[str, Any] = Body(...)):
         final_annulus_pressure=data.get("final_annulus_pressure", 2000),
         initial_temperature=data.get("initial_temperature", 80),
         final_temperature=data.get("final_temperature", 250),
-        fluid_density_tubing=data.get("fluid_density_tubing", 8.6),
-        fluid_density_annulus=data.get("fluid_density_annulus", 10.0),
         packer_depth_tvd=data.get("packer_depth_tvd", 10000),
-        youngs_modulus=data.get("youngs_modulus", 30e6),
-        thermal_expansion=data.get("thermal_expansion", 6.9e-6),
-        poisson_ratio=data.get("poisson_ratio", 0.3)
+        mud_weight_tubing=data.get("mud_weight_tubing", 8.6),
+        mud_weight_annulus=data.get("mud_weight_annulus", 10.0),
+        poisson_ratio=data.get("poisson_ratio", 0.3),
+        thermal_expansion=data.get("thermal_expansion", 6.9e-6)
     )
     return result
 
@@ -3532,20 +3537,22 @@ def standalone_packer_forces(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/workover-hydraulics")
 def standalone_workover_hydraulics(data: Dict[str, Any] = Body(...)):
     """Run workover/CT hydraulics calculation without well context."""
+    from orchestrator.workover_hydraulics_engine import WorkoverHydraulicsEngine
     result = WorkoverHydraulicsEngine.calculate_full_workover(
-        ct_od=data.get("ct_od", 1.75),
-        ct_id=data.get("ct_id", 1.437),
-        ct_length=data.get("ct_length", 10000),
-        casing_id=data.get("casing_id", 4.892),
-        tubing_id=data.get("tubing_id", 2.441),
         flow_rate=data.get("flow_rate", 150),
-        fluid_weight=data.get("fluid_weight", 8.6),
+        mud_weight=data.get("mud_weight", 8.6),
         pv=data.get("pv", 5),
         yp=data.get("yp", 5),
-        wl_depth_md=data.get("wl_depth_md", 5000),
-        wl_depth_tvd=data.get("wl_depth_tvd", 5000),
-        bhp_target=data.get("bhp_target", 3000),
-        nozzle_sizes=data.get("nozzle_sizes", [12, 12])
+        ct_od=data.get("ct_od", 1.75),
+        wall_thickness=data.get("wall_thickness", 0.156),
+        ct_length=data.get("ct_length", 10000),
+        hole_id=data.get("hole_id", 4.892),
+        tvd=data.get("tvd", 5000),
+        inclination=data.get("inclination", 0.0),
+        friction_factor=data.get("friction_factor", 0.25),
+        wellhead_pressure=data.get("wellhead_pressure", 0.0),
+        reservoir_pressure=data.get("reservoir_pressure", 0.0),
+        yield_strength_psi=data.get("yield_strength_psi", 80000.0)
     )
     return result
 
@@ -3553,25 +3560,23 @@ def standalone_workover_hydraulics(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/sand-control")
 def standalone_sand_control(data: Dict[str, Any] = Body(...)):
     """Run sand control / gravel pack calculation without well context."""
-    result = SandControlEngine.calculate_gravel_pack(
+    from orchestrator.sand_control_engine import SandControlEngine
+    result = SandControlEngine.calculate_full_sand_control(
+        sieve_sizes_mm=data.get("sieve_sizes_mm", [4.75, 2.0, 0.85, 0.425, 0.25, 0.15, 0.075]),
+        cumulative_passing_pct=data.get("cumulative_passing_pct", [100, 95, 80, 50, 20, 5, 1]),
+        hole_id=data.get("hole_id", 8.5),
         screen_od=data.get("screen_od", 3.5),
-        screen_id=data.get("screen_id", 2.992),
-        screen_length=data.get("screen_length", 100),
-        casing_id=data.get("casing_id", 6.094),
-        openhole_id=data.get("openhole_id", 8.5),
-        completion_type=data.get("completion_type", "cased_hole"),
-        perforation_length=data.get("perforation_length", 40),
-        perf_density=data.get("perf_density", 12),
-        perf_diameter=data.get("perf_diameter", 0.5),
-        gravel_size=data.get("gravel_size", "20/40"),
-        gravel_density=data.get("gravel_density", 165),
-        carrier_fluid_weight=data.get("carrier_fluid_weight", 8.6),
-        gravel_concentration=data.get("gravel_concentration", 0.5),
-        pump_rate=data.get("pump_rate", 2.0),
-        formation_pressure=data.get("formation_pressure", 4500),
-        formation_frac_gradient=data.get("formation_frac_gradient", 0.75),
-        depth_tvd=data.get("depth_tvd", 10000),
-        porosity=data.get("porosity", 0.25)
+        interval_length=data.get("interval_length", 100),
+        ucs_psi=data.get("ucs_psi", 1000),
+        friction_angle_deg=data.get("friction_angle_deg", 30),
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 4500),
+        overburden_stress_psi=data.get("overburden_stress_psi", 10000),
+        formation_permeability_md=data.get("formation_permeability_md", 200),
+        wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+        wellbore_type=data.get("wellbore_type", "cased"),
+        gravel_permeability_md=data.get("gravel_permeability_md", 80000.0),
+        pack_factor=data.get("pack_factor", 1.4),
+        washout_factor=data.get("washout_factor", 1.1)
     )
     return result
 
@@ -3579,27 +3584,30 @@ def standalone_sand_control(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/completion-design")
 def standalone_completion_design(data: Dict[str, Any] = Body(...)):
     """Run completion design / frac calculation without well context."""
-    result = CompletionDesignEngine.calculate_completion(
-        reservoir_pressure=data.get("reservoir_pressure", 5000),
-        reservoir_temperature=data.get("reservoir_temperature", 200),
-        reservoir_permeability=data.get("reservoir_permeability", 50),
-        reservoir_thickness=data.get("reservoir_thickness", 50),
-        reservoir_porosity=data.get("reservoir_porosity", 0.20),
-        oil_viscosity=data.get("oil_viscosity", 1.5),
-        oil_fvf=data.get("oil_fvf", 1.2),
-        wellbore_radius=data.get("wellbore_radius", 0.354),
-        drainage_radius=data.get("drainage_radius", 660),
-        skin_factor=data.get("skin_factor", 5.0),
-        completion_type=data.get("completion_type", "perforated"),
-        perf_density=data.get("perf_density", 12),
-        perf_length=data.get("perf_length", 12),
-        perf_diameter=data.get("perf_diameter", 0.5),
-        frac_half_length=data.get("frac_half_length", 200),
-        frac_conductivity=data.get("frac_conductivity", 2000),
-        frac_width=data.get("frac_width", 0.25),
-        proppant_concentration=data.get("proppant_concentration", 2.0),
-        tubing_id=data.get("tubing_id", 2.441),
-        depth_tvd=data.get("depth_tvd", 10000)
+    from orchestrator.completion_design_engine import CompletionDesignEngine
+    result = CompletionDesignEngine.calculate_full_completion_design(
+        casing_id_in=data.get("casing_id_in", 8.681),
+        formation_permeability_md=data.get("formation_permeability_md", 50),
+        formation_thickness_ft=data.get("formation_thickness_ft", 50),
+        reservoir_pressure_psi=data.get("reservoir_pressure_psi", 5000),
+        wellbore_pressure_psi=data.get("wellbore_pressure_psi", 4500),
+        depth_tvd_ft=data.get("depth_tvd_ft", 10000),
+        overburden_stress_psi=data.get("overburden_stress_psi", 10000),
+        pore_pressure_psi=data.get("pore_pressure_psi", 5000),
+        sigma_min_psi=data.get("sigma_min_psi", 7000),
+        sigma_max_psi=data.get("sigma_max_psi", 9000),
+        tensile_strength_psi=data.get("tensile_strength_psi", 500.0),
+        poisson_ratio=data.get("poisson_ratio", 0.25),
+        penetration_berea_in=data.get("penetration_berea_in", 12.0),
+        effective_stress_psi=data.get("effective_stress_psi", 3000.0),
+        temperature_f=data.get("temperature_f", 200.0),
+        completion_fluid=data.get("completion_fluid", "brine"),
+        wellbore_radius_ft=data.get("wellbore_radius_ft", 0.354),
+        kv_kh_ratio=data.get("kv_kh_ratio", 0.5),
+        tubing_od_in=data.get("tubing_od_in", 0.0),
+        damage_radius_ft=data.get("damage_radius_ft", 0.5),
+        damage_permeability_md=data.get("damage_permeability_md", 50.0),
+        formation_type=data.get("formation_type", "sandstone")
     )
     return result
 
@@ -3607,25 +3615,18 @@ def standalone_completion_design(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/shot-efficiency")
 def standalone_shot_efficiency(data: Dict[str, Any] = Body(...)):
     """Run shot efficiency / petrophysics calculation without well context."""
-    result = ShotEfficiencyEngine.calculate_shot_efficiency(
-        gun_type=data.get("gun_type", "TCP"),
-        gun_od=data.get("gun_od", 3.375),
-        casing_od=data.get("casing_od", 7.0),
-        casing_weight=data.get("casing_weight", 23.0),
-        casing_grade=data.get("casing_grade", "N80"),
-        cement_compressive_strength=data.get("cement_compressive_strength", 3000),
-        formation_compressive_strength=data.get("formation_compressive_strength", 5000),
-        charge_type=data.get("charge_type", "deep_penetrating"),
-        spf=data.get("spf", 6),
-        phasing=data.get("phasing", 60),
-        pressure_underbalance=data.get("pressure_underbalance", 500),
-        wellbore_fluid_density=data.get("wellbore_fluid_density", 8.6),
-        depth_tvd=data.get("depth_tvd", 10000),
-        reservoir_pressure=data.get("reservoir_pressure", 5000),
-        reservoir_permeability=data.get("reservoir_permeability", 50),
-        reservoir_porosity=data.get("reservoir_porosity", 0.20),
-        damage_zone_radius=data.get("damage_zone_radius", 6),
-        damage_zone_perm_ratio=data.get("damage_zone_perm_ratio", 0.1)
+    from orchestrator.shot_efficiency_engine import ShotEfficiencyEngine
+    result = ShotEfficiencyEngine.calculate_full_shot_efficiency(
+        log_entries=data.get("log_entries", []),
+        archie_params=data.get("archie_params", {"a": 1.0, "m": 2.0, "n": 2.0, "rw": 0.05}),
+        matrix_params=data.get("matrix_params", {"rho_matrix": 2.65, "rho_fluid": 1.0, "gr_clean": 20, "gr_shale": 120}),
+        cutoffs=data.get("cutoffs", None),
+        perf_params=data.get("perf_params", None),
+        reservoir_params=data.get("reservoir_params", None),
+        sw_model=data.get("sw_model", "auto"),
+        rsh=data.get("rsh", 5.0),
+        estimate_permeability=data.get("estimate_permeability", False),
+        sw_irreducible=data.get("sw_irreducible", 0.25)
     )
     return result
 
@@ -3633,24 +3634,24 @@ def standalone_shot_efficiency(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/vibrations")
 def standalone_vibrations(data: Dict[str, Any] = Body(...)):
     """Run vibration analysis calculation without well context."""
-    result = VibrationsEngine.calculate_vibrations(
+    from orchestrator.vibrations_engine import VibrationsEngine
+    result = VibrationsEngine.calculate_full_vibration_analysis(
+        wob_klb=data.get("wob_klb", 25),
         rpm=data.get("rpm", 120),
-        wob=data.get("wob", 25000),
-        bit_diameter=data.get("bit_diameter", 8.5),
-        bit_type=data.get("bit_type", "PDC"),
-        number_of_blades=data.get("number_of_blades", 5),
-        dp_od=data.get("dp_od", 5.0),
-        dp_id=data.get("dp_id", 4.276),
-        dp_weight=data.get("dp_weight", 19.5),
-        bha_length=data.get("bha_length", 200),
-        hole_diameter=data.get("hole_diameter", 8.5),
-        depth_md=data.get("depth_md", 10000),
-        inclination=data.get("inclination", 0),
-        mud_weight=data.get("mud_weight", 10.0),
-        torque=data.get("torque", 8000),
-        flow_rate=data.get("flow_rate", 400),
-        formation_hardness=data.get("formation_hardness", "medium"),
-        stabilizer_count=data.get("stabilizer_count", 2)
+        rop_fph=data.get("rop_fph", 60),
+        torque_ftlb=data.get("torque_ftlb", 8000),
+        bit_diameter_in=data.get("bit_diameter_in", 8.5),
+        dp_od_in=data.get("dp_od_in", 5.0),
+        dp_id_in=data.get("dp_id_in", 4.276),
+        dp_weight_lbft=data.get("dp_weight_lbft", 19.5),
+        bha_length_ft=data.get("bha_length_ft", 300),
+        bha_od_in=data.get("bha_od_in", 6.75),
+        bha_id_in=data.get("bha_id_in", 2.813),
+        bha_weight_lbft=data.get("bha_weight_lbft", 83.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.0),
+        hole_diameter_in=data.get("hole_diameter_in", 8.5),
+        inclination_deg=data.get("inclination_deg", 0.0),
+        friction_factor=data.get("friction_factor", 0.25)
     )
     return result
 
@@ -3658,28 +3659,29 @@ def standalone_vibrations(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/cementing")
 def standalone_cementing(data: Dict[str, Any] = Body(...)):
     """Run cementing simulation calculation without well context."""
-    result = CementingEngine.calculate_cementing(
-        casing_od=data.get("casing_od", 9.625),
-        casing_id=data.get("casing_id", 8.681),
-        hole_diameter=data.get("hole_diameter", 12.25),
-        casing_shoe_md=data.get("casing_shoe_md", 5000),
-        casing_shoe_tvd=data.get("casing_shoe_tvd", 5000),
-        toc_md=data.get("toc_md", 3000),
-        mud_weight=data.get("mud_weight", 10.0),
-        lead_slurry_weight=data.get("lead_slurry_weight", 13.0),
-        lead_slurry_yield=data.get("lead_slurry_yield", 1.15),
-        tail_slurry_weight=data.get("tail_slurry_weight", 15.8),
-        tail_slurry_yield=data.get("tail_slurry_yield", 1.05),
-        tail_length=data.get("tail_length", 500),
-        excess_percentage=data.get("excess_percentage", 50),
-        pump_rate=data.get("pump_rate", 8),
-        surface_temperature=data.get("surface_temperature", 80),
-        bhst=data.get("bhst", 180),
-        pv=data.get("pv", 40),
-        yp=data.get("yp", 15),
-        formation_frac_gradient=data.get("formation_frac_gradient", 0.75),
-        previous_casing_id=data.get("previous_casing_id", 0),
-        rathole_length=data.get("rathole_length", 50)
+    from orchestrator.cementing_engine import CementingEngine
+    result = CementingEngine.calculate_full_cementing(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        casing_id_in=data.get("casing_id_in", 8.681),
+        hole_id_in=data.get("hole_id_in", 12.25),
+        casing_shoe_md_ft=data.get("casing_shoe_md_ft", 10000.0),
+        casing_shoe_tvd_ft=data.get("casing_shoe_tvd_ft", 9500.0),
+        toc_md_ft=data.get("toc_md_ft", 5000.0),
+        toc_tvd_ft=data.get("toc_tvd_ft", 4750.0),
+        float_collar_md_ft=data.get("float_collar_md_ft", 9900.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.5),
+        spacer_density_ppg=data.get("spacer_density_ppg", 11.5),
+        lead_cement_density_ppg=data.get("lead_cement_density_ppg", 13.5),
+        tail_cement_density_ppg=data.get("tail_cement_density_ppg", 16.0),
+        tail_length_ft=data.get("tail_length_ft", 500.0),
+        spacer_volume_bbl=data.get("spacer_volume_bbl", 25.0),
+        excess_pct=data.get("excess_pct", 50.0),
+        rat_hole_ft=data.get("rat_hole_ft", 50.0),
+        pump_rate_bbl_min=data.get("pump_rate_bbl_min", 5.0),
+        pv_mud=data.get("pv_mud", 15.0),
+        yp_mud=data.get("yp_mud", 10.0),
+        fracture_gradient_ppg=data.get("fracture_gradient_ppg", 16.5),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0)
     )
     return result
 
@@ -3687,26 +3689,25 @@ def standalone_cementing(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/casing-design")
 def standalone_casing_design(data: Dict[str, Any] = Body(...)):
     """Run casing design calculation without well context."""
-    result = CasingDesignEngine.calculate_casing_design(
-        casing_od=data.get("casing_od", 9.625),
-        casing_weight=data.get("casing_weight", 47.0),
-        casing_grade=data.get("casing_grade", "N80"),
-        casing_id=data.get("casing_id", 8.681),
-        setting_depth_md=data.get("setting_depth_md", 10000),
-        setting_depth_tvd=data.get("setting_depth_tvd", 10000),
-        mud_weight=data.get("mud_weight", 12.0),
-        pore_pressure_gradient=data.get("pore_pressure_gradient", 0.52),
-        frac_gradient=data.get("frac_gradient", 0.75),
-        cement_top_md=data.get("cement_top_md", 8000),
-        cement_weight=data.get("cement_weight", 15.8),
-        next_hole_td_tvd=data.get("next_hole_td_tvd", 15000),
-        gas_gradient=data.get("gas_gradient", 0.1),
-        surface_temperature=data.get("surface_temperature", 80),
-        temperature_gradient=data.get("temperature_gradient", 1.5),
-        design_factor_burst=data.get("design_factor_burst", 1.1),
-        design_factor_collapse=data.get("design_factor_collapse", 1.0),
-        design_factor_tension=data.get("design_factor_tension", 1.6),
-        connection_type=data.get("connection_type", "STC")
+    from orchestrator.casing_design_engine import CasingDesignEngine
+    result = CasingDesignEngine.calculate_full_casing_design(
+        casing_od_in=data.get("casing_od_in", 9.625),
+        casing_id_in=data.get("casing_id_in", 8.681),
+        wall_thickness_in=data.get("wall_thickness_in", 0.472),
+        casing_weight_ppf=data.get("casing_weight_ppf", 47.0),
+        casing_length_ft=data.get("casing_length_ft", 10000.0),
+        tvd_ft=data.get("tvd_ft", 9500.0),
+        mud_weight_ppg=data.get("mud_weight_ppg", 10.5),
+        pore_pressure_ppg=data.get("pore_pressure_ppg", 9.0),
+        fracture_gradient_ppg=data.get("fracture_gradient_ppg", 16.5),
+        gas_gradient_psi_ft=data.get("gas_gradient_psi_ft", 0.1),
+        cement_top_tvd_ft=data.get("cement_top_tvd_ft", 5000.0),
+        cement_density_ppg=data.get("cement_density_ppg", 16.0),
+        bending_dls=data.get("bending_dls", 3.0),
+        overpull_lbs=data.get("overpull_lbs", 50000.0),
+        sf_burst=data.get("sf_burst", 1.10),
+        sf_collapse=data.get("sf_collapse", 1.00),
+        sf_tension=data.get("sf_tension", 1.60)
     )
     return result
 
@@ -3730,6 +3731,85 @@ def standalone_torque_drag(data: Dict[str, Any] = Body(...)):
         mud_weight=data.get("mud_weight", 10.0),
         wob=data.get("wob", 0.0),
         rpm=data.get("rpm", 0.0),
+        casing_shoe_md=data.get("casing_shoe_md", 0.0)
+    )
+    return result
+
+
+@app.post("/calculate/torque-drag/compare")
+def standalone_torque_drag_compare(data: Dict[str, Any] = Body(...)):
+    """Run T&D for multiple operations without well context — survey and drillstring in body."""
+    survey = data.get("survey", [])
+    drillstring = data.get("drillstring", [])
+    if len(survey) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 survey stations in body")
+    if not drillstring:
+        raise HTTPException(status_code=400, detail="No drillstring provided in body")
+
+    operations = data.get("operations", ["trip_out", "trip_in", "rotating", "sliding"])
+    friction_cased = data.get("friction_cased", 0.25)
+    friction_open = data.get("friction_open", 0.35)
+    mud_weight = data.get("mud_weight", 10.0)
+    wob = data.get("wob", 0.0)
+    rpm = data.get("rpm", 0.0)
+    casing_shoe_md = data.get("casing_shoe_md", 0.0)
+
+    results = {}
+    summary_comparison = []
+
+    for op in operations:
+        try:
+            result = TorqueDragEngine.compute_torque_drag(
+                survey=survey, drillstring=drillstring,
+                friction_cased=friction_cased, friction_open=friction_open,
+                mud_weight=mud_weight, operation=op,
+                wob=wob, rpm=rpm, casing_shoe_md=casing_shoe_md,
+            )
+            results[op] = result.get("station_results", [])
+            summary_comparison.append({
+                "operation": op,
+                "hookload_klb": result.get("summary", {}).get("surface_hookload_klb", 0),
+                "torque_ftlb": result.get("summary", {}).get("surface_torque_ftlb", 0),
+            })
+        except Exception:
+            results[op] = []
+            summary_comparison.append({"operation": op, "hookload_klb": 0, "torque_ftlb": 0})
+
+    # Build combined data array — one row per MD with all operations
+    combined = []
+    if results.get(operations[0]):
+        for i, station in enumerate(results[operations[0]]):
+            row = {"md": station.get("md", 0)}
+            for op in operations:
+                op_stations = results.get(op, [])
+                if i < len(op_stations):
+                    row[op] = op_stations[i].get("axial_force", 0)
+            combined.append(row)
+
+    return {
+        "operations": results,
+        "combined": combined,
+        "summary_comparison": summary_comparison,
+    }
+
+
+@app.post("/calculate/torque-drag/back-calculate")
+def standalone_back_calculate_friction(data: Dict[str, Any] = Body(...)):
+    """Back-calculate friction factor without well context — survey and drillstring in body."""
+    survey = data.get("survey", [])
+    drillstring = data.get("drillstring", [])
+    if len(survey) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 survey stations in body")
+    if not drillstring:
+        raise HTTPException(status_code=400, detail="No drillstring provided in body")
+
+    result = TorqueDragEngine.back_calculate_friction(
+        survey=survey,
+        drillstring=drillstring,
+        measured_hookload=data.get("measured_hookload", 0),
+        operation=data.get("operation", "trip_out"),
+        mud_weight=data.get("mud_weight", 10.0),
+        wob=data.get("wob", 0.0),
         casing_shoe_md=data.get("casing_shoe_md", 0.0)
     )
     return result
@@ -3804,12 +3884,23 @@ def standalone_kill_sheet_pre_record(data: Dict[str, Any] = Body(...)):
 @app.post("/calculate/kill-sheet/calculate")
 def standalone_kill_sheet_calculate(data: Dict[str, Any] = Body(...)):
     """Run kill sheet kick calculation without well context."""
-    result = WellControlEngine.calculate_kill(
-        pre_recorded=data.get("pre_recorded", {}),
+    result = WellControlEngine.calculate_kill_sheet(
+        depth_md=data.get("depth_md", 0),
+        depth_tvd=data.get("depth_tvd", 0),
+        original_mud_weight=data.get("original_mud_weight", 10.0),
+        casing_shoe_tvd=data.get("casing_shoe_tvd", 0),
         sidpp=data.get("sidpp", 0),
         sicp=data.get("sicp", 0),
-        pit_gain_bbl=data.get("pit_gain_bbl", 0),
-        kill_method=data.get("kill_method", "drillers")
+        pit_gain=data.get("pit_gain", 0),
+        scr_pressure=data.get("scr_pressure", 0),
+        scr_rate=data.get("scr_rate", 0),
+        dp_capacity=data.get("dp_capacity", 0),
+        annular_capacity=data.get("annular_capacity", 0),
+        strokes_surface_to_bit=data.get("strokes_surface_to_bit", 0),
+        lot_emw=data.get("lot_emw", 14.0),
+        casing_id=data.get("casing_id", 0.0),
+        strokes_bit_to_surface=data.get("strokes_bit_to_surface", 0.0),
+        total_strokes=data.get("total_strokes", 0.0)
     )
     return result
 

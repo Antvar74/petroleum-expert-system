@@ -11,6 +11,7 @@ import InfluxAnalysisGauge from './charts/wc/InfluxAnalysisGauge';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface WellControlModuleProps {
@@ -58,6 +59,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -98,11 +100,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   };
 
   const tabs = [
-    { id: 'prerecord', label: 'Pre-Record Kill Sheet' },
-    { id: 'active', label: 'Active Kill' },
-    { id: 'schedule', label: 'Pressure Schedule' },
-    { id: 'pressure-profile', label: 'Pressure Profile' },
-    { id: 'methods', label: 'Kill Methods' },
+    { id: 'prerecord', label: t('wellControl.tabs.prerecord') },
+    { id: 'active', label: t('wellControl.tabs.active') },
+    { id: 'schedule', label: t('wellControl.tabs.schedule') },
+    { id: 'pressure-profile', label: t('wellControl.tabs.pressureProfile') },
+    { id: 'methods', label: t('wellControl.tabs.methods') },
   ];
 
   const savePreRecord = async () => {
@@ -113,7 +115,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         : `${API_BASE_URL}/calculate/kill-sheet/pre-record`;
       const res = await axios.post(url, preRecord);
       setPreRecordResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -123,9 +125,28 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
       const url = wellId
         ? `${API_BASE_URL}/wells/${wellId}/kill-sheet/calculate`
         : `${API_BASE_URL}/calculate/kill-sheet/calculate`;
-      const res = await axios.post(url, kickData);
+      // Well-scoped route pulls pre-record from DB; standalone needs it in body
+      const body = wellId
+        ? kickData
+        : {
+            ...kickData,
+            depth_md: preRecord.depth_md,
+            depth_tvd: preRecord.depth_tvd,
+            original_mud_weight: preRecord.original_mud_weight,
+            casing_shoe_tvd: preRecord.casing_shoe_tvd,
+            casing_id: preRecord.casing_id,
+            scr_pressure: preRecord.scr_pressure,
+            scr_rate: preRecord.scr_rate,
+            lot_emw: preRecord.lot_emw,
+            dp_capacity: preRecordResult?.capacities_bbl_ft?.dp_capacity ?? 0,
+            annular_capacity: preRecordResult?.capacities_bbl_ft?.annular_oh_dp ?? 0,
+            strokes_surface_to_bit: preRecordResult?.strokes?.strokes_surface_to_bit ?? 0,
+            strokes_bit_to_surface: preRecordResult?.strokes?.strokes_bit_to_surface ?? 0,
+            total_strokes: preRecordResult?.strokes?.total_strokes ?? 0,
+          };
+      const res = await axios.post(url, body);
       setKillResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -134,7 +155,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     try {
       const res = await axios.post(`${API_BASE_URL}/kill-sheet/volumetric`, volParams);
       setVolResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -143,7 +164,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     try {
       const res = await axios.post(`${API_BASE_URL}/kill-sheet/bullhead`, bullheadParams);
       setBullheadResult(res.data);
-    } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
 
@@ -158,7 +179,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <Shield className="text-industrial-500" size={28} />
-        <h2 className="text-2xl font-bold">Well Control / Kill Sheet</h2>
+        <h2 className="text-2xl font-bold">{t('wellControl.title')}</h2>
       </div>
 
       <div className="flex gap-2 mb-8 flex-wrap">
@@ -175,30 +196,30 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         {activeTab === 'prerecord' && (
           <motion.div key="prerecord" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Pre-Record Kill Sheet Data</h3>
-              <p className="text-white/40 text-sm mb-6">Enter static well data before any kick occurs. This is your reference kill sheet.</p>
+              <h3 className="font-bold text-lg mb-4">{t('wellControl.prerecord.title')}</h3>
+              <p className="text-white/40 text-sm mb-6">{t('wellControl.prerecord.description')}</p>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <InputField label="Depth MD (ft)" value={preRecord.depth_md} onChange={(v) => setPreRecord({ ...preRecord, depth_md: v })} />
-                <InputField label="Depth TVD (ft)" value={preRecord.depth_tvd} onChange={(v) => setPreRecord({ ...preRecord, depth_tvd: v })} />
-                <InputField label="Mud Weight (ppg)" value={preRecord.original_mud_weight} onChange={(v) => setPreRecord({ ...preRecord, original_mud_weight: v })} step="0.1" />
-                <InputField label="Casing Shoe TVD (ft)" value={preRecord.casing_shoe_tvd} onChange={(v) => setPreRecord({ ...preRecord, casing_shoe_tvd: v })} />
-                <InputField label="Casing ID (in)" value={preRecord.casing_id} onChange={(v) => setPreRecord({ ...preRecord, casing_id: v })} step="0.001" />
-                <InputField label="Hole Size (in)" value={preRecord.hole_size} onChange={(v) => setPreRecord({ ...preRecord, hole_size: v })} step="0.125" />
-                <InputField label="DP OD (in)" value={preRecord.dp_od} onChange={(v) => setPreRecord({ ...preRecord, dp_od: v })} step="0.1" />
-                <InputField label="DP ID (in)" value={preRecord.dp_id} onChange={(v) => setPreRecord({ ...preRecord, dp_id: v })} step="0.001" />
-                <InputField label="DP Length (ft)" value={preRecord.dp_length} onChange={(v) => setPreRecord({ ...preRecord, dp_length: v })} />
-                <InputField label="DC OD (in)" value={preRecord.dc_od} onChange={(v) => setPreRecord({ ...preRecord, dc_od: v })} step="0.1" />
-                <InputField label="DC ID (in)" value={preRecord.dc_id} onChange={(v) => setPreRecord({ ...preRecord, dc_id: v })} step="0.001" />
-                <InputField label="DC Length (ft)" value={preRecord.dc_length} onChange={(v) => setPreRecord({ ...preRecord, dc_length: v })} />
-                <InputField label="SCR Pressure (psi)" value={preRecord.scr_pressure} onChange={(v) => setPreRecord({ ...preRecord, scr_pressure: v })} />
-                <InputField label="SCR Rate (spm)" value={preRecord.scr_rate} onChange={(v) => setPreRecord({ ...preRecord, scr_rate: v })} />
-                <InputField label="LOT EMW (ppg)" value={preRecord.lot_emw} onChange={(v) => setPreRecord({ ...preRecord, lot_emw: v })} step="0.1" />
-                <InputField label="Pump Output (bbl/stk)" value={preRecord.pump_output} onChange={(v) => setPreRecord({ ...preRecord, pump_output: v })} step="0.01" />
+                <InputField label={t('wellControl.prerecord.depthMD')} value={preRecord.depth_md} onChange={(v) => setPreRecord({ ...preRecord, depth_md: v })} />
+                <InputField label={t('wellControl.prerecord.depthTVD')} value={preRecord.depth_tvd} onChange={(v) => setPreRecord({ ...preRecord, depth_tvd: v })} />
+                <InputField label={t('wellControl.prerecord.mudWeight')} value={preRecord.original_mud_weight} onChange={(v) => setPreRecord({ ...preRecord, original_mud_weight: v })} step="0.1" />
+                <InputField label={t('wellControl.prerecord.casingShoe')} value={preRecord.casing_shoe_tvd} onChange={(v) => setPreRecord({ ...preRecord, casing_shoe_tvd: v })} />
+                <InputField label={t('wellControl.prerecord.casingID')} value={preRecord.casing_id} onChange={(v) => setPreRecord({ ...preRecord, casing_id: v })} step="0.001" />
+                <InputField label={t('wellControl.prerecord.holeSize')} value={preRecord.hole_size} onChange={(v) => setPreRecord({ ...preRecord, hole_size: v })} step="0.125" />
+                <InputField label={t('wellControl.prerecord.dpOD')} value={preRecord.dp_od} onChange={(v) => setPreRecord({ ...preRecord, dp_od: v })} step="0.1" />
+                <InputField label={t('wellControl.prerecord.dpID')} value={preRecord.dp_id} onChange={(v) => setPreRecord({ ...preRecord, dp_id: v })} step="0.001" />
+                <InputField label={t('wellControl.prerecord.dpLength')} value={preRecord.dp_length} onChange={(v) => setPreRecord({ ...preRecord, dp_length: v })} />
+                <InputField label={t('wellControl.prerecord.dcOD')} value={preRecord.dc_od} onChange={(v) => setPreRecord({ ...preRecord, dc_od: v })} step="0.1" />
+                <InputField label={t('wellControl.prerecord.dcID')} value={preRecord.dc_id} onChange={(v) => setPreRecord({ ...preRecord, dc_id: v })} step="0.001" />
+                <InputField label={t('wellControl.prerecord.dcLength')} value={preRecord.dc_length} onChange={(v) => setPreRecord({ ...preRecord, dc_length: v })} />
+                <InputField label={t('wellControl.prerecord.scrPressure')} value={preRecord.scr_pressure} onChange={(v) => setPreRecord({ ...preRecord, scr_pressure: v })} />
+                <InputField label={t('wellControl.prerecord.scrRate')} value={preRecord.scr_rate} onChange={(v) => setPreRecord({ ...preRecord, scr_rate: v })} />
+                <InputField label={t('wellControl.prerecord.lotEmw')} value={preRecord.lot_emw} onChange={(v) => setPreRecord({ ...preRecord, lot_emw: v })} step="0.1" />
+                <InputField label={t('wellControl.prerecord.pumpOutput')} value={preRecord.pump_output} onChange={(v) => setPreRecord({ ...preRecord, pump_output: v })} step="0.01" />
               </div>
 
               <button onClick={savePreRecord} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Save size={16} /> {loading ? 'Saving...' : 'Save Kill Sheet'}
+                <Save size={16} /> {loading ? t('common.saving') : t('wellControl.prerecord.saveKillSheet')}
               </button>
             </div>
 
@@ -206,21 +227,21 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Hydrostatic</p>
+                    <p className="text-xs text-white/40 mb-1">{t('wellControl.prerecord.hydrostatic')}</p>
                     <p className="text-xl font-bold text-industrial-400">{preRecordResult.reference_values?.hydrostatic_psi}</p>
                     <p className="text-xs text-white/30">psi</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">MAASP</p>
+                    <p className="text-xs text-white/40 mb-1">{t('wellControl.prerecord.maasp')}</p>
                     <p className="text-xl font-bold text-industrial-400">{preRecordResult.reference_values?.maasp_psi}</p>
                     <p className="text-xs text-white/30">psi</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Strokes to Bit</p>
+                    <p className="text-xs text-white/40 mb-1">{t('wellControl.prerecord.strokesToBit')}</p>
                     <p className="text-xl font-bold text-white">{preRecordResult.strokes?.strokes_surface_to_bit}</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Total Volume</p>
+                    <p className="text-xs text-white/40 mb-1">{t('wellControl.prerecord.totalVolume')}</p>
                     <p className="text-xl font-bold text-white">{preRecordResult.volumes_bbl?.total_well_volume}</p>
                     <p className="text-xs text-white/30">bbl</p>
                   </div>
@@ -234,21 +255,21 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         {activeTab === 'active' && (
           <motion.div key="active" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Kick Data</h3>
+              <h3 className="font-bold text-lg mb-4">{t('wellControl.active.title')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <InputField label="SIDPP (psi)" value={kickData.sidpp} onChange={(v) => setKickData({ ...kickData, sidpp: v })} />
-                <InputField label="SICP (psi)" value={kickData.sicp} onChange={(v) => setKickData({ ...kickData, sicp: v })} />
-                <InputField label="Pit Gain (bbl)" value={kickData.pit_gain} onChange={(v) => setKickData({ ...kickData, pit_gain: v })} />
+                <InputField label={t('wellControl.active.sidpp')} value={kickData.sidpp} onChange={(v) => setKickData({ ...kickData, sidpp: v })} />
+                <InputField label={t('wellControl.active.sicp')} value={kickData.sicp} onChange={(v) => setKickData({ ...kickData, sicp: v })} />
+                <InputField label={t('wellControl.active.pitGain')} value={kickData.pit_gain} onChange={(v) => setKickData({ ...kickData, pit_gain: v })} />
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Kill Method</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('wellControl.active.killMethod')}</label>
                   <select value={kickData.kill_method} onChange={(e) => setKickData({ ...kickData, kill_method: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
-                    <option value="wait_weight">Wait & Weight</option>
-                    <option value="drillers">Driller's Method</option>
+                    <option value="wait_weight">{t('wellControl.active.waitWeight')}</option>
+                    <option value="drillers">{t('wellControl.active.drillers')}</option>
                   </select>
                 </div>
               </div>
               <button onClick={runKillCalc} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <AlertTriangle size={16} /> {loading ? 'Calculating...' : 'Calculate Kill Sheet'}
+                <AlertTriangle size={16} /> {loading ? t('common.calculating') : t('wellControl.active.calculateKill')}
               </button>
             </div>
 
@@ -275,12 +296,12 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                   />
                   <div className="md:col-span-2 grid grid-cols-2 gap-4 content-start">
                     {[
-                      { label: 'Formation Pressure', value: killResult.formation_pressure_psi, unit: 'psi', color: 'text-red-400' },
-                      { label: 'Kill Mud Weight', value: killResult.kill_mud_weight_ppg, unit: 'ppg', color: 'text-industrial-400' },
-                      { label: 'ICP', value: killResult.icp_psi, unit: 'psi', color: 'text-orange-400' },
-                      { label: 'FCP', value: killResult.fcp_psi, unit: 'psi', color: 'text-green-400' },
-                      { label: 'MAASP', value: killResult.maasp_psi, unit: 'psi', color: 'text-yellow-400' },
-                      { label: 'MW Increase', value: killResult.mud_weight_increase_ppg, unit: 'ppg', color: 'text-white' },
+                      { label: t('wellControl.active.formationPressure'), value: killResult.formation_pressure_psi, unit: 'psi', color: 'text-red-400' },
+                      { label: t('wellControl.active.killMudWeight'), value: killResult.kill_mud_weight_ppg, unit: 'ppg', color: 'text-industrial-400' },
+                      { label: t('wellControl.active.icp'), value: killResult.icp_psi, unit: 'psi', color: 'text-orange-400' },
+                      { label: t('wellControl.active.fcp'), value: killResult.fcp_psi, unit: 'psi', color: 'text-green-400' },
+                      { label: t('wellControl.active.maasp'), value: killResult.maasp_psi, unit: 'psi', color: 'text-yellow-400' },
+                      { label: t('wellControl.active.mwIncrease'), value: killResult.mud_weight_increase_ppg, unit: 'ppg', color: 'text-white' },
                     ].map((card, i) => (
                       <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                         <p className="text-xs text-white/40 mb-1">{card.label}</p>
@@ -311,14 +332,14 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
 
                 {/* Schedule Table */}
                 <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                  <h4 className="font-bold mb-4">Schedule Table</h4>
+                  <h4 className="font-bold mb-4">{t('wellControl.schedule.title')}</h4>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-white/40 border-b border-white/5">
-                        <th className="text-left py-2 px-2">Step</th>
-                        <th className="text-right py-2 px-2">Strokes</th>
-                        <th className="text-right py-2 px-2">Pressure (psi)</th>
-                        <th className="text-right py-2 px-2">Complete (%)</th>
+                        <th className="text-left py-2 px-2">{t('wellControl.schedule.step')}</th>
+                        <th className="text-right py-2 px-2">{t('wellControl.schedule.strokes')}</th>
+                        <th className="text-right py-2 px-2">{t('wellControl.schedule.pressure')}</th>
+                        <th className="text-right py-2 px-2">{t('wellControl.schedule.complete')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -337,8 +358,8 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
             ) : (
               <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
                 <TrendingDown className="mx-auto mb-4 text-white/20" size={48} />
-                <h3 className="text-xl font-bold mb-2">No Pressure Schedule</h3>
-                <p className="text-white/40">Calculate kill sheet in "Active Kill" tab first.</p>
+                <h3 className="text-xl font-bold mb-2">{t('wellControl.schedule.noSchedule')}</h3>
+                <p className="text-white/40">{t('wellControl.schedule.noScheduleDesc')}</p>
               </div>
             )}
           </motion.div>
@@ -383,41 +404,41 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Volumetric */}
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h4 className="font-bold text-lg mb-2">Volumetric Method</h4>
-                <p className="text-white/40 text-sm mb-4">No circulation needed — for stuck pipe or pump failure.</p>
+                <h4 className="font-bold text-lg mb-2">{t('wellControl.methods.volumetric.title')}</h4>
+                <p className="text-white/40 text-sm mb-4">{t('wellControl.methods.volumetric.description')}</p>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <InputField label="MW (ppg)" value={volParams.mud_weight} onChange={(v) => setVolParams({ ...volParams, mud_weight: v })} step="0.1" />
-                  <InputField label="SICP (psi)" value={volParams.sicp} onChange={(v) => setVolParams({ ...volParams, sicp: v })} />
-                  <InputField label="TVD (ft)" value={volParams.tvd} onChange={(v) => setVolParams({ ...volParams, tvd: v })} />
-                  <InputField label="Ann Cap (bbl/ft)" value={volParams.annular_capacity} onChange={(v) => setVolParams({ ...volParams, annular_capacity: v })} step="0.001" />
+                  <InputField label={t('wellControl.methods.volumetric.mw')} value={volParams.mud_weight} onChange={(v) => setVolParams({ ...volParams, mud_weight: v })} step="0.1" />
+                  <InputField label={t('wellControl.methods.volumetric.sicp')} value={volParams.sicp} onChange={(v) => setVolParams({ ...volParams, sicp: v })} />
+                  <InputField label={t('wellControl.methods.volumetric.tvd')} value={volParams.tvd} onChange={(v) => setVolParams({ ...volParams, tvd: v })} />
+                  <InputField label={t('wellControl.methods.volumetric.annCap')} value={volParams.annular_capacity} onChange={(v) => setVolParams({ ...volParams, annular_capacity: v })} step="0.001" />
                 </div>
-                <button onClick={runVolumetric} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">{loading ? 'Calculating...' : 'Calculate Volumetric'}</button>
+                <button onClick={runVolumetric} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">{loading ? t('common.calculating') : t('wellControl.methods.volumetric.calculate')}</button>
                 {volResult && (
                   <div className="mt-4 p-3 bg-white/5 rounded-lg text-xs space-y-1">
-                    <p className="text-white/60">Vol/cycle: <span className="text-industrial-400 font-bold">{volResult.parameters?.volume_per_cycle_bbl} bbl</span></p>
-                    <p className="text-white/60">Est. cycles: <span className="text-industrial-400 font-bold">{volResult.parameters?.estimated_cycles}</span></p>
-                    <p className="text-white/60">Working P: <span className="text-industrial-400 font-bold">{volResult.initial_conditions?.working_pressure_psi} psi</span></p>
+                    <p className="text-white/60">{t('wellControl.methods.volumetric.volPerCycle')} <span className="text-industrial-400 font-bold">{volResult.parameters?.volume_per_cycle_bbl} bbl</span></p>
+                    <p className="text-white/60">{t('wellControl.methods.volumetric.estCycles')} <span className="text-industrial-400 font-bold">{volResult.parameters?.estimated_cycles}</span></p>
+                    <p className="text-white/60">{t('wellControl.methods.volumetric.workingP')} <span className="text-industrial-400 font-bold">{volResult.initial_conditions?.working_pressure_psi} psi</span></p>
                   </div>
                 )}
               </div>
 
               {/* Bullhead */}
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h4 className="font-bold text-lg mb-2">Bullhead</h4>
-                <p className="text-white/40 text-sm mb-4">Force influx back — for H2S or off-bottom situations.</p>
+                <h4 className="font-bold text-lg mb-2">{t('wellControl.methods.bullhead.title')}</h4>
+                <p className="text-white/40 text-sm mb-4">{t('wellControl.methods.bullhead.description')}</p>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <InputField label="MW (ppg)" value={bullheadParams.mud_weight} onChange={(v) => setBullheadParams({ ...bullheadParams, mud_weight: v })} step="0.1" />
-                  <InputField label="KMW (ppg)" value={bullheadParams.kill_mud_weight} onChange={(v) => setBullheadParams({ ...bullheadParams, kill_mud_weight: v })} step="0.1" />
-                  <InputField label="TVD (ft)" value={bullheadParams.depth_tvd} onChange={(v) => setBullheadParams({ ...bullheadParams, depth_tvd: v })} />
-                  <InputField label="Fm Pressure (psi)" value={bullheadParams.formation_pressure} onChange={(v) => setBullheadParams({ ...bullheadParams, formation_pressure: v })} />
+                  <InputField label={t('wellControl.methods.bullhead.mw')} value={bullheadParams.mud_weight} onChange={(v) => setBullheadParams({ ...bullheadParams, mud_weight: v })} step="0.1" />
+                  <InputField label={t('wellControl.methods.bullhead.kmw')} value={bullheadParams.kill_mud_weight} onChange={(v) => setBullheadParams({ ...bullheadParams, kill_mud_weight: v })} step="0.1" />
+                  <InputField label={t('wellControl.methods.bullhead.tvd')} value={bullheadParams.depth_tvd} onChange={(v) => setBullheadParams({ ...bullheadParams, depth_tvd: v })} />
+                  <InputField label={t('wellControl.methods.bullhead.fmPressure')} value={bullheadParams.formation_pressure} onChange={(v) => setBullheadParams({ ...bullheadParams, formation_pressure: v })} />
                 </div>
-                <button onClick={runBullhead} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">{loading ? 'Calculating...' : 'Calculate Bullhead'}</button>
+                <button onClick={runBullhead} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">{loading ? t('common.calculating') : t('wellControl.methods.bullhead.calculate')}</button>
                 {bullheadResult && (
                   <div className="mt-4 p-3 bg-white/5 rounded-lg text-xs space-y-1">
-                    <p className="text-white/60">Pump P: <span className="text-industrial-400 font-bold">{bullheadResult.calculations?.required_pump_pressure_psi} psi</span></p>
-                    <p className="text-white/60">Displace: <span className="text-industrial-400 font-bold">{bullheadResult.calculations?.displacement_volume_bbl} bbl</span></p>
+                    <p className="text-white/60">{t('wellControl.methods.bullhead.pumpP')} <span className="text-industrial-400 font-bold">{bullheadResult.calculations?.required_pump_pressure_psi} psi</span></p>
+                    <p className="text-white/60">{t('wellControl.methods.bullhead.displace')} <span className="text-industrial-400 font-bold">{bullheadResult.calculations?.displacement_volume_bbl} bbl</span></p>
                     <p className={`font-bold ${bullheadResult.shoe_integrity?.safe ? 'text-green-400' : 'text-red-400'}`}>
-                      Shoe: {bullheadResult.shoe_integrity?.safe ? 'SAFE' : 'AT RISK'} (margin: {bullheadResult.shoe_integrity?.margin_psi} psi)
+                      {t('wellControl.methods.bullhead.shoe')} {bullheadResult.shoe_integrity?.safe ? t('common.safe') : t('common.atRisk')} (margin: {bullheadResult.shoe_integrity?.margin_psi} psi)
                     </p>
                   </div>
                 )}

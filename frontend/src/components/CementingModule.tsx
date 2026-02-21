@@ -11,6 +11,7 @@ import FreeFallIndicator from './charts/cem/FreeFallIndicator';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CementingModuleProps {
@@ -40,6 +41,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -63,7 +65,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

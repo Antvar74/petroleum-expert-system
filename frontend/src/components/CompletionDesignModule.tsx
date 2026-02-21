@@ -11,6 +11,7 @@ import UnderbalanceWindowChart from './charts/cd/UnderbalanceWindowChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CompletionDesignModuleProps {
@@ -52,6 +53,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -75,7 +77,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

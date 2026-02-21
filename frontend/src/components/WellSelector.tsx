@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ui/Toast';
 import axios from 'axios';
 import { Database, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
@@ -13,6 +14,7 @@ interface WellSelectorProps {
 
 const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [wells, setWells] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newWellName, setNewWellName] = useState('');
@@ -63,7 +65,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
             setWellToDelete(null);
         } catch (error) {
             console.error("Error deleting well:", error);
-            alert(t('well.deleteError'));
+            addToast(t('well.deleteError'), 'error');
             setWellToDelete(null);
         }
     };

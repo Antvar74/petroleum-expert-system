@@ -10,6 +10,7 @@ import CuttingsConcentrationGauge from './charts/cu/CuttingsConcentrationGauge';
 import CleanupEfficiencyProfile from './charts/cu/CleanupEfficiencyProfile';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface WellboreCleanupModuleProps {
@@ -45,6 +46,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -68,7 +70,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

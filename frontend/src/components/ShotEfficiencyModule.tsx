@@ -11,6 +11,7 @@ import CutoffSensitivityChart from './charts/se/CutoffSensitivityChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface ShotEfficiencyModuleProps {
@@ -60,6 +61,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -91,7 +93,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
           entries.push(entry);
         }
         setLogData(JSON.stringify(entries, null, 2));
-      } catch { alert('Error parsing CSV'); }
+      } catch { addToast('Error parsing CSV', 'error'); }
     };
     reader.readAsText(file);
   };
@@ -100,7 +102,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
     setLoading(true);
     try {
       let entries;
-      try { entries = JSON.parse(logData); } catch { alert('Invalid JSON log data'); setLoading(false); return; }
+      try { entries = JSON.parse(logData); } catch { addToast('Invalid JSON log data', 'error'); setLoading(false); return; }
 
       const payload = {
         log_entries: entries,
@@ -117,7 +119,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };

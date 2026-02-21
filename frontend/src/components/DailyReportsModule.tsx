@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,6 +60,7 @@ const emptyBHA = () => ({
 const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellName = '' }) => {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('reports');
   const [loading, setLoading] = useState(false);
 
@@ -125,6 +127,7 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   }, [activeTab, wellId]);
 
   const fetchReports = async () => {
+    if (!wellId) return;
     try {
       const url = filterType
         ? `${API_BASE_URL}/wells/${wellId}/daily-reports?report_type=${filterType}`
@@ -148,6 +151,7 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   };
 
   const fetchKPIs = async () => {
+    if (!wellId) return;
     try {
       const [td, cost, npt, stats] = await Promise.all([
         axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/time-depth`),
@@ -209,6 +213,7 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   // Save / Update report
   // ---------------------------------------------------------------
   const saveReport = async (status: string = 'draft') => {
+    if (!wellId) return;
     setLoading(true);
     const payload: any = {
       report_type: reportType,
@@ -240,12 +245,13 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
       fetchReports();
       if (status !== 'draft') { resetForm(); setActiveTab('reports'); }
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
     }
     setLoading(false);
   };
 
   const deleteReport = async (id: number) => {
+    if (!wellId) return;
     if (!confirm(t('ddr.confirmDelete') || 'Delete this report?')) return;
     try {
       await axios.delete(`${API_BASE_URL}/wells/${wellId}/daily-reports/${id}`);
@@ -254,6 +260,7 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   };
 
   const loadReport = async (id: number) => {
+    if (!wellId) return;
     try {
       const res = await axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/${id}`);
       const r = res.data;
@@ -309,7 +316,7 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   // AI Analysis
   // ---------------------------------------------------------------
   const runAIAnalysis = async () => {
-    if (reports.length === 0) return;
+    if (!wellId || reports.length === 0) return;
     setIsAnalyzing(true);
     try {
       // Use the latest report data

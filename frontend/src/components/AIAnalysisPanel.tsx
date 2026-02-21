@@ -5,6 +5,7 @@ import { BrainCircuit, FileText, Share2, RefreshCw, X, ChevronDown, ChevronUp } 
 import type { LucideIcon } from 'lucide-react';
 import ExecutiveReport from './ExecutiveReport';
 import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
 
 // @ts-ignore - html2pdf has no types
@@ -55,6 +56,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 }) => {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const { addToast } = useToast();
   const locale = language === 'es' ? 'es-MX' : 'en-US';
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -120,7 +122,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   // Share as PDF
   const handleSharePDF = async () => {
     if (!navigator.share) {
-      alert(t('ai.sharingNotSupported'));
+      addToast(t('ai.sharingNotSupported'), 'info');
       return;
     }
 
@@ -155,7 +157,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           text: `${t('ai.reportFor')} ${moduleName}.`,
         });
       } else {
-        alert(t('ai.filesNotSupported'));
+        addToast(t('ai.filesNotSupported'), 'info');
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
