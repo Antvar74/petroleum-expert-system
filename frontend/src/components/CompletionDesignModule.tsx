@@ -10,6 +10,7 @@ import PhasingPolarChart from './charts/cd/PhasingPolarChart';
 import UnderbalanceWindowChart from './charts/cd/UnderbalanceWindowChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CompletionDesignModuleProps {
@@ -50,6 +51,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -90,8 +92,8 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   const qualityColor = (q: string) => {
@@ -105,8 +107,8 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Layers className="text-violet-400" size={28} />
-        <h2 className="text-2xl font-bold">Completion Design</h2>
-        <span className="text-sm text-gray-500">Perforating & Fracture Analysis</span>
+        <h2 className="text-2xl font-bold">{t('completionDesign.title')}</h2>
+        <span className="text-sm text-gray-500">{t('completionDesign.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -124,7 +126,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               {/* Casing & Formation */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Revestimiento y Formación</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.casingFormation')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
                     { key: 'casing_id_in', label: 'ID Casing (in)', step: '0.125' },
@@ -171,7 +173,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
 
               {/* Pressures & Stresses */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Presiones y Esfuerzos</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.pressuresStresses')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
                     { key: 'reservoir_pressure_psi', label: 'P Reservorio (psi)', step: '100' },
@@ -197,7 +199,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
 
               {/* Perforation & Damage */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Perforación y Daño</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.perforationDamage')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
                     { key: 'penetration_berea_in', label: 'Penetración Berea (in)', step: '1' },
@@ -220,7 +222,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Calculando...' : 'Calcular Diseño'}
+                {loading ? t('common.calculating') : t('common.calculate')}
               </button>
             </div>
           </motion.div>
@@ -246,7 +248,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             {/* Penetration & Gun Selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Penetración (API RP 19B)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.penetration')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">Berea:</span> <span className="font-mono">{result.penetration?.penetration_berea_in}"</span></div>
                   <div><span className="text-gray-400">Corregida:</span> <span className="font-bold text-violet-400">{result.penetration?.penetration_corrected_in}"</span></div>
@@ -257,7 +259,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Selección de Cañón</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.gunSelection')}</h3>
                 <div className="space-y-2 text-sm">
                   {result.gun_selection?.recommended ? (
                     <>
@@ -277,7 +279,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             {/* Underbalance & Fracture */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Análisis de Underbalance</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.underbalanceAnalysis')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">ΔP:</span> <span className="font-bold text-lg">{result.underbalance?.underbalance_psi} psi</span></div>
                   <div>
@@ -293,7 +295,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Fractura Hidráulica (Haimson-Fairhurst)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('completionDesign.hydraulicFracture')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">P Breakdown:</span> <span className="font-bold text-orange-400">{result.fracture_initiation?.breakdown_pressure_psi} psi</span></div>
                   <div><span className="text-gray-400">P Reapertura:</span> <span className="font-mono">{result.fracture_initiation?.reopening_pressure_psi} psi</span></div>
@@ -339,7 +341,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -381,7 +383,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Layers size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Parámetros" y ejecuta el cálculo.</p>
+              <p>{t('completionDesign.noResults')}</p>
             </div>
           </motion.div>
         )}

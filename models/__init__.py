@@ -9,7 +9,8 @@ from .models_v2 import (
     Event, ParameterSet, RCAReport,
     SurveyStation, DrillstringSection, TorqueDragResult,
     HydraulicSection, BitNozzle, HydraulicResult,
-    StuckPipeAnalysis, KillSheet
+    StuckPipeAnalysis, KillSheet,
+    DailyReport, ReportOperation
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     'SurveyStation', 'DrillstringSection', 'TorqueDragResult',
     'HydraulicSection', 'BitNozzle', 'HydraulicResult',
     'StuckPipeAnalysis', 'KillSheet',
+    'DailyReport', 'ReportOperation',
     'init_db', 'get_db'
 ]

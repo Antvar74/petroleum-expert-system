@@ -101,10 +101,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   };
 
   const tabs = [
-    { id: 'survey', label: 'Survey Input' },
-    { id: 'drillstring', label: 'Drillstring' },
-    { id: 'analysis', label: 'T&D Analysis' },
-    { id: 'compare', label: 'Real-Time Compare' },
+    { id: 'survey', label: t('torqueDrag.tabs.survey') },
+    { id: 'drillstring', label: t('torqueDrag.tabs.drillstring') },
+    { id: 'analysis', label: t('torqueDrag.tabs.analysis') },
+    { id: 'compare', label: t('torqueDrag.tabs.compare') },
   ];
 
   // --- Survey handlers ---
@@ -129,7 +129,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/survey`, surveyStations);
       setComputedSurvey(res.data.stations);
     } catch (e: any) {
-      alert('Error uploading survey: ' + (e.response?.data?.detail || e.message));
+      alert(t('torqueDrag.errorUploadSurvey') + ': ' + (e.response?.data?.detail || e.message));
     }
     setLoading(false);
   };
@@ -157,9 +157,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/wells/${wellId}/drillstring`, drillstring);
-      alert('Drillstring saved successfully');
+      alert(t('torqueDrag.drillstring.savedSuccess'));
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
     }
     setLoading(false);
   };
@@ -171,7 +171,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/torque-drag`, tdParams);
       setTdResult(res.data);
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
     }
     setLoading(false);
   };
@@ -191,7 +191,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       });
       setCompareResult(res.data);
     } catch (e: any) {
-      alert('Error running compare: ' + (e.response?.data?.detail || e.message));
+      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
     }
     setCompareLoading(false);
   };
@@ -213,7 +213,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       });
       setBackCalcResult(res.data);
     } catch (e: any) {
-      alert('Error: ' + (e.response?.data?.detail || e.message));
+      alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
     }
     setLoading(false);
   };
@@ -225,7 +225,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     <div className="space-y-6 py-8">
       <div className="flex items-center gap-3 mb-8">
         <ArrowUpDown className="text-industrial-500" size={28} />
-        <h2 className="text-2xl font-bold">Torque & Drag Analysis</h2>
+        <h2 className="text-2xl font-bold">{t('torqueDrag.title')}</h2>
       </div>
 
       {/* Tabs */}
@@ -250,13 +250,13 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
           <motion.div key="survey" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg">Survey Stations</h3>
+                <h3 className="font-bold text-lg">{t('torqueDrag.survey.title')}</h3>
                 <div className="flex gap-2">
                   <button onClick={addSurveyStation} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
-                    <Plus size={14} /> Add Station
+                    <Plus size={14} /> {t('torqueDrag.survey.addStation')}
                   </button>
                   <button onClick={uploadSurvey} disabled={loading} className="flex items-center gap-1 px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
-                    <Upload size={14} /> {loading ? 'Computing...' : 'Upload & Compute'}
+                    <Upload size={14} /> {loading ? t('common.computing') : t('torqueDrag.survey.uploadCompute')}
                   </button>
                 </div>
               </div>
@@ -265,14 +265,14 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-white/40 border-b border-white/5">
-                      <th className="text-left py-2 px-2">MD (ft)</th>
-                      <th className="text-left py-2 px-2">Inc (°)</th>
-                      <th className="text-left py-2 px-2">Azi (°)</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.survey.md')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.survey.inc')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.survey.azi')}</th>
                       {computedSurvey.length > 0 && <>
-                        <th className="text-left py-2 px-2">TVD (ft)</th>
-                        <th className="text-left py-2 px-2">North (ft)</th>
-                        <th className="text-left py-2 px-2">East (ft)</th>
-                        <th className="text-left py-2 px-2">DLS (°/100ft)</th>
+                        <th className="text-left py-2 px-2">{t('torqueDrag.survey.tvd')}</th>
+                        <th className="text-left py-2 px-2">{t('torqueDrag.survey.north')}</th>
+                        <th className="text-left py-2 px-2">{t('torqueDrag.survey.east')}</th>
+                        <th className="text-left py-2 px-2">{t('torqueDrag.survey.dls')}</th>
                       </>}
                       <th className="w-10"></th>
                     </tr>
@@ -306,13 +306,13 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
           <motion.div key="drillstring" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg">Drillstring Sections</h3>
+                <h3 className="font-bold text-lg">{t('torqueDrag.drillstring.title')}</h3>
                 <div className="flex gap-2">
                   <button onClick={addSection} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
-                    <Plus size={14} /> Add Section
+                    <Plus size={14} /> {t('torqueDrag.drillstring.addSection')}
                   </button>
                   <button onClick={uploadDrillstring} disabled={loading} className="flex items-center gap-1 px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
-                    <Upload size={14} /> Save
+                    <Upload size={14} /> {t('common.save')}
                   </button>
                 </div>
               </div>
@@ -321,12 +321,12 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-white/40 border-b border-white/5">
-                      <th className="text-left py-2 px-2">Section</th>
-                      <th className="text-left py-2 px-2">OD (in)</th>
-                      <th className="text-left py-2 px-2">ID (in)</th>
-                      <th className="text-left py-2 px-2">Weight (lb/ft)</th>
-                      <th className="text-left py-2 px-2">Length (ft)</th>
-                      <th className="text-left py-2 px-2">Order</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.section')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.od')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.id')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.weight')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.length')}</th>
+                      <th className="text-left py-2 px-2">{t('torqueDrag.drillstring.order')}</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -353,43 +353,43 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
         {activeTab === 'analysis' && (
           <motion.div key="analysis" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Calculation Parameters</h3>
+              <h3 className="font-bold text-lg mb-4">{t('torqueDrag.analysis.title')}</h3>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Operation</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.operation')}</label>
                   <select value={tdParams.operation} onChange={(e) => setTdParams({ ...tdParams, operation: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
                     {OPERATIONS.map((op) => <option key={op} value={op}>{op.replace('_', ' ').toUpperCase()}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Friction (Cased)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.frictionCased')}</label>
                   <input type="number" step="0.01" value={tdParams.friction_cased} onChange={(e) => setTdParams({ ...tdParams, friction_cased: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Friction (Open)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.frictionOpen')}</label>
                   <input type="number" step="0.01" value={tdParams.friction_open} onChange={(e) => setTdParams({ ...tdParams, friction_open: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Mud Weight (ppg)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.mudWeight')}</label>
                   <input type="number" step="0.1" value={tdParams.mud_weight} onChange={(e) => setTdParams({ ...tdParams, mud_weight: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">WOB (klb)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.wob')}</label>
                   <input type="number" value={tdParams.wob} onChange={(e) => setTdParams({ ...tdParams, wob: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">RPM</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.rpm')}</label>
                   <input type="number" value={tdParams.rpm} onChange={(e) => setTdParams({ ...tdParams, rpm: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Casing Shoe MD (ft)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.casingShoe')}</label>
                   <input type="number" value={tdParams.casing_shoe_md} onChange={(e) => setTdParams({ ...tdParams, casing_shoe_md: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
               </div>
 
               <button onClick={runTorqueDrag} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Play size={16} /> {loading ? 'Calculating...' : 'Run T&D Calculation'}
+                <Play size={16} /> {loading ? t('common.calculating') : t('torqueDrag.analysis.runCalculation')}
               </button>
             </div>
 
@@ -399,22 +399,22 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Surface Hookload</p>
+                    <p className="text-xs text-white/40 mb-1">{t('torqueDrag.analysis.surfaceHookload')}</p>
                     <p className="text-2xl font-bold text-industrial-400">{tdResult.summary?.surface_hookload_klb}</p>
                     <p className="text-xs text-white/30">klb</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Surface Torque</p>
+                    <p className="text-xs text-white/40 mb-1">{t('torqueDrag.analysis.surfaceTorque')}</p>
                     <p className="text-2xl font-bold text-industrial-400">{tdResult.summary?.surface_torque_ftlb}</p>
                     <p className="text-xs text-white/30">ft-lb</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Max Side Force</p>
+                    <p className="text-xs text-white/40 mb-1">{t('torqueDrag.analysis.maxSideForce')}</p>
                     <p className="text-2xl font-bold text-industrial-400">{tdResult.summary?.max_side_force_lb}</p>
                     <p className="text-xs text-white/30">lb</p>
                   </div>
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                    <p className="text-xs text-white/40 mb-1">Buoyancy Factor</p>
+                    <p className="text-xs text-white/40 mb-1">{t('torqueDrag.analysis.buoyancyFactor')}</p>
                     <p className="text-2xl font-bold text-white">{tdResult.summary?.buoyancy_factor}</p>
                   </div>
                 </div>
@@ -422,7 +422,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 {/* Alerts */}
                 {tdResult.summary?.alerts?.length > 0 && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                    <p className="text-red-400 font-bold text-sm mb-2">Alerts</p>
+                    <p className="text-red-400 font-bold text-sm mb-2">{t('common.alerts')}</p>
                     {tdResult.summary.alerts.map((a: string, i: number) => (
                       <p key={i} className="text-red-300 text-sm">- {a}</p>
                     ))}
@@ -432,10 +432,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 {/* Analysis sub-tabs */}
                 <div className="flex gap-2">
                   {[
-                    { id: 'force', label: 'Axial Force' },
-                    { id: 'torque', label: 'Torque Profile' },
-                    { id: 'wellpath', label: 'Well Path' },
-                    { id: 'table', label: 'Station Data' },
+                    { id: 'force', label: t('torqueDrag.subtabs.force') },
+                    { id: 'torque', label: t('torqueDrag.subtabs.torque') },
+                    { id: 'wellpath', label: t('torqueDrag.subtabs.wellpath') },
+                    { id: 'table', label: t('torqueDrag.subtabs.table') },
                   ].map(st => (
                     <button key={st.id} onClick={() => setAnalysisSubTab(st.id)}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${analysisSubTab === st.id ? 'bg-industrial-600/50 text-white' : 'bg-white/5 text-white/40 hover:text-white'}`}>
@@ -495,25 +495,25 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 )}
                 {analysisSubTab === 'wellpath' && computedSurvey.length === 0 && (
                   <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center">
-                    <p className="text-white/40">Upload survey data in the Survey Input tab to view the well path.</p>
+                    <p className="text-white/40">{t('torqueDrag.uploadSurveyHint')}</p>
                   </div>
                 )}
 
                 {/* Station results table */}
                 {analysisSubTab === 'table' && (
                   <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                    <h4 className="font-bold mb-4">Station Results</h4>
+                    <h4 className="font-bold mb-4">{t('torqueDrag.stationResults')}</h4>
                     <div className="overflow-x-auto max-h-96 overflow-y-auto">
                       <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-black/80">
                           <tr className="text-white/40 border-b border-white/5">
                             <th className="text-left py-2 px-2">MD</th>
                             <th className="text-left py-2 px-2">Inc</th>
-                            <th className="text-right py-2 px-2">Axial (lb)</th>
-                            <th className="text-right py-2 px-2">Normal (lb)</th>
-                            <th className="text-right py-2 px-2">Drag (lb)</th>
-                            <th className="text-right py-2 px-2">Torque (ft-lb)</th>
-                            <th className="text-center py-2 px-2">Buckling</th>
+                            <th className="text-right py-2 px-2">{t('torqueDrag.axial')}</th>
+                            <th className="text-right py-2 px-2">{t('torqueDrag.normal')}</th>
+                            <th className="text-right py-2 px-2">{t('torqueDrag.drag')}</th>
+                            <th className="text-right py-2 px-2">{t('torqueDrag.torqueCol')}</th>
+                            <th className="text-center py-2 px-2">{t('torqueDrag.buckling')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -545,13 +545,13 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <div className="flex items-center gap-2 mb-2">
                 <Layers size={18} className="text-industrial-400" />
-                <h3 className="font-bold text-lg">Multi-Operation Comparison</h3>
+                <h3 className="font-bold text-lg">{t('torqueDrag.compare.title')}</h3>
               </div>
               <p className="text-white/40 text-sm mb-4">
-                Run all operations (Trip Out, Trip In, Rotating, Sliding) with the same well data and overlay the force profiles.
+                {t('torqueDrag.compare.description')}
               </p>
               <button onClick={runCompare} disabled={compareLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <Play size={16} /> {compareLoading ? 'Computing all operations...' : 'Run Multi-Operation Compare'}
+                <Play size={16} /> {compareLoading ? t('torqueDrag.compare.computingAll') : t('torqueDrag.compare.run')}
               </button>
             </div>
 
@@ -580,51 +580,51 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
             {/* Back-Calculate Friction */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="font-bold text-lg mb-4">Back-Calculate Friction Factor</h3>
-              <p className="text-white/40 text-sm mb-4">Compare predicted vs measured hookload to determine actual friction factor.</p>
+              <h3 className="font-bold text-lg mb-4">{t('torqueDrag.backCalc.title')}</h3>
+              <p className="text-white/40 text-sm mb-4">{t('torqueDrag.backCalc.description')}</p>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Measured Hookload (klb)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.backCalc.measuredHL')}</label>
                   <input type="number" value={backCalcParams.measured_hookload} onChange={(e) => setBackCalcParams({ ...backCalcParams, measured_hookload: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Operation</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.operation')}</label>
                   <select value={backCalcParams.operation} onChange={(e) => setBackCalcParams({ ...backCalcParams, operation: e.target.value })} className="input-field w-full py-2 px-3 text-sm">
                     {OPERATIONS.map((op) => <option key={op} value={op}>{op.replace('_', ' ').toUpperCase()}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 block mb-1">Mud Weight (ppg)</label>
+                  <label className="text-xs text-white/40 block mb-1">{t('torqueDrag.analysis.mudWeight')}</label>
                   <input type="number" step="0.1" value={backCalcParams.mud_weight} onChange={(e) => setBackCalcParams({ ...backCalcParams, mud_weight: parseFloat(e.target.value) || 0 })} className="input-field w-full py-2 px-3 text-sm" />
                 </div>
               </div>
 
               <button onClick={runBackCalc} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                <RefreshCw size={16} /> {loading ? 'Calculating...' : 'Back-Calculate'}
+                <RefreshCw size={16} /> {loading ? t('common.calculating') : t('torqueDrag.backCalc.run')}
               </button>
             </div>
 
             {backCalcResult && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                  <p className="text-xs text-white/40 mb-1">Friction Factor</p>
+                  <p className="text-xs text-white/40 mb-1">{t('torqueDrag.backCalc.frictionFactor')}</p>
                   <p className="text-3xl font-bold text-industrial-400">{backCalcResult.friction_factor}</p>
                 </div>
                 <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                  <p className="text-xs text-white/40 mb-1">Calculated HL</p>
+                  <p className="text-xs text-white/40 mb-1">{t('torqueDrag.backCalc.calculatedHL')}</p>
                   <p className="text-2xl font-bold text-white">{backCalcResult.calculated_hookload_klb} klb</p>
                 </div>
                 <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                  <p className="text-xs text-white/40 mb-1">Error</p>
+                  <p className="text-xs text-white/40 mb-1">{t('torqueDrag.backCalc.error')}</p>
                   <p className="text-2xl font-bold text-white">{backCalcResult.error_klb} klb</p>
                 </div>
                 <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                  <p className="text-xs text-white/40 mb-1">Converged</p>
+                  <p className="text-xs text-white/40 mb-1">{t('torqueDrag.backCalc.converged')}</p>
                   <p className={`text-2xl font-bold ${backCalcResult.converged ? 'text-green-400' : 'text-red-400'}`}>
-                    {backCalcResult.converged ? 'Yes' : 'No'}
+                    {backCalcResult.converged ? t('common.yes') : t('common.no')}
                   </p>
-                  <p className="text-xs text-white/30">{backCalcResult.iterations} iterations</p>
+                  <p className="text-xs text-white/30">{backCalcResult.iterations} {t('common.iterations')}</p>
                 </div>
               </motion.div>
             )}

@@ -14,6 +14,7 @@ import {
     ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import RCAVisualizer from './RCAVisualizer';
 import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
@@ -36,6 +37,7 @@ interface AnalysisDashboardProps {
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete, onBack }) => {
+    const { t } = useTranslation();
     const { addToast } = useToast();
 
     // RCA State
@@ -88,7 +90,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
             const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/query`);
             setQuery(response.data);
         } catch (error) {
-            const msg = `Error cargando consulta para ${agentId.replace(/_/g, ' ')}`;
+            const msg = `${t('analysis.errorLoadingQuery')} ${agentId.replace(/_/g, ' ')}`;
             setErrorMessage(msg);
             addToast(msg, 'error');
         }
@@ -101,7 +103,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
             const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/synthesis/query`);
             setQuery(response.data);
         } catch (error) {
-            const msg = 'Error cargando consulta de síntesis';
+            const msg = t('analysis.errorLoadingSynthesis');
             setErrorMessage(msg);
             addToast(msg, 'error');
         }
@@ -120,16 +122,16 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                     agent: agentId,
                     analysis: res.data.analysis
                 }]);
-                addToast(`${(query?.role || agentId).replace(/_/g, ' ')} completado`, 'success', 3000);
+                addToast(`${(query?.role || agentId).replace(/_/g, ' ')} ${t('analysis.completed')}`, 'success', 3000);
                 setCurrentStep(prev => prev + 1);
             } else {
                 const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
                 setFinalReport(res.data.analysis);
-                addToast('Síntesis ejecutiva completada', 'success');
+                addToast(t('analysis.synthesisCompleted'), 'success');
             }
         } catch (error) {
-            const agentName = isSynthesisMode ? 'síntesis' : (query?.role || workflow[currentStep]);
-            const msg = `Error ejecutando ${agentName}: ${error instanceof Error ? error.message : 'Error de servidor'}`;
+            const agentName = isSynthesisMode ? t('analysis.synthesis') : (query?.role || workflow[currentStep]);
+            const msg = `${t('analysis.errorRunning')} ${agentName}: ${error instanceof Error ? error.message : t('analysis.serverError')}`;
             setErrorMessage(msg);
             addToast(msg, 'error', 8000);
         } finally {
@@ -155,7 +157,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 }]);
                 setCurrentStep(i + 1);
             } catch (error) {
-                const msg = `Error en agente ${workflow[i].replace(/_/g, ' ')}. Pipeline detenido.`;
+                const msg = `${t('analysis.errorInAgent')} ${workflow[i].replace(/_/g, ' ')}. ${t('analysis.pipelineStopped')}`;
                 setErrorMessage(msg);
                 addToast(msg, 'error', 8000);
                 setIsProcessing(false);
@@ -170,9 +172,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
             setQuery(synthQuery.data);
             const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
             setFinalReport(res.data.analysis);
-            addToast('Pipeline completo — síntesis generada', 'success');
+            addToast(t('analysis.pipelineComplete'), 'success');
         } catch (error) {
-            const msg = 'Error generando síntesis final';
+            const msg = t('analysis.errorGeneratingSynthesis');
             setErrorMessage(msg);
             addToast(msg, 'error', 8000);
         } finally {
@@ -187,9 +189,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         try {
             const res = await axios.post(`${API_BASE_URL}/events/${eventId}/rca`);
             setRcaReport(res.data);
-            addToast('Reporte RCA generado exitosamente', 'success');
+            addToast(t('analysis.rcaGenerated'), 'success');
         } catch (error) {
-            addToast('Error generando reporte RCA', 'error');
+            addToast(t('analysis.errorGeneratingRCA'), 'error');
         } finally {
             setIsGeneratingRCA(false);
         }
@@ -247,7 +249,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             className="flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors group"
                         >
                             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                            Volver al Asistente de Evento
+                            {t('analysis.backToWizard')}
                         </button>
                     </div>
                 )}
@@ -256,7 +258,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 {completedAnalyses.length > 0 && (
                     <div className="glass-panel p-6">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-green-400 mb-4 flex items-center gap-2">
-                            <Check size={16} /> Especialistas Consultados ({completedAnalyses.length})
+                            <Check size={16} /> {t('analysis.specialistsConsulted')} ({completedAnalyses.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
                             {completedAnalyses.map((a, i) => (
@@ -285,8 +287,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             <ShieldCheck size={24} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold">Síntesis Ejecutiva Integrada</h2>
-                            <p className="text-white/40">Análisis multi-agente completado. Resultados sintetizados.</p>
+                            <h2 className="text-2xl font-bold">{t('analysis.executiveSynthesis')}</h2>
+                            <p className="text-white/40">{t('analysis.multiAgentCompleted')}</p>
                         </div>
                     </div>
 
@@ -297,7 +299,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                     <div className="mt-8 flex justify-end gap-4">
                         <button className="btn-secondary" onClick={handleSavePDF} disabled={isGeneratingPDF}>
                             <FileText size={18} />
-                            {isGeneratingPDF ? 'Generando...' : 'Guardar PDF'}
+                            {isGeneratingPDF ? t('analysis.generatingPDF') : t('analysis.savePDF')}
                         </button>
 
                         {eventId && !rcaReport && (
@@ -307,9 +309,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                 className="btn-primary bg-red-600 hover:bg-red-500 shadow-red-900/40"
                             >
                                 {isGeneratingRCA ? (
-                                    <><Loader2 size={18} className="animate-spin" /> Generando RCA...</>
+                                    <><Loader2 size={18} className="animate-spin" /> {t('analysis.generatingRCA')}</>
                                 ) : (
-                                    <><AlertTriangle size={18} /> Generar RCA (API RP 585)</>
+                                    <><AlertTriangle size={18} /> {t('analysis.generateRCA')}</>
                                 )}
                             </button>
                         )}
@@ -324,8 +326,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                 <AlertTriangle size={24} />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold">Hallazgos de Investigación</h2>
-                                <p className="text-white/40">RCA estructurado basado en evidencia física.</p>
+                                <h2 className="text-2xl font-bold">{t('analysis.investigationFindings')}</h2>
+                                <p className="text-white/40">{t('analysis.rcaStructured')}</p>
                             </div>
                         </div>
                         <RCAVisualizer report={rcaReport} />
@@ -346,7 +348,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                         className="flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors group"
                     >
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                        Volver al Asistente de Evento
+                        {t('analysis.backToWizard')}
                     </button>
                 </div>
             )}
@@ -356,13 +358,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                     <div className="glass-panel p-6">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-industrial-500 mb-4 flex items-center gap-2">
                             <BrainCircuit size={16} />
-                            Pipeline de Especialistas
+                            {t('analysis.specialistPipeline')}
                         </h3>
 
                         {/* Progress Bar */}
                         <div className="mb-4">
                             <div className="flex justify-between text-xs text-white/40 mb-1">
-                                <span>Progreso</span>
+                                <span>{t('analysis.progress')}</span>
                                 <span>{Math.min(currentStep, workflow.length)} / {workflow.length}</span>
                             </div>
                             <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -390,7 +392,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-bold uppercase truncate">{agent.replace(/_/g, ' ')}</p>
                                             {index === currentStep && !isSynthesisMode && (
-                                                <span className="text-[10px] text-industrial-400 animate-pulse">ANALIZANDO...</span>
+                                                <span className="text-[10px] text-industrial-400 animate-pulse">{t('analysis.analyzing')}</span>
                                             )}
                                         </div>
                                         {completed && (
@@ -412,7 +414,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                     <Terminal size={14} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase">Síntesis Final</p>
+                                    <p className="text-xs font-bold uppercase">{t('analysis.finalSynthesis')}</p>
                                 </div>
                             </div>
                         </div>
@@ -434,7 +436,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                 onClick={() => { setErrorMessage(null); handleAutoRun(); }}
                                 className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 shrink-0"
                             >
-                                <RotateCcw size={12} /> Reintentar
+                                <RotateCcw size={12} /> {t('common.retry')}
                             </button>
                         </motion.div>
                     )}
@@ -497,13 +499,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                     <div>
                                         <h3 className="text-xl font-bold mb-2">
                                             {isProcessing
-                                                ? `Agente analizando...`
-                                                : `Listo para consultar ${isSynthesisMode ? 'Síntesis' : query.role}`}
+                                                ? t('analysis.agentAnalyzing')
+                                                : `${t('analysis.readyToQuery')} ${isSynthesisMode ? t('analysis.synthesis') : query.role}`}
                                         </h3>
                                         <p className="text-sm text-white/40 max-w-md">
                                             {isProcessing
-                                                ? "El modelo de IA está procesando los datos operacionales y hallazgos previos. Esto puede tomar unos segundos."
-                                                : "Haz clic en el botón para ejecutar el análisis automatizado de este paso."}
+                                                ? t('analysis.processingDescription')
+                                                : t('analysis.clickToExecute')}
                                         </p>
                                     </div>
 
@@ -514,9 +516,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                             className="btn-primary h-12 px-8 text-base shadow-xl shadow-industrial-900/40 disabled:opacity-50"
                                         >
                                             {isProcessing ? (
-                                                <><Loader2 size={18} className="animate-spin" /> Procesando...</>
+                                                <><Loader2 size={18} className="animate-spin" /> {t('analysis.processing')}</>
                                             ) : (
-                                                <>{isSynthesisMode ? 'Ejecutar Síntesis' : 'Ejecutar Paso'} <Zap size={18} /></>
+                                                <>{isSynthesisMode ? t('analysis.runSynthesis') : t('analysis.runStep')} <Zap size={18} /></>
                                             )}
                                         </button>
 
@@ -527,9 +529,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                                 className="h-12 px-6 text-sm rounded-lg border border-industrial-500/30 text-industrial-400 hover:bg-industrial-500/10 transition-colors disabled:opacity-50 flex items-center gap-2"
                                             >
                                                 {isAutoRunAll ? (
-                                                    <><Loader2 size={16} className="animate-spin" /> Ejecutando todos...</>
+                                                    <><Loader2 size={16} className="animate-spin" /> {t('analysis.runningAll')}</>
                                                 ) : (
-                                                    <><ChevronRight size={16} /> Ejecutar Todos</>
+                                                    <><ChevronRight size={16} /> {t('analysis.runAll')}</>
                                                 )}
                                             </button>
                                         )}

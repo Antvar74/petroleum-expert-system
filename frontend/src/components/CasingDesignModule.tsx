@@ -11,6 +11,7 @@ import CasingProgramSchematic from './charts/csg/CasingProgramSchematic';
 import GradeSelectionTable from './charts/csg/GradeSelectionTable';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CasingDesignModuleProps {
@@ -37,6 +38,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -77,16 +79,16 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Shield className="text-indigo-400" size={28} />
-        <h2 className="text-2xl font-bold">Casing Design</h2>
-        <span className="text-sm text-gray-500">API 5C3 Burst/Collapse/Tension + VME</span>
+        <h2 className="text-2xl font-bold">{t('casingDesign.title')}</h2>
+        <span className="text-sm text-gray-500">{t('casingDesign.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -103,7 +105,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
           <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               <div>
-                <h3 className="text-lg font-bold mb-3">Casing</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.casing')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'casing_od_in', label: 'OD (in)', step: '0.125' },
@@ -126,7 +128,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Condiciones de Pozo</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.wellConditions')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'mud_weight_ppg', label: 'Peso Lodo (ppg)', step: '0.1' },
@@ -147,7 +149,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Factores de Seguridad Diseño</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.safetyFactors')}</h3>
                 <div className="grid grid-cols-3 gap-4">
                   {[
                     { key: 'sf_burst', label: 'SF Burst', step: '0.05' },
@@ -167,7 +169,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Calculando...' : 'Diseñar Casing'}
+                {loading ? t('common.calculating') : t('casingDesign.designCasing')}
               </button>
             </div>
           </motion.div>
@@ -189,7 +191,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   {result.summary?.overall_status}
                 </div>
                 <div className="text-sm text-gray-400">
-                  Grado Seleccionado: <span className="font-bold text-indigo-400">{result.summary?.selected_grade}</span>
+                  {t('casingDesign.selectedGrade')}: <span className="font-bold text-indigo-400">{result.summary?.selected_grade}</span>
                   {' | '}Triaxial VME: <span className={result.summary?.triaxial_status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{result.summary?.triaxial_status}</span>
                 </div>
               </div>
@@ -218,7 +220,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Load Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Cargas de Diseño</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.designLoads')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Max Burst:</span><span className="font-mono">{result.summary?.max_burst_load_psi} psi @ {result.burst_load?.max_burst_depth_ft} ft</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Max Collapse:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
@@ -227,7 +229,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Tensión - Componentes</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.tensionComponents')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Peso Aire:</span><span className="font-mono">{result.tension_load?.air_weight_lbs?.toLocaleString()} lbs</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">BF:</span><span className="font-mono">{result.tension_load?.buoyancy_factor}</span></div>
@@ -242,7 +244,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Biaxial & Triaxial */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Corrección Biaxial (API 5C3)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.biaxialCorrection')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Original:</span><span className="font-mono">{result.biaxial_correction?.original_collapse_psi} psi</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Corregido:</span><span className="font-mono text-yellow-400">{result.biaxial_correction?.corrected_collapse_psi} psi</span></div>
@@ -250,7 +252,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Triaxial VME</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.triaxialTitle')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">VME Stress:</span><span className="font-mono">{result.triaxial_vme?.vme_stress_psi} psi</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Admisible:</span><span className="font-mono">{result.triaxial_vme?.allowable_psi} psi</span></div>
@@ -263,7 +265,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Alerts */}
             {result.summary?.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-red-500/20">
-                <h3 className="text-lg font-bold text-red-400 mb-3">&#9888; Alertas de Diseño</h3>
+                <h3 className="text-lg font-bold text-red-400 mb-3">&#9888; {t('casingDesign.designAlerts')}</h3>
                 <ul className="space-y-2">
                   {result.summary.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-red-300 flex items-start gap-2">
@@ -307,7 +309,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Shield size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Parámetros" y ejecuta el diseño.</p>
+              <p>{t('casingDesign.noResults')}</p>
             </div>
           </motion.div>
         )}

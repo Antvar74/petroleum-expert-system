@@ -166,6 +166,7 @@ class ModuleAnalysisEngine:
             "vibrations": self.analyze_vibrations,
             "cementing": self.analyze_cementing,
             "casing_design": self.analyze_casing_design,
+            "daily_report": self.analyze_daily_report,
         }
         handler = method_map.get(module)
         if handler:
@@ -197,6 +198,13 @@ class ModuleAnalysisEngine:
         context = {"well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("optimization_engineer", problem, context, provider=provider)
         return self._package(analysis, "vibrations", result_data, well_name, language, provider)
+
+    async def analyze_daily_report(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Daily Drilling Report for operational efficiency, trends, and recommendations."""
+        problem = self._build_ddr_problem(result_data, well_name, params, language)
+        context = {"well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        return self._package(analysis, "daily_report", result_data, well_name, language, provider)
 
     # ================================================================
     # Language helpers
@@ -599,6 +607,51 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
 {self._get_instruction_block(language)}"""
 
+    def _build_ddr_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        from orchestrator.ddr_engine import DDREngine
+        summary = DDREngine.calculate_daily_summary(result_data) if result_data else {}
+        report_type = result_data.get("report_type", "drilling")
+        ops_log = result_data.get("operations_log") or []
+        npt_events = result_data.get("npt_events") or []
+        mud = result_data.get("mud_properties") or {}
+        gas = result_data.get("gas_monitoring") or {}
+        hsse = result_data.get("hsse_data") or {}
+        cost = result_data.get("cost_summary") or {}
+
+        ops_summary = ""
+        for op in ops_log[:10]:
+            ops_summary += f"  {op.get('from_time', '?')}-{op.get('to_time', '?')}h: [{op.get('iadc_code', 'OT')}] {op.get('description', '')[:80]}\n"
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Daily Operations Report — Well: {well_name}
+
+REPORT TYPE: {report_type.upper()}
+DATE: {result_data.get('report_date', 'N/A')}
+DEPTH: {result_data.get('depth_md_start', 'N/A')} → {result_data.get('depth_md_end', 'N/A')} ft MD | TVD: {result_data.get('depth_tvd', 'N/A')} ft
+
+DAILY KPIs:
+- Footage Drilled: {summary.get('footage_drilled', 0)} ft
+- Average ROP: {summary.get('avg_rop', 0)} ft/hr
+- Drilling Hours: {summary.get('drilling_hours', 0)} hrs
+- NPT Hours: {summary.get('npt_hours', 0)} hrs ({summary.get('npt_percentage', 0)}%)
+- Connection Time: {summary.get('connection_hours', 0)} hrs
+- Productive Hours: {summary.get('productive_hours', 0)} / 24 hrs
+
+OPERATIONS LOG ({len(ops_log)} entries):
+{ops_summary if ops_summary else 'No operations logged'}
+
+NPT EVENTS: {len(npt_events)} events, {summary.get('npt_hours', 0)} total hours
+{json.dumps(npt_events[:5], indent=2, ensure_ascii=False) if npt_events else 'None'}
+
+MUD PROPERTIES: Density={mud.get('density', 'N/A')} ppg, PV={mud.get('pv', 'N/A')} cP, YP={mud.get('yp', 'N/A')} lb/100ft2
+
+GAS MONITORING: Background={gas.get('background_gas', 'N/A')}%, H2S={gas.get('h2s', 'N/A')} ppm
+
+HSSE: Incidents={hsse.get('incidents', 0)}, LTI Hours={hsse.get('lti_hours', 'N/A')}
+
+COST: Day=${cost.get('total_day', 0):,.0f}, Cumulative=${cost.get('total_cumulative', 0):,.0f}
+
+{self._get_instruction_block(language)}"""
+
     def _build_generic_problem(self, module: str, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
         summary = result_data.get("summary", {})
         alerts = summary.get("alerts", [])
@@ -736,5 +789,9 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
                 {"label": self._ml("Triaxial Status", language), "value": summary.get("triaxial_status", "N/A"), "unit": ""},
                 {"label": self._ml("Overall Status", language), "value": summary.get("overall_status", "N/A"), "unit": ""},
             ]
+
+        elif module == "daily_report":
+            from orchestrator.ddr_engine import DDREngine
+            return DDREngine.generate_daily_kpis(result_data)
 
         return []

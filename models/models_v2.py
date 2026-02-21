@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -498,3 +498,77 @@ class CasingDesignResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     well = relationship("Well")
+
+
+# ============================================================
+# MODULE 14: DDR / Operations Reports Models
+# ============================================================
+
+class DailyReport(Base):
+    """A daily operations report (DDR, Completion, or Termination)."""
+    __tablename__ = "daily_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    well_id = Column(Integer, ForeignKey("wells.id"))
+
+    # Classification
+    report_type = Column(String, nullable=False)    # "drilling", "completion", "termination"
+    report_date = Column(Date, nullable=False)       # Date of the 24-hour period
+    report_number = Column(Integer, nullable=True)   # Sequential report number
+
+    # Header — key depth fields (rest goes in header_data JSON)
+    depth_md_start = Column(Float, nullable=True)    # ft — depth at start of day
+    depth_md_end = Column(Float, nullable=True)      # ft — depth at end of day
+    depth_tvd = Column(Float, nullable=True)         # ft — TVD at end of day
+
+    # Data sections (JSON — flexible structure for 200+ fields)
+    header_data = Column(JSON, nullable=True)        # {operator, contractor, rig, field, API, AFE, costs_planned...}
+    operations_log = Column(JSON, nullable=True)     # [{from_time, to_time, hours, iadc_code, category, description}]
+    drilling_params = Column(JSON, nullable=True)    # {wob, rpm, spm, flow_rate, spp, torque, rop, ecd, hook_load...}
+    mud_properties = Column(JSON, nullable=True)     # {density, pv, yp, gels_10s, gels_10m, filtrate, ph, chlorides...}
+    mud_inventory = Column(JSON, nullable=True)      # {active_volume, reserve_volume, hole_volume, chemicals...}
+    bha_data = Column(JSON, nullable=True)           # [{component_type, od, length, weight, serial_number}]
+    gas_monitoring = Column(JSON, nullable=True)     # {background_gas, connection_gas, trip_gas, c1, c2, c3, h2s...}
+    npt_events = Column(JSON, nullable=True)         # [{npt_code, category, hours, description, cost_impact}]
+    hsse_data = Column(JSON, nullable=True)          # {incidents, inspections, permits, lti_hours, observations...}
+    cost_summary = Column(JSON, nullable=True)       # {rig_cost, services, consumables, total_day, total_cumulative...}
+
+    # Completion-specific (null for drilling DDRs)
+    completion_data = Column(JSON, nullable=True)    # {frac_params, acid_params, dst_data, well_test...}
+
+    # Termination-specific (null for non-termination)
+    termination_data = Column(JSON, nullable=True)   # {wellhead, xmas_tree, pa_barriers, well_summary...}
+
+    # AI Analysis
+    ai_summary = Column(JSON, nullable=True)         # {analysis, confidence, key_metrics, recommendations}
+
+    # Metadata / Workflow
+    status = Column(String, default="draft")         # draft, submitted, approved
+    created_by = Column(String, nullable=True)
+    approved_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    well = relationship("Well")
+    operations = relationship("ReportOperation", back_populates="report", cascade="all, delete-orphan")
+
+
+class ReportOperation(Base):
+    """Individual operation entry within a daily report (normalized for NPT/timeline queries)."""
+    __tablename__ = "report_operations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("daily_reports.id"))
+
+    from_time = Column(Float)                        # Start hour (0.0-24.0)
+    to_time = Column(Float)                          # End hour (0.0-24.0)
+    hours = Column(Float)                            # Duration
+    iadc_code = Column(String, nullable=True)        # "DR", "DV", "TT", "TO", "WC", "CS", "CM"...
+    category = Column(String, nullable=True)         # "Drilling", "Tripping", "Connection", "NPT"...
+    description = Column(Text, nullable=True)
+    depth_start = Column(Float, nullable=True)       # ft
+    depth_end = Column(Float, nullable=True)         # ft
+    is_npt = Column(Boolean, default=False)
+    npt_code = Column(String, nullable=True)         # "NPT-ST", "NPT-KO", "NPT-LO"...
+
+    report = relationship("DailyReport", back_populates="operations")

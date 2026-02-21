@@ -10,6 +10,7 @@ import FluidColumnDiagram from './charts/cem/FluidColumnDiagram';
 import FreeFallIndicator from './charts/cem/FreeFallIndicator';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CementingModuleProps {
@@ -38,6 +39,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -78,8 +80,8 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   const statusColor = (status: string) => {
@@ -92,8 +94,8 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Cylinder className="text-teal-400" size={28} />
-        <h2 className="text-2xl font-bold">Cementing Simulation</h2>
-        <span className="text-sm text-gray-500">Displacement, ECD, Free-Fall & U-Tube</span>
+        <h2 className="text-2xl font-bold">{t('cementing.title')}</h2>
+        <span className="text-sm text-gray-500">{t('cementing.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -110,7 +112,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
           <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               <div>
-                <h3 className="text-lg font-bold mb-3">Geometría Casing / Hoyo</h3>
+                <h3 className="text-lg font-bold mb-3">{t('cementing.sections.geometry')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'casing_od_in', label: 'OD Casing (in)', step: '0.125' },
@@ -133,7 +135,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Fluidos</h3>
+                <h3 className="text-lg font-bold mb-3">{t('cementing.sections.fluids')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'mud_weight_ppg', label: 'Peso Lodo (ppg)', step: '0.1' },
@@ -156,7 +158,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Operación y Límites</h3>
+                <h3 className="text-lg font-bold mb-3">{t('cementing.sections.operations')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'pump_rate_bbl_min', label: 'Pump Rate (bbl/min)', step: '0.5' },
@@ -178,7 +180,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Simulando...' : 'Simular Cementación'}
+                {loading ? t('cementing.simulating') : t('cementing.simulate')}
               </button>
             </div>
           </motion.div>
@@ -189,10 +191,10 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Cemento Total', value: `${result.summary?.total_cement_bbl} bbl`, sub: `${result.summary?.total_cement_sacks} sacos`, color: 'text-teal-400' },
-                { label: 'Tiempo Trabajo', value: `${result.summary?.job_time_hrs} hrs`, color: 'text-blue-400' },
-                { label: 'ECD Máximo', value: `${result.summary?.max_ecd_ppg} ppg`, sub: `Margen: ${result.summary?.fracture_margin_ppg} ppg`, color: result.summary?.fracture_margin_ppg < 0 ? 'text-red-400' : 'text-green-400' },
-                { label: 'BHP Máximo', value: `${result.summary?.max_bhp_psi} psi`, color: 'text-orange-400' },
+                { label: t('cementing.totalCement'), value: `${result.summary?.total_cement_bbl} bbl`, sub: `${result.summary?.total_cement_sacks} ${t('cementing.sacks')}`, color: 'text-teal-400' },
+                { label: t('cementing.jobTime'), value: `${result.summary?.job_time_hrs} hrs`, color: 'text-blue-400' },
+                { label: t('cementing.maxECD'), value: `${result.summary?.max_ecd_ppg} ppg`, sub: `${t('cementing.margin')}: ${result.summary?.fracture_margin_ppg} ppg`, color: result.summary?.fracture_margin_ppg < 0 ? 'text-red-400' : 'text-green-400' },
+                { label: t('cementing.maxBHP'), value: `${result.summary?.max_bhp_psi} psi`, color: 'text-orange-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -212,7 +214,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
             {/* Volumes Detail */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Volúmenes</h3>
+                <h3 className="text-lg font-bold mb-3">{t('cementing.volumes')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Lead Cement:</span><span className="font-mono">{result.volumes?.lead_cement_bbl} bbl ({result.volumes?.lead_cement_sacks} sacos)</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Tail Cement:</span><span className="font-mono">{result.volumes?.tail_cement_bbl} bbl ({result.volumes?.tail_cement_sacks} sacos)</span></div>
@@ -222,7 +224,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Free-Fall & U-Tube</h3>
+                <h3 className="text-lg font-bold mb-3">{t('cementing.freeFallUtube')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Free-Fall:</span><span className={`font-mono ${result.free_fall?.free_fall_occurs ? 'text-yellow-400' : 'text-green-400'}`}>{result.free_fall?.free_fall_height_ft} ft</span></div>
                   <div><span className="text-gray-500 text-xs">{result.free_fall?.explanation}</span></div>
@@ -237,7 +239,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
             {/* Alerts */}
             {result.summary?.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.summary.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -279,7 +281,7 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Cylinder size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Parámetros" y ejecuta la simulación.</p>
+              <p>{t('cementing.noResults')}</p>
             </div>
           </motion.div>
         )}

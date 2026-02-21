@@ -10,6 +10,7 @@ import IntervalRankingChart from './charts/se/IntervalRankingChart';
 import CutoffSensitivityChart from './charts/se/CutoffSensitivityChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface ShotEfficiencyModuleProps {
@@ -58,6 +59,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -132,16 +134,16 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
   };
 
   const tabs = [
-    { id: 'input', label: 'Datos & Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('shotEfficiency.sections.logs') + ' & ' + t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Target className="text-emerald-400" size={28} />
-        <h2 className="text-2xl font-bold">Shot Efficiency</h2>
-        <span className="text-sm text-gray-500">Petrophysics & Interval Optimization</span>
+        <h2 className="text-2xl font-bold">{t('shotEfficiency.title')}</h2>
+        <span className="text-sm text-gray-500">{t('shotEfficiency.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -160,7 +162,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
               {/* Log Data Input */}
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-bold">Datos de Registros (GR, RHOB, NPHI, Rt)</h3>
+                  <h3 className="text-lg font-bold">{t('shotEfficiency.sections.logs')} (GR, RHOB, NPHI, Rt)</h3>
                   <label className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-lg cursor-pointer text-sm text-emerald-400 transition-colors">
                     <Upload size={14} /> Cargar CSV
                     <input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
@@ -178,7 +180,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
 
               {/* Archie & Matrix */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Parámetros Petrofísicos</h3>
+                <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.sections.petro')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'a', label: 'a (Tortuosidad)', step: '0.1' },
@@ -204,7 +206,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
 
               {/* Cutoffs & Perforation */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Cutoffs & Perforación</h3>
+                <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.sections.cutoffs')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'phi_min', label: 'φ Mínimo (v/v)', step: '0.01' },
@@ -233,7 +235,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Analizando...' : 'Analizar Eficiencia'}
+                {loading ? t('shotEfficiency.analyzing') : t('shotEfficiency.analyzeEfficiency')}
               </button>
             </div>
           </motion.div>
@@ -259,7 +261,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
             {/* Best Interval Detail */}
             {result.summary?.best_interval && (
               <div className="glass-panel p-6 rounded-2xl border border-emerald-500/20">
-                <h3 className="text-lg font-bold text-emerald-400 mb-3">&#127942; Mejor Intervalo</h3>
+                <h3 className="text-lg font-bold text-emerald-400 mb-3">&#127942; {t('shotEfficiency.bestInterval')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div><span className="text-gray-400">Tope:</span> <span className="font-mono">{result.summary.best_interval.top_md} ft</span></div>
                   <div><span className="text-gray-400">Base:</span> <span className="font-mono">{result.summary.best_interval.base_md} ft</span></div>
@@ -274,7 +276,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
 
             {/* Average Petrophysics */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-3">Promedios Petrofísicos</h3>
+              <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.petroAverages')}</h3>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div><span className="text-gray-400">φ Promedio:</span> <span className="font-mono">{((result.summary?.avg_porosity || 0) * 100).toFixed(1)}%</span></div>
                 <div><span className="text-gray-400">Sw Promedio:</span> <span className="font-mono">{((result.summary?.avg_sw || 0) * 100).toFixed(1)}%</span></div>
@@ -285,7 +287,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
             {/* Intervals Table */}
             {result.rankings?.ranked?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-4">Ranking de Intervalos</h3>
+                <h3 className="text-lg font-bold mb-4">{t('shotEfficiency.intervalRanking')}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -324,7 +326,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -366,7 +368,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Target size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Datos & Parámetros" y ejecuta el análisis.</p>
+              <p>{t('shotEfficiency.noResults')}</p>
             </div>
           </motion.div>
         )}

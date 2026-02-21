@@ -10,6 +10,7 @@ import MSEBreakdownChart from './charts/vb/MSEBreakdownChart';
 import StickSlipIndicator from './charts/vb/StickSlipIndicator';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface VibrationsModuleProps {
@@ -44,6 +45,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -84,8 +86,8 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   const statusColor = (s: string) => {
@@ -99,8 +101,8 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Vibrate className="text-rose-400" size={28} />
-        <h2 className="text-2xl font-bold">Vibrations & Stability</h2>
-        <span className="text-sm text-gray-500">Drillstring Dynamics & MSE</span>
+        <h2 className="text-2xl font-bold">{t('vibrations.title')}</h2>
+        <span className="text-sm text-gray-500">{t('vibrations.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -118,18 +120,18 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               {/* Operating Parameters */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Parámetros Operativos</h3>
+                <h3 className="text-lg font-bold mb-3">{t('vibrations.sections.operating')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'wob_klb', label: 'WOB (klb)', step: '1' },
-                    { key: 'rpm', label: 'RPM', step: '5' },
-                    { key: 'rop_fph', label: 'ROP (ft/hr)', step: '5' },
-                    { key: 'torque_ftlb', label: 'Torque (ft-lb)', step: '500' },
-                    { key: 'bit_diameter_in', label: 'Diámetro Broca (in)', step: '0.125' },
-                    { key: 'mud_weight_ppg', label: 'Peso Lodo (ppg)', step: '0.5' },
-                    { key: 'hole_diameter_in', label: 'Diámetro Hoyo (in)', step: '0.125' },
-                    { key: 'inclination_deg', label: 'Inclinación (°)', step: '5' },
-                    { key: 'friction_factor', label: 'Coef. Fricción', step: '0.05' },
+                    { key: 'wob_klb', label: t('vibrations.wob'), step: '1' },
+                    { key: 'rpm', label: t('vibrations.rpm'), step: '5' },
+                    { key: 'rop_fph', label: t('vibrations.rop'), step: '5' },
+                    { key: 'torque_ftlb', label: t('vibrations.torque'), step: '500' },
+                    { key: 'bit_diameter_in', label: t('vibrations.bitDiameter'), step: '0.125' },
+                    { key: 'mud_weight_ppg', label: t('vibrations.mudWeight'), step: '0.5' },
+                    { key: 'hole_diameter_in', label: t('vibrations.holeDiameter'), step: '0.125' },
+                    { key: 'inclination_deg', label: t('vibrations.inclination'), step: '5' },
+                    { key: 'friction_factor', label: t('vibrations.frictionCoeff'), step: '0.05' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -145,16 +147,16 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
 
               {/* BHA Configuration */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Configuración BHA</h3>
+                <h3 className="text-lg font-bold mb-3">{t('vibrations.sections.bha')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'bha_length_ft', label: 'Longitud BHA (ft)', step: '50' },
-                    { key: 'bha_od_in', label: 'OD BHA (in)', step: '0.25' },
-                    { key: 'bha_id_in', label: 'ID BHA (in)', step: '0.125' },
-                    { key: 'bha_weight_lbft', label: 'Peso BHA (lb/ft)', step: '5' },
-                    { key: 'dp_od_in', label: 'OD DP (in)', step: '0.125' },
-                    { key: 'dp_id_in', label: 'ID DP (in)', step: '0.125' },
-                    { key: 'dp_weight_lbft', label: 'Peso DP (lb/ft)', step: '1' },
+                    { key: 'bha_length_ft', label: t('vibrations.bhaLength'), step: '50' },
+                    { key: 'bha_od_in', label: t('vibrations.bhaOD'), step: '0.25' },
+                    { key: 'bha_id_in', label: t('vibrations.bhaID'), step: '0.125' },
+                    { key: 'bha_weight_lbft', label: t('vibrations.bhaWeight'), step: '5' },
+                    { key: 'dp_od_in', label: t('vibrations.dpOD'), step: '0.125' },
+                    { key: 'dp_id_in', label: t('vibrations.dpID'), step: '0.125' },
+                    { key: 'dp_weight_lbft', label: t('vibrations.dpWeight'), step: '1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -171,7 +173,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Analizando...' : 'Analizar Vibraciones'}
+                {loading ? t('shotEfficiency.analyzing') : t('vibrations.analyzeVibrations')}
               </button>
             </div>
           </motion.div>
@@ -182,9 +184,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Estabilidad', value: `${result.summary?.stability_index?.toFixed(0)}/100`, color: statusColor(result.summary?.stability_status || '') },
-                { label: 'RPM Crit. Axial', value: `${result.summary?.critical_rpm_axial?.toFixed(0)}`, color: 'text-blue-400' },
-                { label: 'RPM Crit. Lateral', value: `${result.summary?.critical_rpm_lateral?.toFixed(0)}`, color: 'text-cyan-400' },
+                { label: t('vibrations.stability'), value: `${result.summary?.stability_index?.toFixed(0)}/100`, color: statusColor(result.summary?.stability_status || '') },
+                { label: t('vibrations.criticalRpmAxial'), value: `${result.summary?.critical_rpm_axial?.toFixed(0)}`, color: 'text-blue-400' },
+                { label: t('vibrations.criticalRpmLateral'), value: `${result.summary?.critical_rpm_lateral?.toFixed(0)}`, color: 'text-cyan-400' },
                 { label: 'Stick-Slip', value: `${result.summary?.stick_slip_severity?.toFixed(2)} (${result.summary?.stick_slip_class})`, color: statusColor(result.summary?.stick_slip_class === 'Mild' ? 'Stable' : result.summary?.stick_slip_class === 'Moderate' ? 'Marginal' : 'Critical') },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
@@ -197,7 +199,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             {/* MSE & Optimal Point */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">MSE (Teale, 1965)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('vibrations.mseTitle')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">MSE Total:</span> <span className="font-bold text-lg">{result.mse?.mse_total_psi?.toLocaleString()} psi</span></div>
                   <div><span className="text-gray-400">Rotario:</span> <span className="font-mono">{result.mse?.mse_rotary_psi?.toLocaleString()} psi ({result.mse?.rotary_pct}%)</span></div>
@@ -215,7 +217,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Punto Óptimo</h3>
+                <h3 className="text-lg font-bold mb-3">{t('vibrations.optimalPoint')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">WOB Óptimo:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_wob} klb</span></div>
                   <div><span className="text-gray-400">RPM Óptimo:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_rpm} RPM</span></div>
@@ -237,12 +239,12 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
 
             {/* Stick-Slip Detail */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-3">Análisis Stick-Slip</h3>
+              <h3 className="text-lg font-bold mb-3">{t('vibrations.stickSlipAnalysis')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><span className="text-gray-400">Severidad:</span> <span className="font-mono">{result.stick_slip?.severity_index}</span></div>
-                <div><span className="text-gray-400">RPM Mín. Broca:</span> <span className="font-mono">{result.stick_slip?.rpm_min_at_bit}</span></div>
-                <div><span className="text-gray-400">RPM Máx. Broca:</span> <span className="font-mono">{result.stick_slip?.rpm_max_at_bit}</span></div>
-                <div><span className="text-gray-400">T. Fricción:</span> <span className="font-mono">{result.stick_slip?.friction_torque_ftlb?.toLocaleString()} ft-lb</span></div>
+                <div><span className="text-gray-400">{t('vibrations.severity')}:</span> <span className="font-mono">{result.stick_slip?.severity_index}</span></div>
+                <div><span className="text-gray-400">{t('vibrations.rpmMinBit')}:</span> <span className="font-mono">{result.stick_slip?.rpm_min_at_bit}</span></div>
+                <div><span className="text-gray-400">{t('vibrations.rpmMaxBit')}:</span> <span className="font-mono">{result.stick_slip?.rpm_max_at_bit}</span></div>
+                <div><span className="text-gray-400">{t('vibrations.frictionTorque')}:</span> <span className="font-mono">{result.stick_slip?.friction_torque_ftlb?.toLocaleString()} ft-lb</span></div>
               </div>
               {result.stick_slip?.recommendation && (
                 <p className="text-xs text-gray-400 mt-3 italic">{result.stick_slip.recommendation}</p>
@@ -252,7 +254,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -294,7 +296,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Vibrate size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Parámetros" y ejecuta el análisis.</p>
+              <p>{t('vibrations.noResults')}</p>
             </div>
           </motion.div>
         )}

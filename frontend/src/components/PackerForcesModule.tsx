@@ -9,6 +9,7 @@ import PackerForceGaugeComponent from './charts/pf/PackerForceGauge';
 import SensitivityHeatmap from './charts/pf/SensitivityHeatmap';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface PackerForcesModuleProps {
@@ -43,6 +44,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -83,8 +85,8 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   // Generate sensitivity data for heatmap
@@ -112,8 +114,8 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
       {/* Header */}
       <div className="flex items-center gap-3">
         <Anchor className="text-purple-400" size={28} />
-        <h2 className="text-2xl font-bold">Packer Forces</h2>
-        <span className="text-sm text-gray-500">Tubing-Packer Force Analysis</span>
+        <h2 className="text-2xl font-bold">{t('packerForces.title')}</h2>
+        <span className="text-sm text-gray-500">{t('packerForces.subtitle')}</span>
       </div>
 
       {/* Tabs */}
@@ -133,17 +135,17 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               {/* Tubing Properties */}
               <div>
-                <h3 className="text-md font-bold mb-3 text-purple-400">Propiedades de Tubería</h3>
+                <h3 className="text-md font-bold mb-3 text-purple-400">{t('packerForces.sections.tubing')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'tubing_od', label: 'OD Tubería (in)', step: '0.125' },
-                    { key: 'tubing_id', label: 'ID Tubería (in)', step: '0.125' },
-                    { key: 'tubing_weight', label: 'Peso (lb/ft)', step: '0.1' },
-                    { key: 'tubing_length', label: 'Longitud (ft)', step: '100' },
-                    { key: 'seal_bore_id', label: 'ID Bore Sello (in)', step: '0.125' },
-                    { key: 'packer_depth_tvd', label: 'Prof. Packer TVD (ft)', step: '100' },
-                    { key: 'mud_weight_tubing', label: 'MW Tubería (ppg)', step: '0.1' },
-                    { key: 'mud_weight_annulus', label: 'MW Anular (ppg)', step: '0.1' },
+                    { key: 'tubing_od', label: t('packerForces.tubingOD'), step: '0.125' },
+                    { key: 'tubing_id', label: t('packerForces.tubingID'), step: '0.125' },
+                    { key: 'tubing_weight', label: t('packerForces.tubingWeight'), step: '0.1' },
+                    { key: 'tubing_length', label: t('packerForces.tubingLength'), step: '100' },
+                    { key: 'seal_bore_id', label: 'ID Bore Seal (in)', step: '0.125' },
+                    { key: 'packer_depth_tvd', label: t('packerForces.packerDepth'), step: '100' },
+                    { key: 'mud_weight_tubing', label: 'MW Tubing (ppg)', step: '0.1' },
+                    { key: 'mud_weight_annulus', label: 'MW Annulus (ppg)', step: '0.1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -159,13 +161,13 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
 
               {/* Pressure Conditions */}
               <div>
-                <h3 className="text-md font-bold mb-3 text-blue-400">Condiciones de Presión (psi)</h3>
+                <h3 className="text-md font-bold mb-3 text-blue-400">{t('packerForces.sections.pressure')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'initial_tubing_pressure', label: 'P Tubería Inicial' },
-                    { key: 'final_tubing_pressure', label: 'P Tubería Final' },
-                    { key: 'initial_annulus_pressure', label: 'P Anular Inicial' },
-                    { key: 'final_annulus_pressure', label: 'P Anular Final' },
+                    { key: 'initial_tubing_pressure', label: t('packerForces.tubingPressInit') },
+                    { key: 'final_tubing_pressure', label: t('packerForces.tubingPressFinal') },
+                    { key: 'initial_annulus_pressure', label: t('packerForces.annPressInit') },
+                    { key: 'final_annulus_pressure', label: t('packerForces.annPressFinal') },
                   ].map(({ key, label }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -181,13 +183,13 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
 
               {/* Temperature */}
               <div>
-                <h3 className="text-md font-bold mb-3 text-amber-400">Temperatura (°F)</h3>
+                <h3 className="text-md font-bold mb-3 text-amber-400">{t('packerForces.sections.temperature')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'initial_temperature', label: 'Temp. Inicial' },
-                    { key: 'final_temperature', label: 'Temp. Final' },
-                    { key: 'poisson_ratio', label: 'Ratio de Poisson', step: '0.01' },
-                    { key: 'thermal_expansion', label: 'Coef. Térmico (1/°F)', step: '0.0000001' },
+                    { key: 'initial_temperature', label: t('packerForces.tempSurfInit') },
+                    { key: 'final_temperature', label: t('packerForces.tempBotFinal') },
+                    { key: 'poisson_ratio', label: 'Poisson Ratio', step: '0.01' },
+                    { key: 'thermal_expansion', label: 'Thermal Coeff. (1/°F)', step: '0.0000001' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -204,7 +206,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
               <button onClick={calculate} disabled={loading}
                 className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Calculando...' : 'Calcular'}
+                {loading ? t('common.calculating') : t('common.calculate')}
               </button>
             </div>
           </motion.div>
@@ -216,24 +218,24 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                <div className="text-xs text-gray-500 mb-1">Fuerza Total</div>
+                <div className="text-xs text-gray-500 mb-1">{t('packerForces.totalForce')}</div>
                 <div className={`text-xl font-bold ${result.summary?.force_direction === 'Tension' ? 'text-green-400' : 'text-red-400'}`}>
                   {Math.abs(result.summary?.total_force_lbs || 0).toLocaleString()} lbs
                 </div>
                 <div className="text-xs text-gray-500">{result.summary?.force_direction}</div>
               </div>
               <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                <div className="text-xs text-gray-500 mb-1">Movimiento Total</div>
+                <div className="text-xs text-gray-500 mb-1">{t('packerForces.totalMovement')}</div>
                 <div className="text-xl font-bold text-blue-400">{result.summary?.total_movement_inches} in</div>
               </div>
               <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                <div className="text-xs text-gray-500 mb-1">Estado Pandeo</div>
+                <div className="text-xs text-gray-500 mb-1">{t('packerForces.bucklingStatus')}</div>
                 <div className={`text-xl font-bold ${result.summary?.buckling_status === 'OK' ? 'text-green-400' : 'text-red-400'}`}>
                   {result.summary?.buckling_status}
                 </div>
               </div>
               <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                <div className="text-xs text-gray-500 mb-1">Carga Crítica Pandeo</div>
+                <div className="text-xs text-gray-500 mb-1">{t('packerForces.forceBreakdown')}</div>
                 <div className="text-xl font-bold text-amber-400">{(result.summary?.buckling_critical_load_lbs || 0).toLocaleString()} lbs</div>
               </div>
             </div>
@@ -262,7 +264,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">⚠ Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">⚠ {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -295,7 +297,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Anchor size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a la pestaña "Parámetros" y ejecuta el cálculo.</p>
+              <p>{t('packerForces.noResults')}</p>
             </div>
           </motion.div>
         )}

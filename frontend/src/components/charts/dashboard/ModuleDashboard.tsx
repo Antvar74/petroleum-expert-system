@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
-  Waves, Anchor, Wrench, Filter,
+  Waves, Anchor, Wrench, Filter, ClipboardList,
 } from 'lucide-react';
 import SparklineChart from './SparklineChart';
 
@@ -107,6 +107,16 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-amber-500/10 border-amber-500/20',
     sparkColor: '#f59e0b',
   },
+  {
+    id: 'ddr',
+    view: 'daily-reports',
+    nameKey: 'modules.dailyReports',
+    descKey: 'dashboard.moduleDescDDR',
+    icon: ClipboardList,
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10 border-blue-500/20',
+    sparkColor: '#3b82f6',
+  },
 ];
 
 const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId }) => {
@@ -179,9 +189,9 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
         <h3 className="font-bold text-sm mb-4">{t('dashboard.systemCapabilities')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: t('dashboard.engineeringModules'), value: '8', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC' },
-            { label: t('dashboard.chartTypes'), value: '36+', detail: t('dashboard.rechartsCustomSVG') },
-            { label: t('dashboard.calculationEngines'), value: '8', detail: t('dashboard.purePython') },
+            { label: t('dashboard.engineeringModules'), value: '9', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC, DDR' },
+            { label: t('dashboard.chartTypes'), value: '41+', detail: t('dashboard.rechartsCustomSVG') },
+            { label: t('dashboard.calculationEngines'), value: '9', detail: t('dashboard.purePython') },
             { label: t('dashboard.pdfExport'), value: t('dashboard.yes'), detail: t('dashboard.professionalReports') },
           ].map((stat, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-4 text-center">

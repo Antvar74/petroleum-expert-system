@@ -18,6 +18,7 @@ import {
     Vibrate,
     Cylinder,
     ShieldCheck,
+    ClipboardList,
     Wifi,
     WifiOff
 } from 'lucide-react';
@@ -94,6 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'vibrations', label: t('sidebar.vibrations'), icon: Vibrate },
         { id: 'cementing', label: t('sidebar.cementing'), icon: Cylinder },
         { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
+        { id: 'daily-reports', label: t('sidebar.dailyReports'), icon: ClipboardList },
         { id: 'settings', label: t('sidebar.settings'), icon: Settings },
     ];
 

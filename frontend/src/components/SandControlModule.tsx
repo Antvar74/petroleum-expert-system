@@ -9,6 +9,7 @@ import DrawdownLimitGauge from './charts/sc/DrawdownLimitGauge';
 import GravelPackSchematic from './charts/sc/GravelPackSchematic';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface SandControlModuleProps {
@@ -42,6 +43,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -87,8 +89,8 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   const riskColor = (risk: string) => {
@@ -101,8 +103,8 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Filter className="text-amber-400" size={28} />
-        <h2 className="text-2xl font-bold">Sand Control</h2>
-        <span className="text-sm text-gray-500">Gravel Pack & Screen Design</span>
+        <h2 className="text-2xl font-bold">{t('sandControl.title')}</h2>
+        <span className="text-sm text-gray-500">{t('sandControl.subtitle')}</span>
       </div>
 
       <div className="flex gap-2 border-b border-white/10 pb-2">
@@ -120,7 +122,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
               {/* Sieve Data */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Datos Granulométricos (PSD)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.sections.psd')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs text-gray-400">Tamaños Tamiz (mm, separados por coma)</label>
@@ -141,7 +143,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
 
               {/* Completion & Formation */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Formación y Completación</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.sections.formation')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
                     { key: 'hole_id', label: 'Diámetro Hoyo (in)', step: '0.125' },
@@ -181,7 +183,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
               <button onClick={calculate} disabled={loading}
                 className="mt-4 flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Calculando...' : 'Calcular'}
+                {loading ? t('common.calculating') : t('common.calculate')}
               </button>
             </div>
           </motion.div>
@@ -206,7 +208,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
 
             {/* PSD Details */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-4">Distribución Granulométrica</h3>
+              <h3 className="text-lg font-bold mb-4">{t('sandControl.grainSize')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div><span className="text-gray-400">D10:</span> <span className="font-mono">{result.psd?.d10_mm} mm</span></div>
                 <div><span className="text-gray-400">D50:</span> <span className="font-mono">{result.psd?.d50_mm} mm</span></div>
@@ -219,7 +221,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             {/* Gravel & Screen */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Selección de Grava (Saucier)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.gravelSelection')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">Pack Recomendado:</span> <span className="font-bold text-cyan-400">{result.gravel?.recommended_pack}</span></div>
                   <div><span className="text-gray-400">Rango:</span> <span className="font-mono">{result.gravel?.gravel_min_mm}-{result.gravel?.gravel_max_mm} mm</span></div>
@@ -228,7 +230,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Selección de Screen</h3>
+                <h3 className="text-lg font-bold mb-3">Screen Selection</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">Tipo:</span> <span className="font-mono">{result.screen?.screen_type}</span></div>
                   <div><span className="text-gray-400">Slot Recomendado:</span> <span className="font-bold text-cyan-400">{result.screen?.recommended_standard_slot_in}"</span></div>
@@ -240,7 +242,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             {/* Drawdown & Completion */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Análisis de Arenamiento</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.sandingAnalysis')}</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">Drawdown Crítico:</span> <span className="font-mono">{result.drawdown?.critical_drawdown_psi} psi</span></div>
                   <div><span className="text-gray-400">Riesgo:</span> <span className={`font-bold ${riskColor(result.drawdown?.sanding_risk)}`}>{result.drawdown?.sanding_risk}</span></div>
@@ -248,7 +250,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Tipo de Completación</h3>
+                <h3 className="text-lg font-bold mb-3">Completion Type</h3>
                 <div className="space-y-2 text-sm">
                   <div><span className="text-gray-400">Recomendado:</span> <span className="font-bold text-green-400">{result.completion?.recommended}</span></div>
                   {result.completion?.methods?.slice(0, 3).map((m: any, i: number) => (
@@ -264,7 +266,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -305,7 +307,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Filter size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a "Parámetros" y ejecuta el cálculo.</p>
+              <p>{t('sandControl.noResults')}</p>
             </div>
           </motion.div>
         )}

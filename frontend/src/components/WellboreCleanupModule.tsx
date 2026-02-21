@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplets, Play, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '../config';
 import FlowRateSensitivity from './charts/cu/FlowRateSensitivity';
 import AnnularVelocityChart from './charts/cu/AnnularVelocityChart';
@@ -43,6 +44,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -83,8 +85,8 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
   };
 
   const tabs = [
-    { id: 'input', label: 'Parámetros' },
-    { id: 'results', label: 'Resultados' },
+    { id: 'input', label: t('common.parameters') },
+    { id: 'results', label: t('common.results') },
   ];
 
   const qualityColor = (q: string) => {
@@ -109,8 +111,8 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
       {/* Header */}
       <div className="flex items-center gap-3">
         <Droplets className="text-blue-400" size={28} />
-        <h2 className="text-2xl font-bold">Wellbore Cleanup</h2>
-        <span className="text-sm text-gray-500">Hole Cleaning Analysis</span>
+        <h2 className="text-2xl font-bold">{t('wellboreCleanup.title')}</h2>
+        <span className="text-sm text-gray-500">{t('wellboreCleanup.subtitle')}</span>
       </div>
 
       {/* Tabs */}
@@ -128,21 +130,21 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
         {activeTab === 'input' && (
           <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-4">Parámetros de Entrada</h3>
+              <h3 className="text-lg font-bold mb-4">{t('wellboreCleanup.sections.operating')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {[
-                  { key: 'flow_rate', label: 'Caudal (gpm)', step: '10' },
-                  { key: 'mud_weight', label: 'Peso Lodo (ppg)', step: '0.1' },
-                  { key: 'pv', label: 'VP (cP)', step: '1' },
-                  { key: 'yp', label: 'PC (lb/100ft²)', step: '1' },
-                  { key: 'hole_id', label: 'Diámetro Hoyo (in)', step: '0.125' },
-                  { key: 'pipe_od', label: 'OD Tubería (in)', step: '0.125' },
-                  { key: 'inclination', label: 'Inclinación (°)', step: '5' },
-                  { key: 'rop', label: 'ROP (ft/hr)', step: '5' },
-                  { key: 'cutting_size', label: 'Tamaño Recorte (in)', step: '0.05' },
-                  { key: 'cutting_density', label: 'Densidad Recorte (ppg)', step: '0.5' },
-                  { key: 'rpm', label: 'RPM', step: '10' },
-                  { key: 'annular_length', label: 'Longitud Anular (ft)', step: '100' },
+                  { key: 'flow_rate', label: t('wellboreCleanup.flowRate'), step: '10' },
+                  { key: 'mud_weight', label: t('wellboreCleanup.mudWeight'), step: '0.1' },
+                  { key: 'pv', label: t('wellboreCleanup.pv'), step: '1' },
+                  { key: 'yp', label: t('wellboreCleanup.yp'), step: '1' },
+                  { key: 'hole_id', label: t('wellboreCleanup.holeSize'), step: '0.125' },
+                  { key: 'pipe_od', label: t('wellboreCleanup.dpOD'), step: '0.125' },
+                  { key: 'inclination', label: t('wellboreCleanup.inclination'), step: '5' },
+                  { key: 'rop', label: t('wellboreCleanup.rop'), step: '5' },
+                  { key: 'cutting_size', label: t('wellboreCleanup.cuttingSize'), step: '0.05' },
+                  { key: 'cutting_density', label: t('wellboreCleanup.cuttingDensity'), step: '0.5' },
+                  { key: 'rpm', label: t('wellboreCleanup.rpm'), step: '10' },
+                  { key: 'annular_length', label: t('wellboreCleanup.annularLength'), step: '100' },
                 ].map(({ key, label, step }) => (
                   <div key={key} className="space-y-1">
                     <label className="text-xs text-gray-400">{label}</label>
@@ -157,7 +159,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
               <button onClick={calculate} disabled={loading}
                 className="mt-6 flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                {loading ? 'Calculando...' : 'Calcular'}
+                {loading ? t('common.calculating') : t('common.calculate')}
               </button>
             </div>
           </motion.div>
@@ -169,10 +171,10 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Vel. Anular', value: `${result.summary?.annular_velocity_ftmin} ft/min`, color: 'text-blue-400' },
-                { label: 'CTR', value: result.summary?.cuttings_transport_ratio, color: (result.summary?.cuttings_transport_ratio >= 0.55) ? 'text-green-400' : 'text-red-400' },
-                { label: 'HCI', value: result.summary?.hole_cleaning_index, color: (result.summary?.hole_cleaning_index >= 1.0) ? 'text-green-400' : 'text-yellow-400' },
-                { label: 'Calidad', value: result.summary?.cleaning_quality, color: '' },
+                { label: t('wellboreCleanup.annularVelocity'), value: `${result.summary?.annular_velocity_ftmin} ft/min`, color: 'text-blue-400' },
+                { label: t('wellboreCleanup.ctr'), value: result.summary?.cuttings_transport_ratio, color: (result.summary?.cuttings_transport_ratio >= 0.55) ? 'text-green-400' : 'text-red-400' },
+                { label: t('wellboreCleanup.hci'), value: result.summary?.hole_cleaning_index, color: (result.summary?.hole_cleaning_index >= 1.0) ? 'text-green-400' : 'text-yellow-400' },
+                { label: t('wellboreCleanup.quality'), value: result.summary?.cleaning_quality, color: '' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -183,25 +185,25 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
 
             {/* Detailed Metrics */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-4">Métricas Detalladas</h3>
+              <h3 className="text-lg font-bold mb-4">{t('common.detailedMetrics')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-gray-400">Vel. Deslizamiento:</span> <span className="font-mono">{result.summary?.slip_velocity_ftmin} ft/min</span></div>
-                <div><span className="text-gray-400">Vel. Transporte:</span> <span className="font-mono">{result.summary?.transport_velocity_ftmin} ft/min</span></div>
-                <div><span className="text-gray-400">Caudal Mínimo:</span> <span className="font-mono">{result.summary?.minimum_flow_rate_gpm} gpm</span></div>
-                <div><span className="text-gray-400">Concentración Recortes:</span> <span className="font-mono">{result.summary?.cuttings_concentration_pct}%</span></div>
-                <div><span className="text-gray-400">Caudal Adecuado:</span> <span className={`font-bold ${result.summary?.flow_rate_adequate ? 'text-green-400' : 'text-red-400'}`}>{result.summary?.flow_rate_adequate ? 'Sí' : 'No'}</span></div>
+                <div><span className="text-gray-400">{t('wellboreCleanup.slipVelocity')}:</span> <span className="font-mono">{result.summary?.slip_velocity_ftmin} ft/min</span></div>
+                <div><span className="text-gray-400">{t('wellboreCleanup.transportVelocity')}:</span> <span className="font-mono">{result.summary?.transport_velocity_ftmin} ft/min</span></div>
+                <div><span className="text-gray-400">{t('wellboreCleanup.minFlowRate')}:</span> <span className="font-mono">{result.summary?.minimum_flow_rate_gpm} gpm</span></div>
+                <div><span className="text-gray-400">{t('wellboreCleanup.cuttingsConcentration')}:</span> <span className="font-mono">{result.summary?.cuttings_concentration_pct}%</span></div>
+                <div><span className="text-gray-400">{t('wellboreCleanup.flowRateAdequate')}:</span> <span className={`font-bold ${result.summary?.flow_rate_adequate ? 'text-green-400' : 'text-red-400'}`}>{result.summary?.flow_rate_adequate ? t('common.yes') : t('common.no')}</span></div>
               </div>
             </div>
 
             {/* Sweep Pill */}
             {result.sweep_pill && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-4">Diseño de Píldora de Barrido</h3>
+                <h3 className="text-lg font-bold mb-4">{t('wellboreCleanup.sweepDesign')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><span className="text-gray-400">Volumen:</span> <span className="font-mono">{result.sweep_pill.pill_volume_bbl} bbl</span></div>
-                  <div><span className="text-gray-400">Peso:</span> <span className="font-mono">{result.sweep_pill.pill_weight_ppg} ppg</span></div>
-                  <div><span className="text-gray-400">Longitud:</span> <span className="font-mono">{result.sweep_pill.pill_length_ft} ft</span></div>
-                  <div><span className="text-gray-400">Vol. Anular:</span> <span className="font-mono">{result.sweep_pill.annular_volume_bbl} bbl</span></div>
+                  <div><span className="text-gray-400">{t('wellboreCleanup.pillVolume')}:</span> <span className="font-mono">{result.sweep_pill.pill_volume_bbl} bbl</span></div>
+                  <div><span className="text-gray-400">{t('wellboreCleanup.pillWeight')}:</span> <span className="font-mono">{result.sweep_pill.pill_weight_ppg} ppg</span></div>
+                  <div><span className="text-gray-400">{t('wellboreCleanup.pillLength')}:</span> <span className="font-mono">{result.sweep_pill.pill_length_ft} ft</span></div>
+                  <div><span className="text-gray-400">{t('wellboreCleanup.annularVolume')}:</span> <span className="font-mono">{result.sweep_pill.annular_volume_bbl} bbl</span></div>
                 </div>
               </div>
             )}
@@ -209,7 +211,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
-                <h3 className="text-lg font-bold text-yellow-400 mb-3">⚠ Alertas</h3>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">⚠ {t('common.alerts')}</h3>
                 <ul className="space-y-2">
                   {result.alerts.map((alert: string, i: number) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
@@ -282,7 +284,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
           <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Droplets size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No hay resultados. Ve a la pestaña "Parámetros" y ejecuta el cálculo.</p>
+              <p>{t('wellboreCleanup.noResults')}</p>
             </div>
           </motion.div>
         )}

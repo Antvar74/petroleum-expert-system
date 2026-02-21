@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle, ArrowRight, Brain, Shield, FileText, Loader2 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ interface RCAVisualizerProps {
 }
 
 const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
+    const { t } = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
     const [isExportingPDF, setIsExportingPDF] = React.useState(false);
 
@@ -87,7 +89,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                             <AlertTriangle className="text-red-400" size={32} />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-white mb-1">Causa Raíz Identificada</h3>
+                            <h3 className="text-lg font-bold text-white mb-1">{t('rca.rootCauseIdentified')}</h3>
                             {report.root_cause_category && (
                                 <div className="inline-block px-3 py-1 rounded-full bg-red-500/20 text-red-300 text-sm font-medium mb-3">
                                     {report.root_cause_category}
@@ -101,7 +103,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                             {confidencePct !== null && (
                                 <div className="mt-4 flex items-center gap-3">
                                     <Brain size={16} className="text-white/40" />
-                                    <span className="text-sm text-white/40">Confianza IA:</span>
+                                    <span className="text-sm text-white/40">{t('rca.aiConfidence')}:</span>
                                     <div className="flex-1 max-w-32 h-2 bg-white/10 rounded-full overflow-hidden">
                                         <div
                                             className={`h-full rounded-full ${confidencePct >= 70 ? 'bg-green-500' : confidencePct >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
@@ -118,7 +120,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                 <div className="glass-panel p-6 border-l-4 border-yellow-500">
                     <div className="flex items-center gap-3 text-yellow-400">
                         <AlertTriangle size={20} />
-                        <span className="font-medium">No se pudo identificar una causa raíz definitiva. Revise los datos del evento.</span>
+                        <span className="font-medium">{t('rca.noRootCause')}</span>
                     </div>
                 </div>
             )}
@@ -128,7 +130,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                 <div className="glass-panel p-6">
                     <h4 className="text-lg font-bold mb-6 flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-industrial-700 flex items-center justify-center text-sm font-bold">5W</span>
-                        Análisis de los 5 Por Qué
+                        {t('rca.fiveWhysAnalysis')}
                     </h4>
                     {hasFiveWhys ? (
                         <div className="space-y-4">
@@ -141,13 +143,13 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                                     className="relative pl-8 border-l-2 border-industrial-700 pb-4 last:border-0 last:pb-0"
                                 >
                                     <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-industrial-600 border-2 border-industrial-900" />
-                                    <div className="text-[10px] font-bold text-industrial-500 uppercase mb-1">¿Por qué #{idx + 1}?</div>
+                                    <div className="text-[10px] font-bold text-industrial-500 uppercase mb-1">{t('rca.whyNumber', { num: idx + 1 })}</div>
                                     <p className="text-white/90 text-sm leading-relaxed">{why}</p>
                                 </motion.div>
                             ))}
                         </div>
                     ) : (
-                        <EmptySection message="Análisis de 5 Por Qué no disponible" />
+                        <EmptySection message={t('rca.fiveWhysNotAvailable')} />
                     )}
                 </div>
 
@@ -155,7 +157,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                 <div className="glass-panel p-6">
                     <h4 className="text-lg font-bold mb-6 flex items-center gap-2">
                         <IshikawaIcon />
-                        Factores Contribuyentes (Ishikawa)
+                        {t('rca.contributingFactors')}
                     </h4>
                     {hasFishbone ? (
                         <div className="space-y-4">
@@ -173,7 +175,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                             ))}
                         </div>
                     ) : (
-                        <EmptySection message="Factores Ishikawa no disponibles" />
+                        <EmptySection message={t('rca.ishikawaNotAvailable')} />
                     )}
                 </div>
             </div>
@@ -182,7 +184,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
             <div className="glass-panel p-6 bg-green-500/5 border border-green-500/20">
                 <h4 className="text-lg font-bold mb-4 text-green-400 flex items-center gap-2">
                     <CheckCircle size={20} />
-                    Acciones Correctivas (CAPA)
+                    {t('rca.correctiveActions')}
                 </h4>
                 {hasCorrectiveActions ? (
                     <ul className="space-y-3">
@@ -194,7 +196,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                         ))}
                     </ul>
                 ) : (
-                    <EmptySection message="No se generaron acciones correctivas" />
+                    <EmptySection message={t('rca.noCorrectiveActions')} />
                 )}
             </div>
 
@@ -203,7 +205,7 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                 <div className="glass-panel p-6 bg-blue-500/5 border border-blue-500/20">
                     <h4 className="text-lg font-bold mb-4 text-blue-400 flex items-center gap-2">
                         <Shield size={20} />
-                        Acciones Preventivas
+                        {t('rca.preventiveActions')}
                     </h4>
                     <ul className="space-y-3">
                         {report.prevention_actions!.map((action: string, idx: number) => (
@@ -224,9 +226,9 @@ const RCAVisualizer: React.FC<RCAVisualizerProps> = ({ report }) => {
                     className="btn-secondary flex items-center gap-2"
                 >
                     {isExportingPDF ? (
-                        <><Loader2 size={16} className="animate-spin" /> Exportando...</>
+                        <><Loader2 size={16} className="animate-spin" /> {t('rca.exporting')}</>
                     ) : (
-                        <><FileText size={16} /> Exportar RCA a PDF</>
+                        <><FileText size={16} /> {t('rca.exportToPDF')}</>
                     )}
                 </button>
             </div>
