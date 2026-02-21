@@ -14,7 +14,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface HydraulicsModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -71,7 +71,11 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     if (!hydResult && !surgeResult) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulics/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const res = await axios.post(analyzeUrl, {
+        ...(wellId ? {} : { module: 'hydraulics', well_name: wellName || 'General Analysis' }),
         result_data: { hydraulics: hydResult || {}, surge: surgeResult || {} },
         params: hydParams,
         language,
@@ -94,6 +98,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   ];
 
   const saveSections = async () => {
+    if (!wellId) return;
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulic-sections`, sections);
@@ -108,7 +113,13 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       const nozSizes = nozzles.sizes.split(',').map(Number).filter(n => n > 0);
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulics/calculate`, { ...hydParams, nozzle_sizes: nozSizes });
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/calculate`
+        : `${API_BASE_URL}/calculate/hydraulics`;
+      const body = wellId
+        ? { ...hydParams, nozzle_sizes: nozSizes }
+        : { ...hydParams, nozzle_sizes: nozSizes, sections };
+      const res = await axios.post(url, body);
       setHydResult(res.data);
     } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
     setLoading(false);
@@ -117,7 +128,10 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   const runSurgeSwab = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulics/surge-swab`, surgeParams);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/surge-swab`
+        : `${API_BASE_URL}/calculate/hydraulics/surge-swab`;
+      const res = await axios.post(url, surgeParams);
       setSurgeResult(res.data);
     } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
     setLoading(false);

@@ -14,7 +14,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface WellControlModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -74,7 +74,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     if (!killResult && !volResult && !bullheadResult) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/well-control/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/well-control/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const res = await axios.post(analyzeUrl, {
+        ...(wellId ? {} : { module: 'well-control', well_name: wellName || 'General Analysis' }),
         result_data: {
           kill: killResult || {},
           volumetric: volResult || {},
@@ -104,7 +108,10 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   const savePreRecord = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/kill-sheet/pre-record`, preRecord);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/kill-sheet/pre-record`
+        : `${API_BASE_URL}/calculate/kill-sheet/pre-record`;
+      const res = await axios.post(url, preRecord);
       setPreRecordResult(res.data);
     } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
     setLoading(false);
@@ -113,7 +120,10 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   const runKillCalc = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/kill-sheet/calculate`, kickData);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/kill-sheet/calculate`
+        : `${API_BASE_URL}/calculate/kill-sheet/calculate`;
+      const res = await axios.post(url, kickData);
       setKillResult(res.data);
     } catch (e: any) { alert('Error: ' + (e.response?.data?.detail || e.message)); }
     setLoading(false);

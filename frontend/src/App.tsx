@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { ArrowLeft, Activity, GitBranch, Loader2 } from 'lucide-react';
+import { ArrowLeft, Activity, GitBranch, Loader2, Database } from 'lucide-react';
 import LanguageSelector from './components/LanguageSelector';
 import { API_BASE_URL } from './config';
 import { ToastProvider, useToast } from './components/ui/Toast';
@@ -28,7 +28,7 @@ import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 function AppContent() {
   const { t } = useTranslation();
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('module-dashboard');
   const [selectedWell, setSelectedWell] = useState<any>(null);
   const [activeAnalysis, setActiveAnalysis] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,12 +80,32 @@ function AppContent() {
     }
   };
 
+  // Views that REQUIRE a well to be selected (event-based workflow)
+  const WELL_REQUIRED_VIEWS = new Set(['dashboard', 'analysis', 'rca', 'daily-reports']);
+
   const renderContent = () => {
-    if (!selectedWell && currentView !== 'settings') {
-      return <WellSelector onSelect={handleWellSelect} />;
+    // Only gate well-dependent views — calculators work without a well
+    if (!selectedWell && WELL_REQUIRED_VIEWS.has(currentView)) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-center p-12 animate-fadeIn">
+          <div className="w-20 h-20 bg-industrial-600/10 rounded-2xl flex items-center justify-center mb-6 border border-industrial-500/20">
+            <Database className="text-industrial-500" size={36} />
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-3">{t('app.wellRequired')}</h3>
+          <p className="text-white/40 mb-8 max-w-md">{t('app.wellRequiredDescription')}</p>
+          <button
+            onClick={() => setCurrentView('well-selector')}
+            className="px-8 py-3 bg-industrial-600 hover:bg-industrial-700 text-white rounded-xl transition-colors font-bold text-sm tracking-tight"
+          >
+            {t('app.selectWell')}
+          </button>
+        </div>
+      );
     }
 
     switch (currentView) {
+      case 'well-selector':
+        return <WellSelector onSelect={handleWellSelect} />;
       case 'dashboard':
         return (
           <div className="w-full mx-auto py-12">
@@ -191,24 +211,28 @@ function AppContent() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 border-b border-white/5 bg-black/20 backdrop-blur-md flex items-center justify-between px-12 z-10">
           <div className="flex items-center gap-4">
-            {selectedWell && (
+            {currentView !== 'module-dashboard' && (
               <button
                 onClick={() => {
                   if (currentView === 'analysis' || currentView === 'rca') {
                     setCurrentView('dashboard');
                   } else if (currentView === 'dashboard') {
                     setSelectedWell(null);
+                    setCurrentView('module-dashboard');
+                  } else if (currentView === 'well-selector') {
+                    setCurrentView('module-dashboard');
                   } else {
-                    setCurrentView('dashboard');
+                    setCurrentView('module-dashboard');
                   }
                 }}
                 className="p-2 mr-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                title={currentView === 'dashboard' ? t('app.backToProjects') : t('app.back')}
+                title={t('app.back')}
               >
                 <ArrowLeft size={20} />
               </button>
             )}
             <div className="p-2 bg-industrial-600/10 rounded-lg text-industrial-500">
+              {currentView === 'well-selector' && <span className="font-bold">{t('app.selectWell')}</span>}
               {currentView === 'dashboard' && <span className="font-bold">{t('app.operationalReport')}</span>}
               {currentView === 'analysis' && <span className="font-bold">{t('app.multiAgentPipeline')}</span>}
               {currentView === 'rca' && <span className="font-bold">{t('app.rootCauseAnalysis')}</span>}

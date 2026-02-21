@@ -3477,5 +3477,383 @@ async def analyze_daily_report(
     return result
 
 
+# ============================================================
+# STANDALONE CALCULATOR ROUTES (NO WELL REQUIRED)
+# These routes run the same physics engines but do NOT require
+# a well_id — results are returned without saving to DB.
+# Used when user accesses modules without selecting a well.
+# ============================================================
+
+@app.post("/calculate/wellbore-cleanup")
+def standalone_wellbore_cleanup(data: Dict[str, Any] = Body(...)):
+    """Run wellbore cleanup calculation without well context."""
+    result = WellboreCleanupEngine.calculate_full_cleanup(
+        flow_rate=data.get("flow_rate", 500),
+        mud_weight=data.get("mud_weight", 10.0),
+        pv=data.get("pv", 15),
+        yp=data.get("yp", 10),
+        hole_id=data.get("hole_id", 8.5),
+        pipe_od=data.get("pipe_od", 5.0),
+        inclination=data.get("inclination", 0),
+        rop=data.get("rop", 60),
+        cutting_size=data.get("cutting_size", 0.25),
+        cutting_density=data.get("cutting_density", 21.0),
+        rpm=data.get("rpm", 0),
+        annular_length=data.get("annular_length", 1000)
+    )
+    return result
+
+
+@app.post("/calculate/packer-forces")
+def standalone_packer_forces(data: Dict[str, Any] = Body(...)):
+    """Run packer forces calculation without well context."""
+    result = PackerForcesEngine.calculate_total_packer_force(
+        tubing_od=data.get("tubing_od", 2.875),
+        tubing_id=data.get("tubing_id", 2.441),
+        tubing_weight=data.get("tubing_weight", 6.5),
+        tubing_length=data.get("tubing_length", 10000),
+        seal_bore_id=data.get("seal_bore_id", 3.25),
+        initial_tubing_pressure=data.get("initial_tubing_pressure", 0),
+        final_tubing_pressure=data.get("final_tubing_pressure", 3000),
+        initial_annulus_pressure=data.get("initial_annulus_pressure", 0),
+        final_annulus_pressure=data.get("final_annulus_pressure", 2000),
+        initial_temperature=data.get("initial_temperature", 80),
+        final_temperature=data.get("final_temperature", 250),
+        fluid_density_tubing=data.get("fluid_density_tubing", 8.6),
+        fluid_density_annulus=data.get("fluid_density_annulus", 10.0),
+        packer_depth_tvd=data.get("packer_depth_tvd", 10000),
+        youngs_modulus=data.get("youngs_modulus", 30e6),
+        thermal_expansion=data.get("thermal_expansion", 6.9e-6),
+        poisson_ratio=data.get("poisson_ratio", 0.3)
+    )
+    return result
+
+
+@app.post("/calculate/workover-hydraulics")
+def standalone_workover_hydraulics(data: Dict[str, Any] = Body(...)):
+    """Run workover/CT hydraulics calculation without well context."""
+    result = WorkoverHydraulicsEngine.calculate_full_workover(
+        ct_od=data.get("ct_od", 1.75),
+        ct_id=data.get("ct_id", 1.437),
+        ct_length=data.get("ct_length", 10000),
+        casing_id=data.get("casing_id", 4.892),
+        tubing_id=data.get("tubing_id", 2.441),
+        flow_rate=data.get("flow_rate", 150),
+        fluid_weight=data.get("fluid_weight", 8.6),
+        pv=data.get("pv", 5),
+        yp=data.get("yp", 5),
+        wl_depth_md=data.get("wl_depth_md", 5000),
+        wl_depth_tvd=data.get("wl_depth_tvd", 5000),
+        bhp_target=data.get("bhp_target", 3000),
+        nozzle_sizes=data.get("nozzle_sizes", [12, 12])
+    )
+    return result
+
+
+@app.post("/calculate/sand-control")
+def standalone_sand_control(data: Dict[str, Any] = Body(...)):
+    """Run sand control / gravel pack calculation without well context."""
+    result = SandControlEngine.calculate_gravel_pack(
+        screen_od=data.get("screen_od", 3.5),
+        screen_id=data.get("screen_id", 2.992),
+        screen_length=data.get("screen_length", 100),
+        casing_id=data.get("casing_id", 6.094),
+        openhole_id=data.get("openhole_id", 8.5),
+        completion_type=data.get("completion_type", "cased_hole"),
+        perforation_length=data.get("perforation_length", 40),
+        perf_density=data.get("perf_density", 12),
+        perf_diameter=data.get("perf_diameter", 0.5),
+        gravel_size=data.get("gravel_size", "20/40"),
+        gravel_density=data.get("gravel_density", 165),
+        carrier_fluid_weight=data.get("carrier_fluid_weight", 8.6),
+        gravel_concentration=data.get("gravel_concentration", 0.5),
+        pump_rate=data.get("pump_rate", 2.0),
+        formation_pressure=data.get("formation_pressure", 4500),
+        formation_frac_gradient=data.get("formation_frac_gradient", 0.75),
+        depth_tvd=data.get("depth_tvd", 10000),
+        porosity=data.get("porosity", 0.25)
+    )
+    return result
+
+
+@app.post("/calculate/completion-design")
+def standalone_completion_design(data: Dict[str, Any] = Body(...)):
+    """Run completion design / frac calculation without well context."""
+    result = CompletionDesignEngine.calculate_completion(
+        reservoir_pressure=data.get("reservoir_pressure", 5000),
+        reservoir_temperature=data.get("reservoir_temperature", 200),
+        reservoir_permeability=data.get("reservoir_permeability", 50),
+        reservoir_thickness=data.get("reservoir_thickness", 50),
+        reservoir_porosity=data.get("reservoir_porosity", 0.20),
+        oil_viscosity=data.get("oil_viscosity", 1.5),
+        oil_fvf=data.get("oil_fvf", 1.2),
+        wellbore_radius=data.get("wellbore_radius", 0.354),
+        drainage_radius=data.get("drainage_radius", 660),
+        skin_factor=data.get("skin_factor", 5.0),
+        completion_type=data.get("completion_type", "perforated"),
+        perf_density=data.get("perf_density", 12),
+        perf_length=data.get("perf_length", 12),
+        perf_diameter=data.get("perf_diameter", 0.5),
+        frac_half_length=data.get("frac_half_length", 200),
+        frac_conductivity=data.get("frac_conductivity", 2000),
+        frac_width=data.get("frac_width", 0.25),
+        proppant_concentration=data.get("proppant_concentration", 2.0),
+        tubing_id=data.get("tubing_id", 2.441),
+        depth_tvd=data.get("depth_tvd", 10000)
+    )
+    return result
+
+
+@app.post("/calculate/shot-efficiency")
+def standalone_shot_efficiency(data: Dict[str, Any] = Body(...)):
+    """Run shot efficiency / petrophysics calculation without well context."""
+    result = ShotEfficiencyEngine.calculate_shot_efficiency(
+        gun_type=data.get("gun_type", "TCP"),
+        gun_od=data.get("gun_od", 3.375),
+        casing_od=data.get("casing_od", 7.0),
+        casing_weight=data.get("casing_weight", 23.0),
+        casing_grade=data.get("casing_grade", "N80"),
+        cement_compressive_strength=data.get("cement_compressive_strength", 3000),
+        formation_compressive_strength=data.get("formation_compressive_strength", 5000),
+        charge_type=data.get("charge_type", "deep_penetrating"),
+        spf=data.get("spf", 6),
+        phasing=data.get("phasing", 60),
+        pressure_underbalance=data.get("pressure_underbalance", 500),
+        wellbore_fluid_density=data.get("wellbore_fluid_density", 8.6),
+        depth_tvd=data.get("depth_tvd", 10000),
+        reservoir_pressure=data.get("reservoir_pressure", 5000),
+        reservoir_permeability=data.get("reservoir_permeability", 50),
+        reservoir_porosity=data.get("reservoir_porosity", 0.20),
+        damage_zone_radius=data.get("damage_zone_radius", 6),
+        damage_zone_perm_ratio=data.get("damage_zone_perm_ratio", 0.1)
+    )
+    return result
+
+
+@app.post("/calculate/vibrations")
+def standalone_vibrations(data: Dict[str, Any] = Body(...)):
+    """Run vibration analysis calculation without well context."""
+    result = VibrationsEngine.calculate_vibrations(
+        rpm=data.get("rpm", 120),
+        wob=data.get("wob", 25000),
+        bit_diameter=data.get("bit_diameter", 8.5),
+        bit_type=data.get("bit_type", "PDC"),
+        number_of_blades=data.get("number_of_blades", 5),
+        dp_od=data.get("dp_od", 5.0),
+        dp_id=data.get("dp_id", 4.276),
+        dp_weight=data.get("dp_weight", 19.5),
+        bha_length=data.get("bha_length", 200),
+        hole_diameter=data.get("hole_diameter", 8.5),
+        depth_md=data.get("depth_md", 10000),
+        inclination=data.get("inclination", 0),
+        mud_weight=data.get("mud_weight", 10.0),
+        torque=data.get("torque", 8000),
+        flow_rate=data.get("flow_rate", 400),
+        formation_hardness=data.get("formation_hardness", "medium"),
+        stabilizer_count=data.get("stabilizer_count", 2)
+    )
+    return result
+
+
+@app.post("/calculate/cementing")
+def standalone_cementing(data: Dict[str, Any] = Body(...)):
+    """Run cementing simulation calculation without well context."""
+    result = CementingEngine.calculate_cementing(
+        casing_od=data.get("casing_od", 9.625),
+        casing_id=data.get("casing_id", 8.681),
+        hole_diameter=data.get("hole_diameter", 12.25),
+        casing_shoe_md=data.get("casing_shoe_md", 5000),
+        casing_shoe_tvd=data.get("casing_shoe_tvd", 5000),
+        toc_md=data.get("toc_md", 3000),
+        mud_weight=data.get("mud_weight", 10.0),
+        lead_slurry_weight=data.get("lead_slurry_weight", 13.0),
+        lead_slurry_yield=data.get("lead_slurry_yield", 1.15),
+        tail_slurry_weight=data.get("tail_slurry_weight", 15.8),
+        tail_slurry_yield=data.get("tail_slurry_yield", 1.05),
+        tail_length=data.get("tail_length", 500),
+        excess_percentage=data.get("excess_percentage", 50),
+        pump_rate=data.get("pump_rate", 8),
+        surface_temperature=data.get("surface_temperature", 80),
+        bhst=data.get("bhst", 180),
+        pv=data.get("pv", 40),
+        yp=data.get("yp", 15),
+        formation_frac_gradient=data.get("formation_frac_gradient", 0.75),
+        previous_casing_id=data.get("previous_casing_id", 0),
+        rathole_length=data.get("rathole_length", 50)
+    )
+    return result
+
+
+@app.post("/calculate/casing-design")
+def standalone_casing_design(data: Dict[str, Any] = Body(...)):
+    """Run casing design calculation without well context."""
+    result = CasingDesignEngine.calculate_casing_design(
+        casing_od=data.get("casing_od", 9.625),
+        casing_weight=data.get("casing_weight", 47.0),
+        casing_grade=data.get("casing_grade", "N80"),
+        casing_id=data.get("casing_id", 8.681),
+        setting_depth_md=data.get("setting_depth_md", 10000),
+        setting_depth_tvd=data.get("setting_depth_tvd", 10000),
+        mud_weight=data.get("mud_weight", 12.0),
+        pore_pressure_gradient=data.get("pore_pressure_gradient", 0.52),
+        frac_gradient=data.get("frac_gradient", 0.75),
+        cement_top_md=data.get("cement_top_md", 8000),
+        cement_weight=data.get("cement_weight", 15.8),
+        next_hole_td_tvd=data.get("next_hole_td_tvd", 15000),
+        gas_gradient=data.get("gas_gradient", 0.1),
+        surface_temperature=data.get("surface_temperature", 80),
+        temperature_gradient=data.get("temperature_gradient", 1.5),
+        design_factor_burst=data.get("design_factor_burst", 1.1),
+        design_factor_collapse=data.get("design_factor_collapse", 1.0),
+        design_factor_tension=data.get("design_factor_tension", 1.6),
+        connection_type=data.get("connection_type", "STC")
+    )
+    return result
+
+
+@app.post("/calculate/torque-drag")
+def standalone_torque_drag(data: Dict[str, Any] = Body(...)):
+    """Run torque & drag calculation without well context — survey and drillstring passed in body."""
+    survey = data.get("survey", [])
+    drillstring = data.get("drillstring", [])
+    if len(survey) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 survey stations in body")
+    if not drillstring:
+        raise HTTPException(status_code=400, detail="No drillstring provided in body")
+
+    result = TorqueDragEngine.compute_torque_drag(
+        survey=survey,
+        drillstring=drillstring,
+        friction_cased=data.get("friction_cased", 0.25),
+        friction_open=data.get("friction_open", 0.35),
+        operation=data.get("operation", "trip_out"),
+        mud_weight=data.get("mud_weight", 10.0),
+        wob=data.get("wob", 0.0),
+        rpm=data.get("rpm", 0.0),
+        casing_shoe_md=data.get("casing_shoe_md", 0.0)
+    )
+    return result
+
+
+@app.post("/calculate/hydraulics")
+def standalone_hydraulics(data: Dict[str, Any] = Body(...)):
+    """Run hydraulics calculation without well context — sections and nozzles in body."""
+    sections = data.get("sections", [])
+    nozzle_sizes = data.get("nozzle_sizes", [12, 12, 12])
+    if not sections:
+        raise HTTPException(status_code=400, detail="No hydraulic sections provided in body")
+
+    result = HydraulicsEngine.calculate_full_circuit(
+        sections=sections,
+        nozzle_sizes=nozzle_sizes,
+        flow_rate=data.get("flow_rate", 400),
+        mud_weight=data.get("mud_weight", 10.0),
+        pv=data.get("pv", 15),
+        yp=data.get("yp", 10),
+        tvd=data.get("tvd", 10000),
+        rheology_model=data.get("rheology_model", "bingham_plastic"),
+        n=data.get("n", 0.5),
+        k=data.get("k", 300),
+        surface_equipment_loss=data.get("surface_equipment_loss", 80.0)
+    )
+    return result
+
+
+@app.post("/calculate/hydraulics/surge-swab")
+def standalone_surge_swab(data: Dict[str, Any] = Body(...)):
+    """Run surge/swab calculation without well context."""
+    result = HydraulicsEngine.calculate_surge_swab(
+        mud_weight=data.get("mud_weight", 10.0),
+        pv=data.get("pv", 15),
+        yp=data.get("yp", 10),
+        tvd=data.get("tvd", 10000),
+        pipe_od=data.get("pipe_od", 5.0),
+        pipe_id=data.get("pipe_id", 4.276),
+        hole_id=data.get("hole_id", 8.5),
+        pipe_velocity_fpm=data.get("pipe_velocity_fpm", 90),
+        pipe_open=data.get("pipe_open", True)
+    )
+    return result
+
+
+@app.post("/calculate/kill-sheet/pre-record")
+def standalone_kill_sheet_pre_record(data: Dict[str, Any] = Body(...)):
+    """Run kill sheet pre-record calculation without well context."""
+    result = WellControlEngine.pre_record_kill_sheet(
+        well_name=data.get("well_name", "Standalone"),
+        depth_md=data.get("depth_md", 0),
+        depth_tvd=data.get("depth_tvd", 0),
+        original_mud_weight=data.get("original_mud_weight", 10.0),
+        casing_shoe_tvd=data.get("casing_shoe_tvd", 0),
+        casing_id=data.get("casing_id", 8.681),
+        dp_od=data.get("dp_od", 5.0),
+        dp_id=data.get("dp_id", 4.276),
+        dp_length=data.get("dp_length", 0),
+        dc_od=data.get("dc_od", 6.5),
+        dc_id=data.get("dc_id", 2.813),
+        dc_length=data.get("dc_length", 0),
+        scr_pressure=data.get("scr_pressure", 0),
+        scr_rate=data.get("scr_rate", 0),
+        lot_emw=data.get("lot_emw", 14.0),
+        pump_output=data.get("pump_output", 0.1),
+        hole_size=data.get("hole_size", 8.5)
+    )
+    return result
+
+
+@app.post("/calculate/kill-sheet/calculate")
+def standalone_kill_sheet_calculate(data: Dict[str, Any] = Body(...)):
+    """Run kill sheet kick calculation without well context."""
+    result = WellControlEngine.calculate_kill(
+        pre_recorded=data.get("pre_recorded", {}),
+        sidpp=data.get("sidpp", 0),
+        sicp=data.get("sicp", 0),
+        pit_gain_bbl=data.get("pit_gain_bbl", 0),
+        kill_method=data.get("kill_method", "drillers")
+    )
+    return result
+
+
+# --- Standalone AI Analysis routes (accept well_name in body, no DB lookup) ---
+
+@app.post("/analyze/module")
+async def standalone_analyze_module(data: Dict[str, Any] = Body(...)):
+    """Generic standalone AI analysis — well_name is optional in body."""
+    module = data.get("module", "")
+    well_name = data.get("well_name", "General Analysis")
+    result_data = data.get("result_data", {})
+    params = data.get("params", {})
+    language = data.get("language", "en")
+    provider = data.get("provider", "auto")
+
+    analyze_fn_map = {
+        "torque-drag": module_analyzer.analyze_torque_drag,
+        "hydraulics": module_analyzer.analyze_hydraulics,
+        "stuck-pipe": module_analyzer.analyze_stuck_pipe,
+        "well-control": module_analyzer.analyze_well_control,
+        "wellbore-cleanup": module_analyzer.analyze_wellbore_cleanup,
+        "packer-forces": module_analyzer.analyze_packer_forces,
+        "workover-hydraulics": module_analyzer.analyze_workover_hydraulics,
+        "sand-control": module_analyzer.analyze_sand_control,
+        "completion-design": module_analyzer.analyze_completion_design,
+        "shot-efficiency": module_analyzer.analyze_shot_efficiency,
+        "vibrations": module_analyzer.analyze_vibrations,
+        "cementing": module_analyzer.analyze_cementing,
+        "casing-design": module_analyzer.analyze_casing_design,
+    }
+
+    fn = analyze_fn_map.get(module)
+    if not fn:
+        raise HTTPException(status_code=400, detail=f"Unknown module: {module}")
+
+    return await fn(
+        result_data=result_data,
+        well_name=well_name,
+        params=params,
+        language=language,
+        provider=provider
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

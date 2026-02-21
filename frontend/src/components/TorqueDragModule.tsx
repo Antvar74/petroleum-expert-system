@@ -14,7 +14,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface TorqueDragModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -85,7 +85,11 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     if (!tdResult && !compareResult) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/torque-drag/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/torque-drag/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const res = await axios.post(analyzeUrl, {
+        ...(wellId ? {} : { module: 'torque-drag', well_name: wellName || 'General Analysis' }),
         result_data: tdResult || {},
         params: tdParams,
         language,
@@ -124,6 +128,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   };
 
   const uploadSurvey = async () => {
+    if (!wellId) return;
     setLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/survey`, surveyStations);
@@ -154,6 +159,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   };
 
   const uploadDrillstring = async () => {
+    if (!wellId) return;
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/wells/${wellId}/drillstring`, drillstring);
@@ -168,7 +174,13 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const runTorqueDrag = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/torque-drag`, tdParams);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/torque-drag`
+        : `${API_BASE_URL}/calculate/torque-drag`;
+      const body = wellId
+        ? tdParams
+        : { ...tdParams, survey: surveyStations, drillstring };
+      const res = await axios.post(url, body);
       setTdResult(res.data);
     } catch (e: any) {
       alert(t('common.error') + ': ' + (e.response?.data?.detail || e.message));
@@ -178,6 +190,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
   // --- Multi-operation compare ---
   const runCompare = async () => {
+    if (!wellId) return;
     setCompareLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/torque-drag/compare`, {

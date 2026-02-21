@@ -13,7 +13,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface StuckPipeAnalyzerProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -71,7 +71,11 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     if (!diagnosisResult && !riskResult && !fpResult) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/stuck-pipe/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/stuck-pipe/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = {
+        ...(wellId ? {} : { module: 'stuck-pipe', well_name: wellName || 'General Analysis' }),
         result_data: {
           diagnosis: diagnosisResult || {},
           risk: riskResult || {},
@@ -80,7 +84,8 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
         params: { mechanism: riskParams.mechanism || diagnosisResult?.mechanism, mud_weight: riskParams.mud_weight },
         language,
         provider,
-      });
+      };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       console.error('AI analysis error:', e);

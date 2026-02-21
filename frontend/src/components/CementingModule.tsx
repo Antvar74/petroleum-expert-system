@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CementingModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -56,7 +56,10 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
   const calculate = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/cementing`, params);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/cementing`
+        : `${API_BASE_URL}/calculate/cementing`;
+      const res = await axios.post(url, params);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -69,9 +72,14 @@ const CementingModule: React.FC<CementingModuleProps> = ({ wellId, wellName = ''
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/cementing/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/cementing/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = {
+        ...(wellId ? {} : { module: 'cementing', well_name: wellName || 'General Analysis' }),
         result_data: result, params, language, provider,
-      });
+      };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });

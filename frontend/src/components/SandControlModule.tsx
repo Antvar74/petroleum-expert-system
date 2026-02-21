@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface SandControlModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -65,7 +65,10 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
         sieve_sizes_mm: params.sieve_sizes_mm.split(',').map(s => parseFloat(s.trim())),
         cumulative_passing_pct: params.cumulative_passing_pct.split(',').map(s => parseFloat(s.trim())),
       };
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/sand-control`, payload);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/sand-control`
+        : `${API_BASE_URL}/calculate/sand-control`;
+      const res = await axios.post(url, payload);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -78,9 +81,13 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/sand-control/analyze`, {
-        result_data: result, params, language, provider,
-      });
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/sand-control/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = wellId
+        ? { result_data: result, params, language, provider }
+        : { module: 'sand-control', well_name: wellName || 'General Analysis', result_data: result, params, language, provider };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });

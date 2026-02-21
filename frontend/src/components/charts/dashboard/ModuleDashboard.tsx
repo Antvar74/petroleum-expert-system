@@ -12,7 +12,7 @@ import SparklineChart from './SparklineChart';
 
 interface ModuleDashboardProps {
   onNavigate: (view: string) => void;
-  wellId: number;
+  wellId?: number;
 }
 
 interface ModuleCard {

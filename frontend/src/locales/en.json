@@ -81,9 +81,17 @@
     "backToProjects": "Back to Projects",
     "back": "Back",
     "settingsComingSoon": "Settings module coming soon in v3.1",
-    "selectModule": "Select a module from the sidebar"
+    "selectModule": "Select a module from the sidebar",
+    "wellRequired": "Well Selection Required",
+    "wellRequiredDescription": "This section requires an active well. Select a well to access event analysis, daily reports, and well-specific data.",
+    "selectWell": "Select Well"
   },
   "sidebar": {
+    "engineeringDashboard": "Dashboard",
+    "engineeringModules": "Engineering Modules",
+    "wellOperations": "Well Operations",
+    "selectWell": "Select Well",
+    "eventAnalysis": "Event Analysis",
     "dashboard": "Dashboard",
     "torqueDrag": "Torque & Drag",
     "hydraulicsECD": "Hydraulics/ECD",

@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface WorkoverHydraulicsModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -59,7 +59,10 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
   const calculate = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/workover-hydraulics`, params);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/workover-hydraulics`
+        : `${API_BASE_URL}/calculate/workover-hydraulics`;
+      const res = await axios.post(url, params);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -72,9 +75,13 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/workover-hydraulics/analyze`, {
-        result_data: result, params, language, provider,
-      });
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/workover-hydraulics/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = wellId
+        ? { result_data: result, params, language, provider }
+        : { module: 'workover-hydraulics', well_name: wellName || 'General Analysis', result_data: result, params, language, provider };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });

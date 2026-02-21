@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface CasingDesignModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -55,7 +55,10 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const calculate = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/casing-design`, params);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/casing-design`
+        : `${API_BASE_URL}/calculate/casing-design`;
+      const res = await axios.post(url, params);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -68,9 +71,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/casing-design/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/casing-design/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = {
+        ...(wellId ? {} : { module: 'casing-design', well_name: wellName || 'General Analysis' }),
         result_data: result, params, language, provider,
-      });
+      };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });

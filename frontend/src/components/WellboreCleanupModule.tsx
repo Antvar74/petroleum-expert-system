@@ -13,7 +13,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface WellboreCleanupModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -61,7 +61,10 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
   const calculate = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/wellbore-cleanup`, params);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/wellbore-cleanup`
+        : `${API_BASE_URL}/calculate/wellbore-cleanup`;
+      const res = await axios.post(url, params);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -74,9 +77,13 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/wellbore-cleanup/analyze`, {
-        result_data: result, params, language, provider,
-      });
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/wellbore-cleanup/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = wellId
+        ? { result_data: result, params, language, provider }
+        : { module: 'wellbore-cleanup', well_name: wellName || 'General Analysis', result_data: result, params, language, provider };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });

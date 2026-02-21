@@ -81,9 +81,17 @@
     "backToProjects": "Volver a Proyectos",
     "back": "Volver",
     "settingsComingSoon": "Módulo de configuración próximamente en v3.1",
-    "selectModule": "Selecciona un módulo desde la barra lateral"
+    "selectModule": "Selecciona un módulo desde la barra lateral",
+    "wellRequired": "Selección de Pozo Requerida",
+    "wellRequiredDescription": "Esta sección requiere un pozo activo. Selecciona un pozo para acceder al análisis de eventos, reportes diarios y datos específicos del pozo.",
+    "selectWell": "Seleccionar Pozo"
   },
   "sidebar": {
+    "engineeringDashboard": "Dashboard",
+    "engineeringModules": "Módulos de Ingeniería",
+    "wellOperations": "Operaciones de Pozo",
+    "selectWell": "Seleccionar Pozo",
+    "eventAnalysis": "Análisis de Eventos",
     "dashboard": "Dashboard",
     "torqueDrag": "Torque & Drag",
     "hydraulicsECD": "Hidráulica/ECD",

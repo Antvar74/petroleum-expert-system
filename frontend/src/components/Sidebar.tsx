@@ -20,7 +20,9 @@ import {
     ShieldCheck,
     ClipboardList,
     Wifi,
-    WifiOff
+    WifiOff,
+    Database,
+    Search
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -80,8 +82,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
     const wellDisplayName = selectedWell?.name || 'PetroExpert';
     const wellSubtitle = selectedWell?.location || t('sidebar.noWellSelected');
 
-    const menuItems = [
-        { id: 'dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
+    // Engineering modules — work without a well selected
+    const engineeringModules = [
+        { id: 'module-dashboard', label: t('sidebar.engineeringDashboard'), icon: LayoutDashboard },
         { id: 'torque-drag', label: t('sidebar.torqueDrag'), icon: ArrowUpDown },
         { id: 'hydraulics', label: t('sidebar.hydraulicsECD'), icon: Droplets },
         { id: 'stuck-pipe', label: t('sidebar.stuckPipe'), icon: Lock },
@@ -95,7 +98,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'vibrations', label: t('sidebar.vibrations'), icon: Vibrate },
         { id: 'cementing', label: t('sidebar.cementing'), icon: Cylinder },
         { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
+    ];
+
+    // Well-dependent views — require a well to be selected
+    const wellDependentItems = [
+        { id: 'well-selector', label: t('sidebar.selectWell'), icon: Search },
+        { id: 'dashboard', label: t('sidebar.eventAnalysis'), icon: Database },
         { id: 'daily-reports', label: t('sidebar.dailyReports'), icon: ClipboardList },
+    ];
+
+    const bottomItems = [
         { id: 'settings', label: t('sidebar.settings'), icon: Settings },
     ];
 
@@ -112,18 +124,67 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                     </div>
                 </div>
 
-                <nav className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
-                    {menuItems.map((item) => (
+                <nav className="space-y-1 flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
+                    {/* Engineering Modules */}
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-2 pb-1">{t('sidebar.engineeringModules')}</p>
+                    {engineeringModules.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => setCurrentView(item.id)}
-                            className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
+                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
                                 ? 'bg-industrial-600/10 text-industrial-500 border border-industrial-500/20 shadow-inner'
                                 : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
                                 } `}
                         >
-                            <item.icon size={20} className={currentView === item.id ? 'text-industrial-500' : 'group-hover:scale-110 transition-transform'} />
-                            <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                            <item.icon size={18} className={currentView === item.id ? 'text-industrial-500' : 'group-hover:scale-110 transition-transform'} />
+                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
+                            {currentView === item.id && (
+                                <div className="ml-auto">
+                                    <ChevronRight size={14} />
+                                </div>
+                            )}
+                        </button>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="my-3 border-t border-white/5" />
+
+                    {/* Well-dependent views */}
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-1 pb-1">{t('sidebar.wellOperations')}</p>
+                    {wellDependentItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setCurrentView(item.id)}
+                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
+                                ? 'bg-industrial-600/10 text-industrial-500 border border-industrial-500/20 shadow-inner'
+                                : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                                } `}
+                        >
+                            <item.icon size={18} className={currentView === item.id ? 'text-industrial-500' : 'group-hover:scale-110 transition-transform'} />
+                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
+                            {currentView === item.id && (
+                                <div className="ml-auto">
+                                    <ChevronRight size={14} />
+                                </div>
+                            )}
+                        </button>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="my-3 border-t border-white/5" />
+
+                    {/* Settings */}
+                    {bottomItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setCurrentView(item.id)}
+                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
+                                ? 'bg-industrial-600/10 text-industrial-500 border border-industrial-500/20 shadow-inner'
+                                : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                                } `}
+                        >
+                            <item.icon size={18} className={currentView === item.id ? 'text-industrial-500' : 'group-hover:scale-110 transition-transform'} />
+                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
                             {currentView === item.id && (
                                 <div className="ml-auto">
                                     <ChevronRight size={14} />

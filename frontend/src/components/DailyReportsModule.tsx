@@ -29,7 +29,7 @@ import DailyOperationsTimeline from './charts/ddr/DailyOperationsTimeline';
 import ROPProgressChart from './charts/ddr/ROPProgressChart';
 
 interface DailyReportsModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 

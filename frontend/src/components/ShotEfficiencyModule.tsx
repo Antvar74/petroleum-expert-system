@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import type { Provider, ProviderOption } from '../types/ai';
 
 interface ShotEfficiencyModuleProps {
-  wellId: number;
+  wellId?: number;
   wellName?: string;
 }
 
@@ -110,7 +110,10 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
         perf_params: { spf: params.spf, phasing_deg: params.phasing_deg, perf_length_in: params.perf_length_in, tunnel_radius_in: params.tunnel_radius_in },
         reservoir_params: { kv_kh: params.kv_kh, wellbore_radius_ft: params.wellbore_radius_ft },
       };
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/shot-efficiency`, payload);
+      const url = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/shot-efficiency`
+        : `${API_BASE_URL}/calculate/shot-efficiency`;
+      const res = await axios.post(url, payload);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: any) {
@@ -123,9 +126,14 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
     if (!result) return;
     setIsAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/shot-efficiency/analyze`, {
+      const analyzeUrl = wellId
+        ? `${API_BASE_URL}/wells/${wellId}/shot-efficiency/analyze`
+        : `${API_BASE_URL}/analyze/module`;
+      const analyzeBody = {
+        ...(wellId ? {} : { module: 'shot-efficiency', well_name: wellName || 'General Analysis' }),
         result_data: result, params, language, provider,
-      });
+      };
+      const res = await axios.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
     } catch (e: any) {
       setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
