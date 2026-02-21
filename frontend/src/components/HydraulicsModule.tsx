@@ -9,7 +9,9 @@ import FlowRegimeTrack from './charts/hyd/FlowRegimeTrack';
 import BitHydraulicsGauges from './charts/hyd/BitHydraulicsGauges';
 import SurgeSwabWindow from './charts/hyd/SurgeSwabWindow';
 import AIAnalysisPanel from './AIAnalysisPanel';
-import { t, type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../hooks/useLanguage';
+import type { Provider, ProviderOption } from '../types/ai';
 
 interface HydraulicsModuleProps {
   wellId: number;
@@ -51,7 +53,8 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   // AI Analysis state
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [language, setLanguage] = useState<Language>('es');
+  const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -388,7 +391,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
           {!aiAnalysis && (
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-2 bg-white/5 rounded-lg overflow-hidden border border-white/10">
-                {(['en', 'es'] as Language[]).map((lang) => (
+                {(['en', 'es'] as const).map((lang) => (
                   <button
                     key={lang}
                     onClick={() => setLanguage(lang)}
@@ -407,13 +410,13 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                 className="btn-primary py-3 px-8 text-lg disabled:opacity-50"
               >
                 <BrainCircuit size={22} />
-                {isAnalyzing ? t[language].analyzingWithAI : t[language].aiExecutiveAnalysis}
+                {isAnalyzing ? t('ai.analyzingWithAI') : t('ai.executiveAnalysis')}
               </button>
             </div>
           )}
           {(aiAnalysis || isAnalyzing) && (
             <AIAnalysisPanel
-              moduleName={t[language].hydraulicsECD}
+              moduleName={t('modules.hydraulicsECD')}
               moduleIcon={Droplets}
               wellName={wellName}
               analysis={aiAnalysis?.analysis || null}
@@ -423,8 +426,6 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
               keyMetrics={aiAnalysis?.key_metrics || []}
               onAnalyze={runAIAnalysis}
               onClose={() => setAiAnalysis(null)}
-              language={language}
-              onLanguageChange={setLanguage}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

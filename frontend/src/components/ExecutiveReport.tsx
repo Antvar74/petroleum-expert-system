@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
-import { t, LOCALE_MAP, type Language } from '../translations/aiAnalysis';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface KeyMetric {
   label: string;
@@ -14,7 +15,6 @@ interface ExecutiveReportProps {
   confidence: string;
   keyMetrics: KeyMetric[];
   analysisText: string;
-  language: Language;
 }
 
 /**
@@ -22,9 +22,10 @@ interface ExecutiveReportProps {
  * White background, professional layout, designed for A4 printing.
  */
 const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
-  ({ moduleName, wellName, agentRole, confidence, keyMetrics, analysisText, language }, ref) => {
-    const s = t[language];
-    const locale = LOCALE_MAP[language];
+  ({ moduleName, wellName, agentRole, confidence, keyMetrics, analysisText }, ref) => {
+    const { t } = useTranslation();
+    const { language } = useLanguage();
+    const locale = language === 'es' ? 'es-MX' : 'en-US';
     const now = new Date();
     const dateStr = now.toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
     const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
@@ -42,15 +43,15 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
             <div>
               <div className="executive-report-title">PETROEXPERT</div>
               <div style={{ fontSize: '16px', fontWeight: 600, color: '#475569', marginTop: '4px' }}>
-                {s.executiveReport}: {moduleName}
+                {t('ai.executiveReport')}: {moduleName}
               </div>
             </div>
             <div className="executive-report-meta">
-              <div style={{ fontWeight: 700, fontSize: '13px', color: '#1e3a5f' }}>{s.well}: {wellName}</div>
-              <div>{s.date}: {dateStr} | {timeStr}</div>
-              <div>{s.analyst}: {agentRole}</div>
+              <div style={{ fontWeight: 700, fontSize: '13px', color: '#1e3a5f' }}>{t('ai.well')}: {wellName}</div>
+              <div>{t('ai.date')}: {dateStr} | {timeStr}</div>
+              <div>{t('ai.analyst')}: {agentRole}</div>
               <div style={{ marginTop: '4px' }}>
-                {s.confidence}:{' '}
+                {t('ai.confidence')}:{' '}
                 <span style={{ color: confidenceColor, fontWeight: 700 }}>{confidence}</span>
               </div>
             </div>
@@ -61,7 +62,7 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
         {keyMetrics && keyMetrics.length > 0 && (
           <>
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '8px', letterSpacing: '0.5px' }}>
-              {s.kpiTitle}
+              {t('ai.kpiTitle')}
             </div>
             <div className="executive-kpi-grid">
               {keyMetrics.map((m, i) => (
@@ -101,9 +102,9 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
 
         {/* Footer */}
         <div className="executive-footer">
-          <span>{s.expertSystem}</span>
-          <span>{s.confidential}</span>
-          <span>{s.generatedBy}: {agentRole}</span>
+          <span>{t('ai.expertSystem')}</span>
+          <span>{t('ai.confidential')}</span>
+          <span>{t('ai.generatedBy')}: {agentRole}</span>
         </div>
       </div>
     );

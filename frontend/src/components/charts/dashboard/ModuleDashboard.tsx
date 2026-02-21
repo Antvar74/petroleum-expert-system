@@ -2,6 +2,7 @@
  * ModuleDashboard.tsx — Global summary dashboard with module cards.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
@@ -17,11 +18,11 @@ interface ModuleDashboardProps {
 interface ModuleCard {
   id: string;
   view: string;
-  name: string;
+  nameKey: string;
+  descKey: string;
   icon: React.ElementType;
   color: string;
   bgColor: string;
-  description: string;
   sparkColor: string;
 }
 
@@ -29,93 +30,94 @@ const modules: ModuleCard[] = [
   {
     id: 'td',
     view: 'torque-drag',
-    name: 'Torque & Drag',
+    nameKey: 'modules.torqueDrag',
+    descKey: 'dashboard.moduleDescTD',
     icon: Activity,
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/10 border-orange-500/20',
-    description: 'Real-time axial force analysis, hookload prediction, and buckling assessment',
     sparkColor: '#f97316',
   },
   {
     id: 'hyd',
     view: 'hydraulics',
-    name: 'Hydraulics / ECD',
+    nameKey: 'modules.hydraulicsECD',
+    descKey: 'dashboard.moduleDescHyd',
     icon: Droplets,
     color: 'text-cyan-400',
     bgColor: 'bg-cyan-500/10 border-cyan-500/20',
-    description: 'Pressure loss distribution, ECD profiling, bit optimization, and surge/swab analysis',
     sparkColor: '#06b6d4',
   },
   {
     id: 'sp',
     view: 'stuck-pipe',
-    name: 'Stuck Pipe Analyzer',
+    nameKey: 'modules.stuckPipe',
+    descKey: 'dashboard.moduleDescSP',
     icon: AlertTriangle,
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/10 border-yellow-500/20',
-    description: 'Mechanism diagnosis, risk matrix assessment, free point estimation',
     sparkColor: '#eab308',
   },
   {
     id: 'wc',
     view: 'well-control',
-    name: 'Well Control',
+    nameKey: 'modules.wellControl',
+    descKey: 'dashboard.moduleDescWC',
     icon: Shield,
     color: 'text-red-400',
     bgColor: 'bg-red-500/10 border-red-500/20',
-    description: 'Kill sheet calculations, pressure schedules, volumetric & bullhead methods',
     sparkColor: '#ef4444',
   },
   {
     id: 'cu',
     view: 'wellbore-cleanup',
-    name: 'Wellbore Cleanup',
+    nameKey: 'modules.wellboreCleanup',
+    descKey: 'dashboard.moduleDescCU',
     icon: Waves,
     color: 'text-green-400',
     bgColor: 'bg-green-500/10 border-green-500/20',
-    description: 'Hole cleaning analysis, cuttings transport, annular velocity, sweep pill design',
     sparkColor: '#22c55e',
   },
   {
     id: 'pf',
     view: 'packer-forces',
-    name: 'Packer Forces',
+    nameKey: 'modules.packerForces',
+    descKey: 'dashboard.moduleDescPF',
     icon: Anchor,
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10 border-purple-500/20',
-    description: 'Tubing-packer force analysis, buckling assessment, thermal & pressure effects',
     sparkColor: '#a855f7',
   },
   {
     id: 'wh',
     view: 'workover-hydraulics',
-    name: 'Workover Hydraulics',
+    nameKey: 'modules.workoverHydraulics',
+    descKey: 'dashboard.moduleDescWH',
     icon: Wrench,
     color: 'text-teal-400',
     bgColor: 'bg-teal-500/10 border-teal-500/20',
-    description: 'CT pressure losses, snubbing forces, weight/drag analysis, max reach estimation',
     sparkColor: '#14b8a6',
   },
   {
     id: 'sc',
     view: 'sand-control',
-    name: 'Sand Control',
+    nameKey: 'modules.sandControl',
+    descKey: 'dashboard.moduleDescSC',
     icon: Filter,
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10 border-amber-500/20',
-    description: 'PSD analysis, gravel pack design, screen selection, sanding risk assessment',
     sparkColor: '#f59e0b',
   },
 ];
 
 const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId }) => {
+  const { t } = useTranslation();
   return (
     <div className="max-w-6xl mx-auto py-8">
       <div className="flex items-center gap-3 mb-8">
         <BarChart3 className="text-industrial-500" size={28} />
         <div>
-          <h2 className="text-2xl font-bold">Engineering Dashboard</h2>
-          <p className="text-white/40 text-sm">Well #{wellId} — Module Overview</p>
+          <h2 className="text-2xl font-bold">{t('dashboard.title')}</h2>
+          <p className="text-white/40 text-sm">{t('dashboard.wellModuleOverview', { wellId })}</p>
         </div>
       </div>
 
@@ -138,8 +140,8 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
                     <Icon size={22} className={mod.color} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{mod.name}</h3>
-                    <p className="text-white/30 text-xs mt-0.5">{mod.description}</p>
+                    <h3 className="font-bold text-lg">{t(mod.nameKey)}</h3>
+                    <p className="text-white/30 text-xs mt-0.5">{t(mod.descKey)}</p>
                   </div>
                 </div>
                 <ChevronRight size={20} className="text-white/20 mt-1" />
@@ -156,10 +158,10 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
                     dataKey="v"
                     color={mod.sparkColor}
                   />
-                  <span className="text-[10px] text-white/20">sample</span>
+                  <span className="text-[10px] text-white/20">{t('dashboard.sample')}</span>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${mod.bgColor} ${mod.color}`}>
-                  READY
+                  {t('dashboard.ready')}
                 </span>
               </div>
             </motion.div>
@@ -174,13 +176,13 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
         transition={{ delay: 0.5 }}
         className="glass-panel p-6 rounded-2xl border border-white/5"
       >
-        <h3 className="font-bold text-sm mb-4">System Capabilities</h3>
+        <h3 className="font-bold text-sm mb-4">{t('dashboard.systemCapabilities')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Engineering Modules', value: '8', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC' },
-            { label: 'Chart Types', value: '36+', detail: 'Recharts + Custom SVG' },
-            { label: 'Calculation Engines', value: '8', detail: 'Pure Python' },
-            { label: 'PDF Export', value: 'Yes', detail: 'Professional reports' },
+            { label: t('dashboard.engineeringModules'), value: '8', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC' },
+            { label: t('dashboard.chartTypes'), value: '36+', detail: t('dashboard.rechartsCustomSVG') },
+            { label: t('dashboard.calculationEngines'), value: '8', detail: t('dashboard.purePython') },
+            { label: t('dashboard.pdfExport'), value: t('dashboard.yes'), detail: t('dashboard.professionalReports') },
           ].map((stat, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-4 text-center">
               <p className="text-xs text-white/40 mb-1">{stat.label}</p>

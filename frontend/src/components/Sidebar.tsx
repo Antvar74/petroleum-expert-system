@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     LayoutDashboard,
     Settings,
@@ -43,6 +44,7 @@ interface SystemHealth {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selectedWell }) => {
+    const { t } = useTranslation();
     const [health, setHealth] = useState<SystemHealth | null>(null);
     const [healthError, setHealthError] = useState(false);
 
@@ -65,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
     // Compute health display
     const isHealthy = health && !healthError && health.api === 'ok';
     const llmOk = health?.llm?.status === 'ok';
-    const healthLabel = healthError ? 'Offline' : (!llmOk ? 'LLM Error' : 'Operational');
+    const healthLabel = healthError ? t('sidebar.offline') : (!llmOk ? t('sidebar.llmError') : t('sidebar.operational'));
     const healthColor = healthError ? 'text-red-500' : (!llmOk ? 'text-yellow-500' : 'text-green-500');
     const healthBarWidth = healthError ? 'w-1/5' : (!llmOk ? 'w-3/5' : 'w-4/5');
     const healthBarColor = healthError ? 'bg-red-500' : (!llmOk ? 'bg-yellow-500' : 'bg-industrial-500');
@@ -75,24 +77,24 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         ? selectedWell.name.split(/[\s-]+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
         : 'PE';
     const wellDisplayName = selectedWell?.name || 'PetroExpert';
-    const wellSubtitle = selectedWell?.location || 'Sin pozo seleccionado';
+    const wellSubtitle = selectedWell?.location || t('sidebar.noWellSelected');
 
     const menuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'torque-drag', label: 'Torque & Drag', icon: ArrowUpDown },
-        { id: 'hydraulics', label: 'Hydraulics/ECD', icon: Droplets },
-        { id: 'stuck-pipe', label: 'Stuck Pipe', icon: Lock },
-        { id: 'well-control', label: 'Well Control', icon: Shield },
-        { id: 'wellbore-cleanup', label: 'Wellbore Cleanup', icon: Waves },
-        { id: 'packer-forces', label: 'Packer Forces', icon: Anchor },
-        { id: 'workover-hydraulics', label: 'Workover Hyd.', icon: Wrench },
-        { id: 'sand-control', label: 'Sand Control', icon: Filter },
-        { id: 'completion-design', label: 'Completion Design', icon: Layers },
-        { id: 'shot-efficiency', label: 'Shot Efficiency', icon: Target },
-        { id: 'vibrations', label: 'Vibrations', icon: Vibrate },
-        { id: 'cementing', label: 'Cementing', icon: Cylinder },
-        { id: 'casing-design', label: 'Casing Design', icon: ShieldCheck },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
+        { id: 'torque-drag', label: t('sidebar.torqueDrag'), icon: ArrowUpDown },
+        { id: 'hydraulics', label: t('sidebar.hydraulicsECD'), icon: Droplets },
+        { id: 'stuck-pipe', label: t('sidebar.stuckPipe'), icon: Lock },
+        { id: 'well-control', label: t('sidebar.wellControl'), icon: Shield },
+        { id: 'wellbore-cleanup', label: t('sidebar.wellboreCleanup'), icon: Waves },
+        { id: 'packer-forces', label: t('sidebar.packerForces'), icon: Anchor },
+        { id: 'workover-hydraulics', label: t('sidebar.workoverHydraulics'), icon: Wrench },
+        { id: 'sand-control', label: t('sidebar.sandControl'), icon: Filter },
+        { id: 'completion-design', label: t('sidebar.completionDesign'), icon: Layers },
+        { id: 'shot-efficiency', label: t('sidebar.shotEfficiency'), icon: Target },
+        { id: 'vibrations', label: t('sidebar.vibrations'), icon: Vibrate },
+        { id: 'cementing', label: t('sidebar.cementing'), icon: Cylinder },
+        { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
+        { id: 'settings', label: t('sidebar.settings'), icon: Settings },
     ];
 
     return (
@@ -144,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter flex items-center gap-1.5">
                             {isHealthy ? <Wifi size={10} className="text-green-500" /> : <WifiOff size={10} className="text-red-500" />}
-                            System Health
+                            {t('sidebar.systemHealth')}
                         </span>
                         <span className={`text-[10px] font-bold uppercase tracking-tighter ${healthColor}`}>{healthLabel}</span>
                     </div>
@@ -153,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                     </div>
                     {health?.agents && (
                         <div className="mt-2 text-[9px] text-white/20 font-mono">
-                            {health.agents} agents | {llmOk ? 'Gemini OK' : 'LLM N/A'}
+                            {health.agents} {t('sidebar.agents')} | {llmOk ? 'Gemini OK' : 'LLM N/A'}
                         </div>
                     )}
                 </div>

@@ -8,7 +8,8 @@ import TubingMovementDiagram from './charts/pf/TubingMovementDiagram';
 import PackerForceGaugeComponent from './charts/pf/PackerForceGauge';
 import SensitivityHeatmap from './charts/pf/SensitivityHeatmap';
 import AIAnalysisPanel from './AIAnalysisPanel';
-import { type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
+import { useLanguage } from '../hooks/useLanguage';
+import type { Provider, ProviderOption } from '../types/ai';
 
 interface PackerForcesModuleProps {
   wellId: number;
@@ -41,7 +42,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
   const [result, setResult] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [language, setLanguage] = useState<Language>('es');
+  const { language } = useLanguage();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -283,8 +284,6 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
               onAnalyze={runAIAnalysis}
-              language={language}
-              onLanguageChange={setLanguage}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

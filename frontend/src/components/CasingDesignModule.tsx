@@ -10,7 +10,8 @@ import BiaxialEllipse from './charts/csg/BiaxialEllipse';
 import CasingProgramSchematic from './charts/csg/CasingProgramSchematic';
 import GradeSelectionTable from './charts/csg/GradeSelectionTable';
 import AIAnalysisPanel from './AIAnalysisPanel';
-import { type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
+import { useLanguage } from '../hooks/useLanguage';
+import type { Provider, ProviderOption } from '../types/ai';
 
 interface CasingDesignModuleProps {
   wellId: number;
@@ -35,7 +36,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const [result, setResult] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [language, setLanguage] = useState<Language>('es');
+  const { language } = useLanguage();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -295,8 +296,6 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
               onAnalyze={runAIAnalysis}
-              language={language}
-              onLanguageChange={setLanguage}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

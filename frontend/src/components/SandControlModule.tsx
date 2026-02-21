@@ -8,7 +8,8 @@ import CompletionComparisonRadar from './charts/sc/CompletionComparisonRadar';
 import DrawdownLimitGauge from './charts/sc/DrawdownLimitGauge';
 import GravelPackSchematic from './charts/sc/GravelPackSchematic';
 import AIAnalysisPanel from './AIAnalysisPanel';
-import { type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
+import { useLanguage } from '../hooks/useLanguage';
+import type { Provider, ProviderOption } from '../types/ai';
 
 interface SandControlModuleProps {
   wellId: number;
@@ -40,7 +41,7 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
   const [result, setResult] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [language, setLanguage] = useState<Language>('es');
+  const { language } = useLanguage();
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -293,8 +294,6 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
               onAnalyze={runAIAnalysis}
-              language={language}
-              onLanguageChange={setLanguage}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

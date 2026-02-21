@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrainCircuit, FileText, Share2, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import ExecutiveReport from './ExecutiveReport';
-import { t, LOCALE_MAP, type Language, type Provider, type ProviderOption } from '../translations/aiAnalysis';
+import { useLanguage } from '../hooks/useLanguage';
+import type { Provider, ProviderOption } from '../types/ai';
 
 // @ts-ignore - html2pdf has no types
 import html2pdf from 'html2pdf.js';
@@ -25,8 +27,6 @@ interface AIAnalysisPanelProps {
   keyMetrics: KeyMetric[];
   onAnalyze: () => void;
   onClose?: () => void;
-  language: Language;
-  onLanguageChange: (lang: Language) => void;
   provider: Provider;
   onProviderChange: (provider: Provider) => void;
   availableProviders: ProviderOption[];
@@ -49,13 +49,13 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   keyMetrics,
   onAnalyze,
   onClose,
-  language,
-  onLanguageChange,
   provider,
   onProviderChange,
   availableProviders,
 }) => {
-  const s = t[language];
+  const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
+  const locale = language === 'es' ? 'es-MX' : 'en-US';
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -120,7 +120,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   // Share as PDF
   const handleSharePDF = async () => {
     if (!navigator.share) {
-      alert(s.sharingNotSupported);
+      alert(t('ai.sharingNotSupported'));
       return;
     }
 
@@ -152,10 +152,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         await navigator.share({
           files: [file],
           title: `PetroExpert - ${moduleName} - ${wellName}`,
-          text: `${s.reportFor} ${moduleName}.`,
+          text: `${t('ai.reportFor')} ${moduleName}.`,
         });
       } else {
-        alert(s.filesNotSupported);
+        alert(t('ai.filesNotSupported'));
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -185,7 +185,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                {s.aiExecutiveAnalysis}
+                {t('ai.executiveAnalysis')}
                 <ModuleIcon size={16} className="text-white/40" />
                 <span className="text-white/40 font-normal text-sm">{moduleName}</span>
               </h3>
@@ -201,10 +201,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           <div className="flex items-center gap-2">
             {/* Language toggle */}
             <div className="flex items-center bg-white/5 rounded-lg overflow-hidden border border-white/10">
-              {(['en', 'es'] as Language[]).map((lang) => (
+              {(['en', 'es'] as const).map((lang) => (
                 <button
                   key={lang}
-                  onClick={() => onLanguageChange(lang)}
+                  onClick={() => setLanguage(lang)}
                   className={`px-2.5 py-1 text-xs font-bold transition-all ${
                     language === lang
                       ? 'bg-industrial-600 text-white'
@@ -222,7 +222,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 value={provider}
                 onChange={(e) => onProviderChange(e.target.value as Provider)}
                 className="bg-white/5 border border-white/10 rounded-lg text-white/80 py-1 px-2 text-xs focus:outline-none focus:border-industrial-500/50"
-                title={s.provider}
+                title={t('ai.provider')}
               >
                 {availableProviders.map((p) => (
                   <option key={p.id} value={p.id} className="bg-gray-900 text-white">
@@ -239,25 +239,25 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               onClick={handleSavePDF}
               disabled={isGeneratingPDF || isLoading || !analysis}
               className="btn-secondary text-xs py-1.5 px-3 disabled:opacity-30"
-              title={s.exportPdf}
+              title={t('ai.exportPdf')}
             >
               <FileText size={14} />
-              {isGeneratingPDF ? s.generatingPdf : s.exportPdf}
+              {isGeneratingPDF ? t('ai.generatingPdf') : t('ai.exportPdf')}
             </button>
             <button
               onClick={handleSharePDF}
               disabled={isGeneratingPDF || isLoading || !analysis}
               className="btn-secondary text-xs py-1.5 px-3 disabled:opacity-30"
-              title={s.share}
+              title={t('ai.share')}
             >
               <Share2 size={14} />
-              {s.share}
+              {t('ai.share')}
             </button>
             <button
               onClick={onAnalyze}
               disabled={isLoading}
               className="btn-secondary text-xs py-1.5 px-3 disabled:opacity-30"
-              title={s.regenerate}
+              title={t('ai.regenerate')}
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
@@ -296,7 +296,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                         <span className="text-xs text-white/40">{m.label}:</span>
                         <span className="text-sm font-bold text-industrial-400">
                           {typeof m.value === 'number'
-                            ? m.value.toLocaleString(LOCALE_MAP[language], { maximumFractionDigits: 2 })
+                            ? m.value.toLocaleString(locale, { maximumFractionDigits: 2 })
                             : m.value}
                         </span>
                         {m.unit && <span className="text-xs text-white/30">{m.unit}</span>}
@@ -314,12 +314,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 {isLoading && !analysis ? (
                   <div className="flex items-center gap-3 py-8 justify-center">
                     <div className="w-5 h-5 border-2 border-industrial-500/30 border-t-industrial-500 rounded-full animate-spin" />
-                    <span className="text-white/50 text-sm">{s.analyzingWithAgent} ({agentRole})...</span>
+                    <span className="text-white/50 text-sm">{t('ai.analyzingWithAgent')} ({agentRole})...</span>
                   </div>
                 ) : (
                   <div className="prose prose-invert max-w-none">
                     <div className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
-                      {displayedText || analysis || s.noAnalysis}
+                      {displayedText || analysis || t('ai.noAnalysis')}
                       {isTyping && (
                         <span className="inline-block w-2 h-4 bg-industrial-400 ml-0.5 animate-pulse" />
                       )}
@@ -341,7 +341,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         confidence={confidence}
         keyMetrics={keyMetrics}
         analysisText={analysis || ''}
-        language={language}
       />
     </motion.div>
   );

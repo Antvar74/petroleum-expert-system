@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Database, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
@@ -11,6 +12,7 @@ interface WellSelectorProps {
 
 
 const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
+    const { t } = useTranslation();
     const [wells, setWells] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newWellName, setNewWellName] = useState('');
@@ -61,32 +63,32 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
             setWellToDelete(null);
         } catch (error) {
             console.error("Error deleting well:", error);
-            alert("Failed to delete well. Please try again.");
+            alert(t('well.deleteError'));
             setWellToDelete(null);
         }
     };
 
-    if (loading) return <div className="animate-pulse flex justify-center p-20">Loading exploration data...</div>;
+    if (loading) return <div className="animate-pulse flex justify-center p-20">{t('well.loadingData')}</div>;
 
     return (
         <div className="max-w-4xl mx-auto py-12">
             <div className="flex justify-between items-end mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>
-                    <p className="text-white/40">Select an existing well project or create a new one to start analysis.</p>
+                    <h2 className="text-3xl font-bold mb-2">{t('well.welcomeBack')}</h2>
+                    <p className="text-white/40">{t('well.selectWellDescription')}</p>
                 </div>
                 <button
                     onClick={() => setIsAdding(!isAdding)}
                     className="btn-primary"
                 >
                     <Plus size={18} />
-                    {isAdding ? 'Cancel' : 'New Well Project'}
+                    {isAdding ? t('well.cancel') : t('well.newWellProject')}
                 </button>
             </div>
 
             {isAdding && (
                 <form onSubmit={handleAddWell} className="glass-panel p-6 mb-8 animate-in fade-in slide-in-from-top-4">
-                    <h3 className="text-lg font-bold mb-4">Register New Well</h3>
+                    <h3 className="text-lg font-bold mb-4">{t('well.registerNewWell')}</h3>
                     <div className="flex gap-4">
                         <input
                             type="text"
@@ -96,7 +98,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
                             className="input-field flex-1"
                             autoFocus
                         />
-                        <button type="submit" className="btn-primary">Create Project</button>
+                        <button type="submit" className="btn-primary">{t('well.createProject')}</button>
                     </div>
                 </form>
             )}
@@ -104,7 +106,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {wells.length === 0 ? (
                     <div className="col-span-2 glass-panel p-12 text-center text-white/20 italic">
-                        No wells registered yet. Click "New Well Project" to start.
+                        {t('well.noWellsYet')}
                     </div>
                 ) : (
                     wells.map((well) => (
@@ -119,14 +121,14 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-lg">{well.name}</h4>
-                                    <p className="text-xs text-white/40">{well.location || 'Location not specified'}</p>
+                                    <p className="text-xs text-white/40">{well.location || t('well.locationNotSpecified')}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={(e) => initiateDelete(e, well.id)}
                                     className="text-white/20 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-white/5 z-20"
-                                    title="Delete Well Project"
+                                    title={t('well.deleteWellTitle')}
                                 >
                                     <Trash2 size={18} />
                                 </button>
@@ -141,9 +143,9 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
                 isOpen={!!wellToDelete}
                 onClose={() => setWellToDelete(null)}
                 onConfirm={confirmDelete}
-                title="Delete Well Project"
-                message="Are you sure you want to delete this well project? This action cannot be undone and all associated data will be lost."
-                confirmText="Delete Project"
+                title={t('well.deleteWellTitle')}
+                message={t('well.deleteWellMessage')}
+                confirmText={t('well.deleteProject')}
                 variant="danger"
             />
         </div>
