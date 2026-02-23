@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, Plus, Trash2, Play, RefreshCw, Upload, Layers, BrainCircuit } from 'lucide-react';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import * as XLSX from 'xlsx';
 
 interface TorqueDragModuleProps {
   wellId?: number;
@@ -80,6 +81,8 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { addToast } = useToast();
+  const surveyFileRef = useRef<HTMLInputElement>(null);
+  const drillstringFileRef = useRef<HTMLInputElement>(null);
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -138,6 +141,61 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setSurveyStations(updated);
   };
 
+  // ── Survey file upload (CSV / Excel) ──
+  const SURVEY_COL_MAP: Record<string, string> = {
+    'md': 'md', 'md (ft)': 'md', 'md(ft)': 'md', 'measured depth': 'md',
+    'pm': 'md', 'pm (ft)': 'md', 'profundidad medida': 'md', 'prof': 'md', 'depth': 'md',
+    'inc': 'inclination', 'inc (°)': 'inclination', 'inclination': 'inclination',
+    'inclinacion': 'inclination', 'inclinación': 'inclination', 'incl': 'inclination',
+    'azi': 'azimuth', 'azi (°)': 'azimuth', 'azimuth': 'azimuth',
+    'azimut': 'azimuth', 'az': 'azimuth',
+  };
+
+  const handleSurveyFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) { addToast(t('torqueDrag.survey.uploadEmpty'), 'error'); return; }
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (rows.length === 0) { addToast(t('torqueDrag.survey.uploadEmpty'), 'error'); return; }
+
+        const hdrMap: Record<string, string> = {};
+        for (const fh of Object.keys(rows[0])) {
+          const mapped = SURVEY_COL_MAP[fh.trim().toLowerCase()];
+          if (mapped) hdrMap[fh] = mapped;
+        }
+        if (!Object.values(hdrMap).includes('md')) {
+          addToast(t('torqueDrag.survey.uploadNoColumns'), 'error'); return;
+        }
+
+        const parsed = rows
+          .map(row => {
+            const st = { md: 0, inclination: 0, azimuth: 0 };
+            for (const [fc, sf] of Object.entries(hdrMap)) {
+              (st as any)[sf] = parseFloat(row[fc]) || 0;
+            }
+            return st;
+          })
+          .filter(s => s.md > 0);
+
+        if (parsed.length === 0) { addToast(t('torqueDrag.survey.uploadEmpty'), 'error'); return; }
+        setSurveyStations(parsed);
+        setComputedSurvey([]); // clear computed since data changed
+        addToast(t('torqueDrag.survey.uploadSuccess', { count: parsed.length }), 'success');
+      } catch (err) {
+        console.error('Survey file parse error:', err);
+        addToast(t('torqueDrag.survey.uploadError'), 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
   const uploadSurvey = async () => {
     if (!wellId) return;
     setLoading(true);
@@ -167,6 +225,69 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       updated[idx] = { ...updated[idx], [field]: parseFloat(value) || 0 };
     }
     setDrillstring(updated);
+  };
+
+  // ── Drillstring file upload (CSV / Excel) ──
+  const DS_COL_MAP: Record<string, string> = {
+    'section': 'section_name', 'section name': 'section_name', 'section_name': 'section_name',
+    'seccion': 'section_name', 'sección': 'section_name', 'component': 'section_name',
+    'componente': 'section_name', 'name': 'section_name', 'nombre': 'section_name',
+    'description': 'section_name', 'descripcion': 'section_name', 'type': 'section_name',
+    'od': 'od', 'od (in)': 'od', 'od(in)': 'od', 'de': 'od', 'de (in)': 'od',
+    'outer diameter': 'od', 'diametro externo': 'od',
+    'id': 'id_inner', 'id (in)': 'id_inner', 'id(in)': 'id_inner', 'id_inner': 'id_inner',
+    'di': 'id_inner', 'di (in)': 'id_inner', 'inner diameter': 'id_inner', 'diametro interno': 'id_inner',
+    'weight': 'weight', 'weight (lb/ft)': 'weight', 'weight(lb/ft)': 'weight',
+    'peso': 'weight', 'peso (lb/ft)': 'weight', 'lb/ft': 'weight',
+    'length': 'length', 'length (ft)': 'length', 'length(ft)': 'length',
+    'longitud': 'length', 'longitud (ft)': 'length', 'largo': 'length', 'long': 'length',
+    'order': 'order_from_bit', 'order_from_bit': 'order_from_bit', 'orden': 'order_from_bit',
+  };
+
+  const handleDrillstringFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (rows.length === 0) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
+
+        const hdrMap: Record<string, string> = {};
+        for (const fh of Object.keys(rows[0])) {
+          const mapped = DS_COL_MAP[fh.trim().toLowerCase()];
+          if (mapped) hdrMap[fh] = mapped;
+        }
+        if (!Object.values(hdrMap).includes('section_name')) {
+          addToast(t('torqueDrag.drillstring.uploadNoColumns'), 'error'); return;
+        }
+
+        const parsed = rows
+          .map((row, idx) => {
+            const sec: any = { section_name: '', od: 5.0, id_inner: 4.276, weight: 19.5, length: 500, order_from_bit: idx + 1 };
+            for (const [fc, sf] of Object.entries(hdrMap)) {
+              const v = row[fc];
+              if (sf === 'section_name') sec[sf] = String(v || '').trim();
+              else sec[sf] = parseFloat(v) || sec[sf];
+            }
+            return sec;
+          })
+          .filter((s: any) => s.section_name.trim() !== '');
+
+        if (parsed.length === 0) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
+        setDrillstring(parsed);
+        addToast(t('torqueDrag.drillstring.uploadSuccess', { count: parsed.length }), 'success');
+      } catch (err) {
+        console.error('Drillstring file parse error:', err);
+        addToast(t('torqueDrag.drillstring.uploadError'), 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
   };
 
   const uploadDrillstring = async () => {
@@ -297,6 +418,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                   <button onClick={addSurveyStation} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
                     <Plus size={14} /> {t('torqueDrag.survey.addStation')}
                   </button>
+                  <button onClick={() => surveyFileRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
+                    <Upload size={14} /> {t('torqueDrag.survey.uploadFile')}
+                  </button>
+                  <input ref={surveyFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleSurveyFileUpload} />
                   <button onClick={uploadSurvey} disabled={loading} className="flex items-center gap-1 px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
                     <Upload size={14} /> {loading ? t('common.computing') : t('torqueDrag.survey.uploadCompute')}
                   </button>
@@ -353,6 +478,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                   <button onClick={addSection} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
                     <Plus size={14} /> {t('torqueDrag.drillstring.addSection')}
                   </button>
+                  <button onClick={() => drillstringFileRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors">
+                    <Upload size={14} /> {t('torqueDrag.drillstring.uploadFile')}
+                  </button>
+                  <input ref={drillstringFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleDrillstringFileUpload} />
                   <button onClick={uploadDrillstring} disabled={loading} className="flex items-center gap-1 px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
                     <Upload size={14} /> {t('common.save')}
                   </button>

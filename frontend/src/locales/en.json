@@ -561,7 +561,12 @@
       "tvd": "TVD (ft)",
       "north": "North (ft)",
       "east": "East (ft)",
-      "dls": "DLS (°/100ft)"
+      "dls": "DLS (°/100ft)",
+      "uploadFile": "Upload CSV/Excel",
+      "uploadSuccess": "Survey loaded: {{count}} stations imported",
+      "uploadEmpty": "File contains no valid survey data",
+      "uploadNoColumns": "Could not identify survey columns. Expected: MD, Inc, Azi",
+      "uploadError": "Error reading file. Please check the format."
     },
     "drillstring": {
       "title": "Drillstring Sections",
@@ -572,7 +577,12 @@
       "weight": "Weight (lb/ft)",
       "length": "Length (ft)",
       "order": "Order",
-      "savedSuccess": "Drillstring saved successfully"
+      "savedSuccess": "Drillstring saved successfully",
+      "uploadFile": "Upload CSV/Excel",
+      "uploadSuccess": "Drillstring loaded: {{count}} sections imported",
+      "uploadEmpty": "File contains no valid drillstring data",
+      "uploadNoColumns": "Could not identify drillstring columns. Expected: Section, OD, ID, Weight, Length",
+      "uploadError": "Error reading file. Please check the format."
     },
     "analysis": {
       "title": "Calculation Parameters",

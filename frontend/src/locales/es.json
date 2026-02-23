@@ -561,7 +561,12 @@
       "tvd": "PVD (ft)",
       "north": "Norte (ft)",
       "east": "Este (ft)",
-      "dls": "IPD (°/100ft)"
+      "dls": "IPD (°/100ft)",
+      "uploadFile": "Cargar CSV/Excel",
+      "uploadSuccess": "Survey cargado: {{count}} estaciones importadas",
+      "uploadEmpty": "El archivo no contiene datos de survey válidos",
+      "uploadNoColumns": "No se pudieron identificar columnas de survey. Esperadas: MD, Inc, Azi",
+      "uploadError": "Error al leer el archivo. Verifique el formato."
     },
     "drillstring": {
       "title": "Secciones de Sarta",
@@ -572,7 +577,12 @@
       "weight": "Peso (lb/ft)",
       "length": "Longitud (ft)",
       "order": "Orden",
-      "savedSuccess": "Sarta guardada exitosamente"
+      "savedSuccess": "Sarta guardada exitosamente",
+      "uploadFile": "Cargar CSV/Excel",
+      "uploadSuccess": "Sarta cargada: {{count}} secciones importadas",
+      "uploadEmpty": "El archivo no contiene datos de sarta válidos",
+      "uploadNoColumns": "No se pudieron identificar columnas de sarta. Esperadas: Sección, OD, ID, Peso, Longitud",
+      "uploadError": "Error al leer el archivo. Verifique el formato."
     },
     "analysis": {
       "title": "Parámetros de Cálculo",
