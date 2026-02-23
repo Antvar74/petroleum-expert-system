@@ -3999,5 +3999,91 @@ def standalone_petro_evaluation(data: Dict[str, Any] = Body(...)):
     )
 
 
+# ── WITSML Integration Routes ──────────────────────────────────────────────────
+
+from orchestrator.witsml_client import WITSMLClient
+
+
+@app.post("/witsml/connect")
+def witsml_connect(data: Dict[str, Any] = Body(...)):
+    """Test connection to a WITSML server."""
+    url = data.get("url", "")
+    username = data.get("username", "")
+    password = data.get("password", "")
+    return WITSMLClient.connect(url, username, password)
+
+
+@app.post("/witsml/parse-log")
+def witsml_parse_log(data: Dict[str, Any] = Body(...)):
+    """Parse WITSML log XML and return structured data."""
+    xml_str = data.get("xml", "")
+    if not xml_str:
+        raise HTTPException(status_code=400, detail="Missing 'xml' field")
+    parsed = WITSMLClient.parse_log_response(xml_str)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    return parsed
+
+
+@app.post("/witsml/parse-trajectory")
+def witsml_parse_trajectory(data: Dict[str, Any] = Body(...)):
+    """Parse WITSML trajectory XML and return survey stations."""
+    xml_str = data.get("xml", "")
+    if not xml_str:
+        raise HTTPException(status_code=400, detail="Missing 'xml' field")
+    parsed = WITSMLClient.parse_trajectory_response(xml_str)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    return parsed
+
+
+@app.post("/witsml/parse-mudlog")
+def witsml_parse_mudlog(data: Dict[str, Any] = Body(...)):
+    """Parse WITSML mudLog XML and return lithology intervals."""
+    xml_str = data.get("xml", "")
+    if not xml_str:
+        raise HTTPException(status_code=400, detail="Missing 'xml' field")
+    parsed = WITSMLClient.parse_mudlog_response(xml_str)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    return parsed
+
+
+@app.post("/witsml/convert-log")
+def witsml_convert_log(data: Dict[str, Any] = Body(...)):
+    """Parse WITSML log XML and convert to PetroExpert standard format."""
+    xml_str = data.get("xml", "")
+    if not xml_str:
+        raise HTTPException(status_code=400, detail="Missing 'xml' field")
+    parsed = WITSMLClient.parse_log_response(xml_str)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    converted = WITSMLClient.witsml_log_to_petro_format(parsed)
+    return {"data": converted, "point_count": len(converted), "source": parsed.get("log_name", "")}
+
+
+@app.post("/witsml/build-query")
+def witsml_build_query(data: Dict[str, Any] = Body(...)):
+    """Build a WITSML GetFromStore query XML."""
+    query_type = data.get("type", "log")
+    well_uid = data.get("well_uid", "")
+    wellbore_uid = data.get("wellbore_uid", "")
+
+    if query_type == "log":
+        xml = WITSMLClient.build_log_query(
+            well_uid, wellbore_uid,
+            log_uid=data.get("log_uid", ""),
+            mnemonics=data.get("mnemonics"),
+            start_index=data.get("start_index"),
+            end_index=data.get("end_index"),
+        )
+    elif query_type == "trajectory":
+        xml = WITSMLClient.build_trajectory_query(well_uid, wellbore_uid)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown query type: {query_type}")
+
+    return {"query_xml": xml, "type": query_type}
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

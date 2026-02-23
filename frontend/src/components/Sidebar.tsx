@@ -22,7 +22,8 @@ import {
     Wifi,
     WifiOff,
     Database,
-    Search
+    Search,
+    Radio,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -100,6 +101,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
     ];
 
+    // Real-time monitoring
+    const realtimeItems = [
+        { id: 'real-time-monitor', label: t('sidebar.realTimeMonitor'), icon: Radio },
+    ];
+
     // Well-dependent views — require a well to be selected
     const wellDependentItems = [
         { id: 'well-selector', label: t('sidebar.selectWell'), icon: Search },
@@ -137,6 +143,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                                 } `}
                         >
                             <item.icon size={18} className={currentView === item.id ? 'text-industrial-500' : 'group-hover:scale-110 transition-transform'} />
+                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
+                            {currentView === item.id && (
+                                <div className="ml-auto">
+                                    <ChevronRight size={14} />
+                                </div>
+                            )}
+                        </button>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="my-3 border-t border-white/5" />
+
+                    {/* Real-Time Monitoring */}
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-1 pb-1">{t('sidebar.realTime')}</p>
+                    {realtimeItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setCurrentView(item.id)}
+                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
+                                ? 'bg-cyan-600/10 text-cyan-500 border border-cyan-500/20 shadow-inner'
+                                : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                                } `}
+                        >
+                            <item.icon size={18} className={currentView === item.id ? 'text-cyan-500' : 'group-hover:scale-110 transition-transform'} />
                             <span className="font-bold text-xs tracking-tight">{item.label}</span>
                             {currentView === item.id && (
                                 <div className="ml-auto">

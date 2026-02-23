@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
   Waves, Anchor, Wrench, Filter, ClipboardList,
-  Layers, Target, Vibrate, Cylinder, ShieldCheck, FileBarChart,
+  Layers, Target, Vibrate, Cylinder, ShieldCheck, FileBarChart, Radio,
 } from 'lucide-react';
 import SparklineChart from './SparklineChart';
 
@@ -177,6 +177,16 @@ const modules: ModuleCard[] = [
     color: 'text-violet-400',
     bgColor: 'bg-violet-500/10 border-violet-500/20',
     sparkColor: '#8b5cf6',
+  },
+  {
+    id: 'rtm',
+    view: 'real-time-monitor',
+    nameKey: 'modules.realTimeMonitor',
+    descKey: 'dashboard.moduleDescRTM',
+    icon: Radio,
+    color: 'text-cyan-400',
+    bgColor: 'bg-cyan-500/10 border-cyan-500/20',
+    sparkColor: '#06b6d4',
   },
 ];
 
