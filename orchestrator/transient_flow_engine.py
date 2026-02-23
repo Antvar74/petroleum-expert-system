@@ -425,3 +425,217 @@ class TransientFlowEngine:
             "effective_velocity_ft_min": round(v_eff, 1),
             "clinging_factor": round(k_clinging, 4),
         }
+
+    # ── Multiphase Drift-Flux Kick Migration ───────────────────────
+
+    @staticmethod
+    def simulate_kick_migration_multiphase(
+        well_depth_tvd: float,
+        mud_weight: float,
+        kick_volume_bbl: float,
+        sidpp: float,
+        sicp: float,
+        annular_id_in: float,
+        pipe_od_in: float,
+        gas_gravity: float = 0.65,
+        time_steps_min: int = 120,
+        dt_sec: float = 60.0,
+        surface_temp_f: float = 80.0,
+        temp_gradient: float = 1.5,
+        n_cells: int = 50,
+    ) -> Dict[str, Any]:
+        """
+        Multiphase kick migration using Zuber-Findlay drift-flux model.
+
+        Discretizes the annulus into n_cells. Each cell tracks gas holdup,
+        pressure, temperature, and mixture density. Gas velocity includes
+        slip (drift) between gas and liquid phases.
+
+        Zuber-Findlay: v_gas = C0 * v_mixture + v_drift
+        where v_drift = 0.35 * sqrt(g * D_hyd * delta_rho / rho_liquid)
+        """
+        # Constants
+        G_FT_S2 = 32.174
+        C0 = 1.2
+        BBL_TO_FT3 = 5.6146
+
+        # Geometry
+        d_hyd_in = annular_id_in - pipe_od_in
+        d_hyd_ft = d_hyd_in / 12.0
+        ann_area_ft2 = (math.pi / 4.0) * ((annular_id_in / 12.0) ** 2 - (pipe_od_in / 12.0) ** 2)
+
+        # Cell setup
+        cell_height_ft = well_depth_tvd / n_cells
+        cell_volume_ft3 = ann_area_ft2 * cell_height_ft
+        cell_volume_bbl = cell_volume_ft3 / BBL_TO_FT3
+
+        # Mud properties
+        mud_gradient = mud_weight * 0.052
+        rho_mud_lbft3 = mud_weight * 7.48052
+
+        # BHP (constant in shut-in well)
+        bhp = mud_gradient * well_depth_tvd + sidpp
+
+        # Initialize cells: [0] = surface, [n_cells-1] = TD
+        cell_depths = [(i + 0.5) * cell_height_ft for i in range(n_cells)]
+        gas_holdup = [0.0] * n_cells
+
+        # Place initial kick at bottom
+        kick_vol_ft3 = kick_volume_bbl * BBL_TO_FT3
+        remaining = kick_vol_ft3
+        for i in range(n_cells - 1, -1, -1):
+            if remaining <= 0:
+                break
+            fill = min(remaining, cell_volume_ft3)
+            gas_holdup[i] = fill / cell_volume_ft3
+            remaining -= fill
+
+        # Time loop
+        n_time_steps = int(time_steps_min * 60 / dt_sec) + 1
+        time_series = []
+        max_cp = sicp
+        surface_arrival_min = None
+
+        for t_idx in range(n_time_steps):
+            t_min = t_idx * dt_sec / 60.0
+
+            # ── Compute pressure profile (top-down) ──
+            pressures = [0.0] * n_cells
+            cp_current = sicp
+            for trial in range(3):
+                pressures[0] = cp_current + 0.5 * cell_height_ft * (
+                    rho_mud_lbft3 * (1 - gas_holdup[0]) * 0.006944
+                )
+                for i in range(1, n_cells):
+                    temp_i = surface_temp_f + cell_depths[i] / 100.0 * temp_gradient
+                    p_above = pressures[i - 1]
+
+                    z_i = TransientFlowEngine._z_factor_dak(p_above + 14.7, temp_i, gas_gravity)
+                    m_gas = 28.97 * gas_gravity
+                    t_rankine = temp_i + 460.0
+                    rho_gas = (p_above + 14.7) * m_gas / (z_i * 10.73 * t_rankine) if z_i > 0 else 0.1
+
+                    rho_mix = rho_mud_lbft3 * (1 - gas_holdup[i]) + rho_gas * gas_holdup[i]
+                    dp = rho_mix / 144.0 * cell_height_ft
+                    pressures[i] = p_above + dp
+
+                bhp_calc = pressures[n_cells - 1]
+                cp_current += (bhp - bhp_calc) * 0.5
+                cp_current = max(cp_current, 0)
+
+            max_cp = max(max_cp, cp_current)
+
+            # ── Compute gas velocities and advance holdup ──
+            total_gas_vol_ft3 = 0.0
+            max_gas_vel = 0.0
+            max_hup = 0.0
+            density_profile = []
+
+            for i in range(n_cells):
+                temp_i = surface_temp_f + cell_depths[i] / 100.0 * temp_gradient
+                z_i = TransientFlowEngine._z_factor_dak(pressures[i] + 14.7, temp_i, gas_gravity)
+                m_gas = 28.97 * gas_gravity
+                t_rankine = temp_i + 460.0
+                rho_gas = (pressures[i] + 14.7) * m_gas / (z_i * 10.73 * t_rankine) if z_i > 0 else 0.1
+
+                rho_mix = rho_mud_lbft3 * (1 - gas_holdup[i]) + rho_gas * gas_holdup[i]
+                density_profile.append(round(rho_mix, 2))
+
+                total_gas_vol_ft3 += gas_holdup[i] * cell_volume_ft3
+                max_hup = max(max_hup, gas_holdup[i])
+
+                if gas_holdup[i] > 1e-6:
+                    delta_rho = max(rho_mud_lbft3 - rho_gas, 0.1)
+                    v_drift = 0.35 * math.sqrt(G_FT_S2 * d_hyd_ft * delta_rho / rho_mud_lbft3)
+                    v_gas = C0 * 0.0 + v_drift
+                    v_gas_ft_min = v_gas * 60.0
+                    max_gas_vel = max(max_gas_vel, v_gas_ft_min)
+
+            # ── Advance gas holdup (upward transport) ──
+            if t_idx < n_time_steps - 1:
+                new_holdup = [0.0] * n_cells
+                for i in range(n_cells):
+                    if gas_holdup[i] < 1e-10:
+                        continue
+
+                    temp_i = surface_temp_f + cell_depths[i] / 100.0 * temp_gradient
+                    z_i = TransientFlowEngine._z_factor_dak(pressures[i] + 14.7, temp_i, gas_gravity)
+                    m_gas = 28.97 * gas_gravity
+                    t_rankine = temp_i + 460.0
+                    rho_gas = (pressures[i] + 14.7) * m_gas / (z_i * 10.73 * t_rankine) if z_i > 0 else 0.1
+
+                    delta_rho = max(rho_mud_lbft3 - rho_gas, 0.1)
+                    v_drift = 0.35 * math.sqrt(G_FT_S2 * d_hyd_ft * delta_rho / rho_mud_lbft3)
+                    v_gas = v_drift
+
+                    dist_ft = v_gas * dt_sec
+                    cells_moved = dist_ft / cell_height_ft
+
+                    frac_move = min(cells_moved, 1.0)
+                    gas_staying = gas_holdup[i] * (1.0 - frac_move)
+                    gas_leaving = gas_holdup[i] * frac_move
+
+                    new_holdup[i] += gas_staying
+                    if i > 0:
+                        target = i - 1
+                        if pressures[target] > 0 and pressures[i] > 0:
+                            expansion = pressures[i] / pressures[target] if pressures[target] > 0 else 1.0
+                            z_target = TransientFlowEngine._z_factor_dak(
+                                pressures[target] + 14.7,
+                                surface_temp_f + cell_depths[target] / 100.0 * temp_gradient,
+                                gas_gravity,
+                            )
+                            expansion *= (z_target / z_i) if z_i > 0 else 1.0
+                        else:
+                            expansion = 1.0
+                        expanded_holdup = gas_leaving * expansion
+                        new_holdup[target] += min(expanded_holdup, 1.0 - new_holdup[target])
+
+                gas_holdup = [min(h, 0.99) for h in new_holdup]
+
+            # ── Detect surface arrival ──
+            if gas_holdup[0] > 0.01 and surface_arrival_min is None:
+                surface_arrival_min = round(t_min, 1)
+
+            # ── Compute kick top TVD ──
+            kick_top_tvd = well_depth_tvd
+            for i in range(n_cells):
+                if gas_holdup[i] > 0.001:
+                    kick_top_tvd = cell_depths[i] - cell_height_ft / 2
+                    break
+
+            # Gas mass proxy
+            gas_mass_proxy = 0.0
+            for i in range(n_cells):
+                if gas_holdup[i] > 1e-10:
+                    temp_i = surface_temp_f + cell_depths[i] / 100.0 * temp_gradient
+                    z_i = TransientFlowEngine._z_factor_dak(pressures[i] + 14.7, temp_i, gas_gravity)
+                    t_r = temp_i + 460.0
+                    gas_mass_proxy += gas_holdup[i] * cell_volume_ft3 * (pressures[i] + 14.7) / (z_i * t_r) if z_i > 0 else 0
+
+            # Record time step
+            if t_idx % max(1, int(60 / dt_sec)) == 0 or t_idx == n_time_steps - 1:
+                time_series.append({
+                    "time_min": round(t_min, 1),
+                    "casing_pressure_psi": round(cp_current, 1),
+                    "drillpipe_pressure_psi": round(bhp - mud_gradient * well_depth_tvd, 1),
+                    "kick_top_tvd": round(kick_top_tvd, 1),
+                    "kick_volume_bbl": round(total_gas_vol_ft3 / BBL_TO_FT3, 2),
+                    "max_gas_velocity_ft_min": round(max_gas_vel, 1),
+                    "max_holdup": round(max_hup, 4),
+                    "mixture_density_profile": density_profile,
+                    "gas_mass_proxy": round(gas_mass_proxy, 4),
+                })
+
+        return {
+            "time_series": time_series,
+            "max_casing_pressure": round(max_cp, 1),
+            "surface_arrival_min": surface_arrival_min,
+            "model": "zuber_findlay_drift_flux",
+            "parameters": {
+                "C0": C0,
+                "n_cells": n_cells,
+                "dt_sec": dt_sec,
+                "gas_gravity": gas_gravity,
+            },
+        }
