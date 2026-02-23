@@ -3946,5 +3946,58 @@ async def standalone_analyze_module(data: Dict[str, Any] = Body(...)):
     )
 
 
+# ─── Petrophysics Advanced (LAS import, Waxman-Smits, crossplots) ────────────
+from orchestrator.petrophysics_engine import PetrophysicsEngine
+
+@app.post("/calculate/petrophysics/parse-las")
+def standalone_parse_las(data: Dict[str, Any] = Body(...)):
+    """Parse LAS 2.0/3.0 content string and return structured log data."""
+    content = data.get("las_content", "")
+    if not content:
+        raise HTTPException(status_code=400, detail="las_content is required")
+    result = PetrophysicsEngine.parse_las_content(content)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@app.post("/calculate/petrophysics/saturation")
+def standalone_advanced_saturation(data: Dict[str, Any] = Body(...)):
+    """Calculate Sw with auto-model selection (Archie / Waxman-Smits / Dual-Water)."""
+    return PetrophysicsEngine.calculate_water_saturation_advanced(
+        phi=data.get("phi", 0.20), rt=data.get("rt", 20.0),
+        rw=data.get("rw", 0.05), vsh=data.get("vsh", 0.0),
+        rsh=data.get("rsh", 2.0), a=data.get("a", 1.0),
+        m=data.get("m", 2.0), n=data.get("n", 2.0),
+        method=data.get("method", "auto"),
+    )
+
+@app.post("/calculate/petrophysics/pickett-plot")
+def standalone_pickett_plot(data: Dict[str, Any] = Body(...)):
+    """Generate Pickett plot data with iso-Sw lines."""
+    return PetrophysicsEngine.generate_pickett_plot(
+        log_data=data.get("log_data", []),
+        rw=data.get("rw", 0.05),
+        a=data.get("a", 1.0), m=data.get("m", 2.0), n=data.get("n", 2.0),
+    )
+
+@app.post("/calculate/petrophysics/crossplot")
+def standalone_crossplot(data: Dict[str, Any] = Body(...)):
+    """Generate Density-Neutron crossplot with lithology lines and gas detection."""
+    return PetrophysicsEngine.crossplot_density_neutron(
+        log_data=data.get("log_data", []),
+        rho_fluid=data.get("rho_fluid", 1.0),
+    )
+
+@app.post("/calculate/petrophysics/evaluate")
+def standalone_petro_evaluation(data: Dict[str, Any] = Body(...)):
+    """Run full petrophysical evaluation — Vsh, porosity, Sw, permeability, net pay."""
+    return PetrophysicsEngine.run_full_evaluation(
+        log_data=data.get("log_data", []),
+        archie_params=data.get("archie_params"),
+        matrix_params=data.get("matrix_params"),
+        cutoffs=data.get("cutoffs"),
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
