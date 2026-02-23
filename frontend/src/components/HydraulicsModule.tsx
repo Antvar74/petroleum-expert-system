@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplets, Plus, Trash2, Play, Waves, BrainCircuit } from 'lucide-react';
+import { Droplets, Plus, Trash2, Play, Waves, BrainCircuit, Upload } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import PressureWaterfallChart from './charts/hyd/PressureWaterfallChart';
 import ECDProfileChart from './charts/hyd/ECDProfileChart';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import * as XLSX from 'xlsx';
 
 interface HydraulicsModuleProps {
   wellId?: number;
@@ -57,6 +58,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { addToast } = useToast();
+  const circuitFileRef = useRef<HTMLInputElement>(null);
   const [provider, setProvider] = useState<Provider>('auto');
   const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
     { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
@@ -98,6 +100,72 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     { id: 'bit', label: t('hydraulics.tabs.bit') },
     { id: 'surge', label: t('hydraulics.tabs.surge') },
   ];
+
+  // ── Circuit file upload (CSV / Excel) ──
+  const CIRCUIT_COL_MAP: Record<string, string> = {
+    'type': 'section_type', 'section type': 'section_type', 'section_type': 'section_type',
+    'tipo': 'section_type', 'seccion': 'section_type', 'sección': 'section_type',
+    'section': 'section_type', 'component': 'section_type', 'componente': 'section_type',
+    'name': 'section_type', 'nombre': 'section_type',
+    'length': 'length', 'length (ft)': 'length', 'length(ft)': 'length',
+    'longitud': 'length', 'longitud (ft)': 'length', 'largo': 'length', 'long': 'length',
+    'od': 'od', 'od (in)': 'od', 'od(in)': 'od', 'de': 'od', 'de (in)': 'od',
+    'outer diameter': 'od', 'diametro externo': 'od',
+    'id': 'id_inner', 'id (in)': 'id_inner', 'id(in)': 'id_inner', 'id_inner': 'id_inner',
+    'di': 'id_inner', 'di (in)': 'id_inner', 'inner diameter': 'id_inner', 'diametro interno': 'id_inner',
+  };
+
+  const VALID_SECTION_TYPES = ['drill_pipe', 'hwdp', 'collar', 'annulus_dp', 'annulus_dc', 'annulus_hwdp', 'surface_equip'];
+
+  const handleCircuitFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (rows.length === 0) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
+
+        const hdrMap: Record<string, string> = {};
+        for (const fh of Object.keys(rows[0])) {
+          const mapped = CIRCUIT_COL_MAP[fh.trim().toLowerCase()];
+          if (mapped) hdrMap[fh] = mapped;
+        }
+        if (!Object.values(hdrMap).includes('section_type')) {
+          addToast(t('hydraulics.circuit.uploadNoColumns'), 'error'); return;
+        }
+
+        const parsed = rows
+          .map(row => {
+            const sec: any = { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 };
+            for (const [fc, sf] of Object.entries(hdrMap)) {
+              const v = row[fc];
+              if (sf === 'section_type') {
+                const val = String(v || '').trim().toLowerCase().replace(/\s+/g, '_');
+                sec[sf] = VALID_SECTION_TYPES.includes(val) ? val : String(v || '').trim();
+              } else {
+                sec[sf] = parseFloat(v) || sec[sf];
+              }
+            }
+            return sec;
+          })
+          .filter((s: any) => String(s.section_type).trim() !== '');
+
+        if (parsed.length === 0) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
+        setSections(parsed);
+        addToast(t('hydraulics.circuit.uploadSuccess', { count: parsed.length }), 'success');
+      } catch (err) {
+        console.error('Circuit file parse error:', err);
+        addToast(t('hydraulics.circuit.uploadError'), 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
 
   const saveSections = async () => {
     if (!wellId) return;
@@ -166,6 +234,8 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                 <h3 className="font-bold text-lg">Hydraulic Circuit Sections</h3>
                 <div className="flex gap-2">
                   <button onClick={() => setSections([...sections, { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 }])} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm"><Plus size={14} /> {t('common.add')}</button>
+                  <button onClick={() => circuitFileRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm"><Upload size={14} /> {t('hydraulics.circuit.uploadFile')}</button>
+                  <input ref={circuitFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleCircuitFileUpload} />
                   <button onClick={saveSections} disabled={loading} className="px-4 py-1.5 bg-industrial-600 hover:bg-industrial-700 rounded-lg text-sm font-bold disabled:opacity-50">{loading ? t('common.saving') : t('hydraulics.circuit.saveAll')}</button>
                 </div>
               </div>

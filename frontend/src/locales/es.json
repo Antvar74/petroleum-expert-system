@@ -645,7 +645,12 @@
       "od": "DE (in)",
       "id": "DI (in)",
       "saveAll": "Guardar Todo",
-      "circuitSaved": "Circuito y boquillas guardados"
+      "circuitSaved": "Circuito y boquillas guardados",
+      "uploadFile": "Cargar CSV/Excel",
+      "uploadSuccess": "Circuito cargado: {{count}} secciones importadas",
+      "uploadEmpty": "El archivo no contiene datos de circuito válidos",
+      "uploadNoColumns": "No se pudieron identificar columnas de circuito. Esperadas: Tipo, Longitud, OD, ID",
+      "uploadError": "Error al leer el archivo. Verifique el formato."
     },
     "nozzles": {
       "title": "Boquillas de Barrena",

@@ -645,7 +645,12 @@
       "od": "OD (in)",
       "id": "ID (in)",
       "saveAll": "Save All",
-      "circuitSaved": "Circuit & nozzles saved"
+      "circuitSaved": "Circuit & nozzles saved",
+      "uploadFile": "Upload CSV/Excel",
+      "uploadSuccess": "Circuit loaded: {{count}} sections imported",
+      "uploadEmpty": "File contains no valid circuit data",
+      "uploadNoColumns": "Could not identify circuit columns. Expected: Type, Length, OD, ID",
+      "uploadError": "Error reading file. Please check the format."
     },
     "nozzles": {
       "title": "Bit Nozzles",
