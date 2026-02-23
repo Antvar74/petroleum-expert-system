@@ -308,3 +308,183 @@ class WITSMLClient:
                 "version": "1.4.1.1",
             },
         }
+
+
+class WITSMLSoapClient:
+    """
+    SOAP 1.1 client for WITSML 1.4.1 servers.
+
+    Operates in two modes:
+    - Real mode: uses zeep library for actual SOAP calls to WITSML store
+    - Mock mode: returns predefined XML responses for demo/testing
+
+    Usage:
+        client = WITSMLSoapClient(url, user, pw, mock_mode=True)
+        client.connect()
+        xml = client.get_from_store("log", query_xml)
+    """
+
+    # Mock XML responses for demo mode
+    MOCK_LOG_XML = """<?xml version="1.0" encoding="utf-8"?>
+<logs xmlns="http://www.witsml.org/schemas/1series" version="1.4.1.1">
+  <log uidWell="W-MOCK" uidWellbore="WB-MOCK" uid="LOG-MOCK">
+    <nameWell>Mock Well</nameWell>
+    <name>Mock Real-Time Log</name>
+    <logCurveInfo uid="DEPT"><mnemonic>DEPT</mnemonic><unit>ft</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="GR"><mnemonic>GR</mnemonic><unit>gAPI</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="RHOB"><mnemonic>RHOB</mnemonic><unit>g/cc</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="NPHI"><mnemonic>NPHI</mnemonic><unit>v/v</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="RT"><mnemonic>RT</mnemonic><unit>ohm.m</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="ROP"><mnemonic>ROP</mnemonic><unit>ft/hr</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="WOB"><mnemonic>WOB</mnemonic><unit>klb</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logCurveInfo uid="RPM"><mnemonic>RPM</mnemonic><unit>rpm</unit><typeLogData>double</typeLogData></logCurveInfo>
+    <logData>
+      <mnemonicList>DEPT,GR,RHOB,NPHI,RT,ROP,WOB,RPM</mnemonicList>
+      <data>8000,65.2,2.35,0.20,12.5,45.0,22.0,120</data>
+      <data>8010,70.1,2.38,0.19,14.0,42.0,24.0,122</data>
+      <data>8020,55.8,2.42,0.17,18.0,50.0,20.0,118</data>
+      <data>8030,80.3,2.50,0.15,8.5,35.0,25.0,125</data>
+      <data>8040,62.0,2.37,0.21,11.0,48.0,21.0,119</data>
+    </logData>
+  </log>
+</logs>"""
+
+    MOCK_TRAJECTORY_XML = """<?xml version="1.0" encoding="utf-8"?>
+<trajectorys xmlns="http://www.witsml.org/schemas/1series" version="1.4.1.1">
+  <trajectory uidWell="W-MOCK" uidWellbore="WB-MOCK" uid="TRAJ-MOCK">
+    <nameWell>Mock Well</nameWell>
+    <name>Mock Survey</name>
+    <trajectoryStation uid="S1"><md uom="ft">0</md><incl uom="deg">0</incl><azi uom="deg">0</azi></trajectoryStation>
+    <trajectoryStation uid="S2"><md uom="ft">3000</md><incl uom="deg">5</incl><azi uom="deg">120</azi></trajectoryStation>
+    <trajectoryStation uid="S3"><md uom="ft">6000</md><incl uom="deg">30</incl><azi uom="deg">125</azi></trajectoryStation>
+    <trajectoryStation uid="S4"><md uom="ft">8000</md><incl uom="deg">45</incl><azi uom="deg">130</azi></trajectoryStation>
+  </trajectory>
+</trajectorys>"""
+
+    def __init__(self, url: str, username: str, password: str, mock_mode: bool = False):
+        self.url = url
+        self.username = username
+        self.password = password
+        self.mock_mode = mock_mode
+        self._client = None  # zeep.Client (lazy init)
+
+    def connect(self) -> Dict[str, Any]:
+        """
+        Test connection to WITSML server.
+        In mock mode, always returns success with simulated capabilities.
+        """
+        if self.mock_mode:
+            return {
+                "connected": True,
+                "mode": "mock",
+                "server_url": self.url,
+                "capabilities": {
+                    "version": "1.4.1.1",
+                    "supported_objects": ["log", "trajectory", "mudLog", "well", "wellbore"],
+                },
+                "message": "Mock mode — using predefined XML responses",
+            }
+
+        # Real mode: try to init zeep
+        try:
+            self._init_zeep_client()
+            return {
+                "connected": True,
+                "mode": "real",
+                "server_url": self.url,
+                "capabilities": self.get_cap(),
+            }
+        except ImportError:
+            return {
+                "connected": False,
+                "mode": "real",
+                "error": "zeep library not installed. Install: pip install zeep. Or use mock_mode=True.",
+            }
+        except Exception as e:
+            return {
+                "connected": False,
+                "mode": "real",
+                "error": f"Connection failed: {str(e)}",
+            }
+
+    def _init_zeep_client(self):
+        """Initialize zeep SOAP client. Raises ImportError if zeep not installed."""
+        from zeep import Client as ZeepClient
+        from zeep.transports import Transport
+        from requests import Session
+
+        session = Session()
+        session.auth = (self.username, self.password)
+        transport = Transport(session=session, timeout=30)
+        self._client = ZeepClient(wsdl=self.url, transport=transport)
+
+    def get_cap(self) -> Dict[str, Any]:
+        """WMLS_GetCap — discover server capabilities."""
+        if self.mock_mode:
+            return {
+                "version": "1.4.1.1",
+                "functions": ["WMLS_GetFromStore", "WMLS_GetCap", "WMLS_GetVersion"],
+                "supported_objects": ["log", "trajectory", "mudLog", "well", "wellbore"],
+            }
+
+        if self._client is None:
+            self._init_zeep_client()
+
+        try:
+            result = self._client.service.WMLS_GetCap(OptionsIn="")
+            return {"raw": result, "functions": ["WMLS_GetFromStore", "WMLS_GetCap"]}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_from_store(self, witsml_type: str, query_xml: str) -> str:
+        """
+        WMLS_GetFromStore — main WITSML query method.
+
+        Args:
+            witsml_type: "log", "trajectory", "mudLog", "well", "wellbore"
+            query_xml: WITSML query XML string
+
+        Returns:
+            Raw XML response string
+        """
+        if self.mock_mode:
+            mock_map = {
+                "log": self.MOCK_LOG_XML,
+                "trajectory": self.MOCK_TRAJECTORY_XML,
+            }
+            return mock_map.get(witsml_type, self.MOCK_LOG_XML)
+
+        if self._client is None:
+            self._init_zeep_client()
+
+        type_map = {"log": "log", "trajectory": "trajectory", "mudLog": "mudLog",
+                     "well": "well", "wellbore": "wellbore"}
+        wml_type = type_map.get(witsml_type, witsml_type)
+
+        result = self._client.service.WMLS_GetFromStore(
+            WMLtypeIn=wml_type,
+            QueryIn=query_xml,
+            OptionsIn="returnElements=all",
+        )
+        # WMLS_GetFromStore returns (StatusCode, XMLout, MessageOut)
+        if hasattr(result, '__iter__') and len(result) >= 2:
+            return result[1]  # XMLout
+        return str(result)
+
+    def fetch_latest_log(
+        self, well_uid: str, wellbore_uid: str,
+        mnemonics: Optional[List[str]] = None,
+        last_index: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Convenience: build query, fetch via SOAP, parse response.
+        Used for real-time polling by RealTimeMonitor.
+        """
+        query = WITSMLClient.build_log_query(
+            well_uid, wellbore_uid,
+            mnemonics=mnemonics,
+            start_index=last_index,
+        )
+        xml_response = self.get_from_store("log", query)
+        parsed = WITSMLClient.parse_log_response(xml_response)
+        return parsed
