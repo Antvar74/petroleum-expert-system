@@ -16,6 +16,7 @@ load_dotenv()
 
 from models import init_db, get_db, Well, Problem, Analysis, Program, OperationalProblem
 from orchestrator.api_coordinator import APICoordinator
+from orchestrator.data_requirements import get_requirements as get_data_requirements
 from utils.optimization_engine import OptimizationEngine
 from middleware.auth import verify_api_key
 
@@ -4227,6 +4228,22 @@ def standalone_kick_migration_multiphase(data: Dict[str, Any] = Body(...)):
         time_steps_min=data.get("time_steps_min", 120),
         n_cells=data.get("n_cells", 50),
     )
+
+
+# ── Data Requirements Route ────────────────────────────────────────────────────
+
+@app.get("/modules/{module_id}/data-requirements")
+async def get_module_data_requirements(
+    module_id: str,
+    phase: str = Query("drilling"),
+    event: Optional[str] = Query(None),
+):
+    """Return merged data requirements for a module/phase/event combination."""
+    try:
+        result = get_data_requirements(module_id, phase, event)
+        return result
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=f"Not found: {str(e)}")
 
 
 if __name__ == "__main__":
