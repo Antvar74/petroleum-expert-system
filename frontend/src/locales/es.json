@@ -85,7 +85,7 @@
     "settingsComingSoon": "Módulo de configuración próximamente en v3.1",
     "selectModule": "Selecciona un módulo desde la barra lateral",
     "wellRequired": "Selección de Pozo Requerida",
-    "wellRequiredDescription": "Esta sección requiere un pozo activo. Selecciona un pozo para acceder al análisis de eventos, reportes diarios y datos específicos del pozo.",
+    "wellRequiredDescription": "Esta sección requiere un pozo activo. Selecciona un pozo para acceder al análisis de eventos y datos específicos del pozo.",
     "selectWell": "Seleccionar Pozo",
     "realTimeMonitor": "Monitor WITSML Tiempo Real"
   },
@@ -118,7 +118,8 @@
     "operational": "Operacional",
     "agents": "agentes",
     "realTime": "Tiempo Real",
-    "realTimeMonitor": "Monitor WITSML"
+    "realTimeMonitor": "Monitor WITSML",
+    "reporting": "Reportes"
   },
   "well": {
     "loadingData": "Cargando datos de exploración...",
@@ -304,6 +305,12 @@
     "allTypes": "Todos",
     "noReportsYet": "Sin reportes aún. Crea un nuevo DDR para comenzar.",
     "operationalReports": "Reportes Operacionales",
+    "selectAWell": "-- Seleccionar Pozo --",
+    "newWell": "Nuevo Pozo",
+    "wellCreated": "Pozo creado exitosamente",
+    "selectWellPrompt": "Seleccione un Pozo para Comenzar",
+    "selectWellDescription": "Elija un pozo existente o cree uno nuevo para gestionar reportes diarios, KPIs y análisis IA.",
+    "activeWell": "Pozo activo:",
     "noReportsForAnalysis": "Crea al menos un reporte para habilitar el análisis IA.",
     "pdf": {
       "dailyDrillingReport": "REPORTE DIARIO DE PERFORACIÓN",

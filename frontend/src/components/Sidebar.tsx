@@ -106,11 +106,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'real-time-monitor', label: t('sidebar.realTimeMonitor'), icon: Radio },
     ];
 
+    // Reporting — independent, manages its own well selection
+    const reportingItems = [
+        { id: 'daily-reports', label: t('sidebar.dailyReports'), icon: ClipboardList },
+    ];
+
     // Well-dependent views — require a well to be selected
     const wellDependentItems = [
         { id: 'well-selector', label: t('sidebar.selectWell'), icon: Search },
         { id: 'dashboard', label: t('sidebar.eventAnalysis'), icon: Database },
-        { id: 'daily-reports', label: t('sidebar.dailyReports'), icon: ClipboardList },
     ];
 
     const bottomItems = [
@@ -167,6 +171,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                                 } `}
                         >
                             <item.icon size={18} className={currentView === item.id ? 'text-cyan-500' : 'group-hover:scale-110 transition-transform'} />
+                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
+                            {currentView === item.id && (
+                                <div className="ml-auto">
+                                    <ChevronRight size={14} />
+                                </div>
+                            )}
+                        </button>
+                    ))}
+
+                    {/* Divider */}
+                    <div className="my-3 border-t border-white/5" />
+
+                    {/* Reporting — independent module */}
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-1 pb-1">{t('sidebar.reporting')}</p>
+                    {reportingItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setCurrentView(item.id)}
+                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
+                                ? 'bg-blue-600/10 text-blue-500 border border-blue-500/20 shadow-inner'
+                                : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                                } `}
+                        >
+                            <item.icon size={18} className={currentView === item.id ? 'text-blue-500' : 'group-hover:scale-110 transition-transform'} />
                             <span className="font-bold text-xs tracking-tight">{item.label}</span>
                             {currentView === item.id && (
                                 <div className="ml-auto">

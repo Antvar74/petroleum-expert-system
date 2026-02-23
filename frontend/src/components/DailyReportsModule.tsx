@@ -14,7 +14,7 @@ import {
   ClipboardList, Plus, ChevronDown, ChevronUp,
   Save, Send, CheckCircle, Trash2, Edit3, FileText,
   BarChart3, Activity, AlertTriangle, Clock, DollarSign,
-  TrendingDown, Zap, Filter, Download,
+  TrendingDown, Zap, Filter, Download, Database,
 } from 'lucide-react';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import DDRReportPDF from './DDRReportPDF';
@@ -28,11 +28,6 @@ import CostTrackingChart from './charts/ddr/CostTrackingChart';
 import NPTBreakdownChart from './charts/ddr/NPTBreakdownChart';
 import DailyOperationsTimeline from './charts/ddr/DailyOperationsTimeline';
 import ROPProgressChart from './charts/ddr/ROPProgressChart';
-
-interface DailyReportsModuleProps {
-  wellId?: number;
-  wellName?: string;
-}
 
 interface ReportListItem {
   id: number;
@@ -57,10 +52,51 @@ const emptyBHA = () => ({
   component_type: '', od: 0, length: 0, weight: 0, serial_number: '',
 });
 
-const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellName = '' }) => {
+const DailyReportsModule: React.FC = () => {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const { addToast } = useToast();
+
+  // ── Internal well management (independent of Event Analysis) ──
+  const [wells, setWells] = useState<{id: number; name: string; location?: string}[]>([]);
+  const [selectedReportWell, setSelectedReportWell] = useState<{id: number; name: string} | null>(null);
+  const [wellsLoading, setWellsLoading] = useState(true);
+  const [isCreatingWell, setIsCreatingWell] = useState(false);
+  const [newWellName, setNewWellName] = useState('');
+
+  // Derive wellId and wellName from internal state (replaces props)
+  const wellId = selectedReportWell?.id;
+  const wellName = selectedReportWell?.name || '';
+
+  useEffect(() => {
+    const fetchWells = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/wells`);
+        setWells(res.data);
+      } catch (e) {
+        console.error('Error fetching wells:', e);
+      } finally {
+        setWellsLoading(false);
+      }
+    };
+    fetchWells();
+  }, []);
+
+  const handleCreateWell = async () => {
+    if (!newWellName.trim()) return;
+    try {
+      const res = await axios.post(`${API_BASE_URL}/wells?name=${encodeURIComponent(newWellName.trim())}`);
+      const newWell = res.data;
+      setWells(prev => [...prev, newWell]);
+      setSelectedReportWell({ id: newWell.id, name: newWell.name });
+      setNewWellName('');
+      setIsCreatingWell(false);
+      addToast(t('ddr.wellCreated'), 'success');
+    } catch (e: any) {
+      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
+    }
+  };
+
   const [activeTab, setActiveTab] = useState('reports');
   const [loading, setLoading] = useState(false);
 
@@ -393,18 +429,76 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── Well Selector Bar ── */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
             <ClipboardList size={22} className="text-blue-400" />
           </div>
           <div>
             <h2 className="text-xl font-bold">{t('modules.dailyReports')}</h2>
-            <p className="text-white/30 text-xs">{wellName} — {t('ddr.operationalReports') || 'Operational Reports'}</p>
+            <p className="text-white/30 text-xs">{t('ddr.operationalReports')}</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={selectedReportWell?.id ?? ''}
+            onChange={(e) => {
+              const id = parseInt(e.target.value);
+              const well = wells.find(w => w.id === id);
+              setSelectedReportWell(well ? { id: well.id, name: well.name } : null);
+            }}
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white/70 focus:outline-none focus:border-blue-500 min-w-[220px]"
+            disabled={wellsLoading}
+          >
+            <option value="">{wellsLoading ? t('common.loading') : t('ddr.selectAWell')}</option>
+            {wells.map(w => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setIsCreatingWell(!isCreatingWell)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-xs font-bold text-blue-400 transition-all"
+          >
+            <Plus size={14} /> {t('ddr.newWell')}
+          </button>
+        </div>
       </div>
+
+      {/* Inline create-well form */}
+      {isCreatingWell && (
+        <div className="bg-white/5 p-4 rounded-xl border border-blue-500/20 flex items-center gap-3">
+          <input
+            type="text"
+            value={newWellName}
+            onChange={(e) => setNewWellName(e.target.value)}
+            placeholder="e.g. WELL-X106-OFFSHORE"
+            className="bg-white/5 border border-white/10 rounded-lg flex-1 py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateWell()}
+          />
+          <button onClick={handleCreateWell} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-bold text-white transition-colors">
+            {t('well.createProject')}
+          </button>
+          <button onClick={() => { setIsCreatingWell(false); setNewWellName(''); }} className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-white/40">
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
+
+      {!selectedReportWell ? (
+        <div className="bg-white/5 p-16 text-center rounded-xl border border-white/5">
+          <ClipboardList size={56} className="mx-auto text-white/10 mb-5" />
+          <h3 className="text-lg font-bold text-white/60 mb-2">{t('ddr.selectWellPrompt')}</h3>
+          <p className="text-white/30 text-sm max-w-md mx-auto">{t('ddr.selectWellDescription')}</p>
+        </div>
+      ) : (
+        <>
+          {/* Active well indicator */}
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <Database size={14} />
+            <span>{t('ddr.activeWell')} <span className="text-white/70 font-bold">{wellName}</span></span>
+          </div>
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
@@ -814,6 +908,8 @@ const DailyReportsModule: React.FC<DailyReportsModuleProps> = ({ wellId, wellNam
         terminationData={terminationData}
         status={editingId ? (reports.find(r => r.id === editingId)?.status || 'draft') : 'draft'}
       />
+        </>
+      )}
     </div>
   );
 };

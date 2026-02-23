@@ -85,7 +85,7 @@
     "settingsComingSoon": "Settings module coming soon in v3.1",
     "selectModule": "Select a module from the sidebar",
     "wellRequired": "Well Selection Required",
-    "wellRequiredDescription": "This section requires an active well. Select a well to access event analysis, daily reports, and well-specific data.",
+    "wellRequiredDescription": "This section requires an active well. Select a well to access event analysis and well-specific data.",
     "selectWell": "Select Well",
     "realTimeMonitor": "WITSML Real-Time Monitor"
   },
@@ -118,7 +118,8 @@
     "operational": "Operational",
     "agents": "agents",
     "realTime": "Real-Time",
-    "realTimeMonitor": "WITSML Monitor"
+    "realTimeMonitor": "WITSML Monitor",
+    "reporting": "Reporting"
   },
   "well": {
     "loadingData": "Loading exploration data...",
@@ -304,6 +305,12 @@
     "allTypes": "All",
     "noReportsYet": "No reports yet. Create a new DDR to get started.",
     "operationalReports": "Operational Reports",
+    "selectAWell": "-- Select Well --",
+    "newWell": "New Well",
+    "wellCreated": "Well created successfully",
+    "selectWellPrompt": "Select a Well to Begin",
+    "selectWellDescription": "Choose an existing well or create a new one to manage daily reports, KPIs, and AI analysis.",
+    "activeWell": "Active well:",
     "noReportsForAnalysis": "Create at least one report to enable AI analysis.",
     "pdf": {
       "dailyDrillingReport": "DAILY DRILLING REPORT",

@@ -83,7 +83,7 @@ function AppContent() {
   };
 
   // Views that REQUIRE a well to be selected (event-based workflow)
-  const WELL_REQUIRED_VIEWS = new Set(['dashboard', 'analysis', 'rca', 'daily-reports']);
+  const WELL_REQUIRED_VIEWS = new Set(['dashboard', 'analysis', 'rca']);
 
   const renderContent = () => {
     // Only gate well-dependent views — calculators work without a well
@@ -198,7 +198,7 @@ function AppContent() {
       case 'casing-design':
         return <CasingDesignModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'daily-reports':
-        return <DailyReportsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+        return <DailyReportsModule />;
       case 'petrophysics':
         return <PetrophysicsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'real-time-monitor':
