@@ -43,6 +43,8 @@ interface DDRReportPDFProps {
   bhaData: BHAComponent[];
   gasMonitoring: Record<string, any>;
   costSummary: Record<string, any>;
+  hsseData?: Record<string, any>;
+  mudInventory?: Record<string, any>;
   completionData?: Record<string, any>;
   terminationData?: Record<string, any>;
   status: string;
@@ -213,8 +215,8 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
     wellName, reportNumber, reportDate, reportType,
     depthStart, depthEnd, depthTVD,
     headerData, operations, drillingParams, mudProperties,
-    bhaData, gasMonitoring, costSummary,
-    completionData, terminationData, status,
+    bhaData, gasMonitoring, costSummary, hsseData,
+    mudInventory, completionData, terminationData, status,
   } = props;
 
   const { t } = useTranslation();
@@ -301,6 +303,74 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
             <div style={S.kpiUnit}>ft</div>
           </div>
         </div>
+
+        {/* ──── HSEQ ──── */}
+        {hsseData && (hsseData.dslti != null || hsseData.dslta != null || hsseData.safety_cards != null) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.hseq')}</div>
+            <div style={S.paramGrid}>
+              {[
+                { label: 'DSLTI', key: 'dslti' },
+                { label: 'DSLTA', key: 'dslta' },
+                { label: t('ddr.daysNoSpills'), key: 'days_no_spills' },
+                { label: t('ddr.daysNoIncidents'), key: 'days_no_incidents' },
+                { label: t('ddr.safetyCards'), key: 'safety_cards' },
+              ].filter(p => hsseData[p.key] != null).map(p => (
+                <div key={p.key} style={S.paramCell}>
+                  <div style={S.paramLabel}>{p.label}</div>
+                  <div style={S.paramValue}>{fmtNum(hsseData[p.key], 0)}</div>
+                </div>
+              ))}
+            </div>
+            {(hsseData.supervisor_drilling || hsseData.supervisor_company) && (
+              <div style={{ ...S.paramGrid, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                {hsseData.supervisor_drilling && (
+                  <div style={S.paramCell}>
+                    <div style={S.paramLabel}>{t('ddr.supervisorDrilling')}</div>
+                    <div style={S.paramValue}>{hsseData.supervisor_drilling}</div>
+                  </div>
+                )}
+                {hsseData.supervisor_company && (
+                  <div style={S.paramCell}>
+                    <div style={S.paramLabel}>{t('ddr.supervisorCompany')}</div>
+                    <div style={S.paramValue}>{hsseData.supervisor_company}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ──── TIME CLASSIFICATION ──── */}
+        {headerData && (headerData.time_productive != null || headerData.time_unproductive != null) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.timeClassification')}</div>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}></th>
+                  <th style={S.th}>P</th>
+                  <th style={S.th}>U</th>
+                  <th style={S.th}>D</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ ...S.td, fontWeight: 600 }}>{t('ddr.dailyHrs')}</td>
+                  <td style={S.td}>{fmtNum(headerData.time_productive, 1)}</td>
+                  <td style={S.td}>{fmtNum(headerData.time_unproductive, 1)}</td>
+                  <td style={S.td}>{fmtNum(headerData.time_downtime, 1)}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...S.td, fontWeight: 600 }}>{t('ddr.cumulativeHrs')}</td>
+                  <td style={S.td}>{fmtNum(headerData.cum_productive, 1)}</td>
+                  <td style={S.td}>{fmtNum(headerData.cum_unproductive, 1)}</td>
+                  <td style={S.td}>{fmtNum(headerData.cum_downtime, 1)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </>
+        )}
 
         {/* ──── OPERATIONS LOG ──── */}
         {operations.length > 0 && (
@@ -528,6 +598,229 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
                 <strong>{t('ddr.pdf.wellSummary')}:</strong> {terminationData.well_summary}
               </div>
             )}
+          </>
+        )}
+
+        {/* ──── SUMMARY / PROGRAM ──── */}
+        {headerData && (headerData.prev_day_summary || headerData.day_summary || headerData.planned_program || headerData.urgent_items) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.summaryProgram')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              {[
+                { label: t('ddr.prevDaySummary'), key: 'prev_day_summary' },
+                { label: t('ddr.daySummary'), key: 'day_summary' },
+                { label: t('ddr.plannedProgram'), key: 'planned_program' },
+                { label: t('ddr.urgentItems'), key: 'urgent_items' },
+              ].filter(p => headerData[p.key]).map(p => (
+                <div key={p.key} style={{ background: '#f8fafc', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 8, color: '#64748b', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
+                  <div style={{ fontSize: 10, color: '#1e3a5f', whiteSpace: 'pre-wrap' }}>{headerData[p.key]}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ──── SURVEY ──── */}
+        {headerData?.surveys && headerData.surveys.length > 0 && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.survey')}</div>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}>MD (ft)</th>
+                  <th style={S.th}>TVD (ft)</th>
+                  <th style={S.th}>Inc (°)</th>
+                  <th style={S.th}>Azi (°)</th>
+                  <th style={S.th}>DLS (°/100ft)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {headerData.surveys.map((s: any, i: number) => (
+                  <tr key={i}>
+                    <td style={S.td}>{fmtNum(s.md, 0)}</td>
+                    <td style={S.td}>{fmtNum(s.tvd, 0)}</td>
+                    <td style={S.td}>{fmtNum(s.inc, 2)}</td>
+                    <td style={S.td}>{fmtNum(s.azi, 2)}</td>
+                    <td style={S.td}>{fmtNum(s.dls, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* ──── CASING RECORD ──── */}
+        {headerData && (headerData.last_casing || headerData.next_casing) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.casingRecord')}</div>
+            <div style={{ ...S.paramGrid, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+              {headerData.last_casing && (
+                <div style={S.paramCell}>
+                  <div style={S.paramLabel}>{t('ddr.lastCasing')}</div>
+                  <div style={S.paramValue}>{headerData.last_casing} @ {fmtNum(headerData.last_casing_depth, 0)} ft</div>
+                </div>
+              )}
+              {headerData.next_casing && (
+                <div style={S.paramCell}>
+                  <div style={S.paramLabel}>{t('ddr.nextCasing')}</div>
+                  <div style={S.paramValue}>{headerData.next_casing} @ {fmtNum(headerData.next_casing_depth, 0)} ft</div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ──── SURFACE EQUIPMENT TESTS ──── */}
+        {headerData && (headerData.bop_test_pressure || headerData.koomey_time || headerData.ton_miles) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.surfaceTests')}</div>
+            <div style={S.paramGrid}>
+              {[
+                { label: t('ddr.bopTestDate'), key: 'bop_test_date', unit: '' },
+                { label: t('ddr.bopTestPressure'), key: 'bop_test_pressure', unit: 'psi' },
+                { label: t('ddr.koomeyTime'), key: 'koomey_time', unit: 'sec' },
+                { label: t('ddr.tonMiles'), key: 'ton_miles', unit: '' },
+              ].filter(p => headerData[p.key] != null).map(p => (
+                <div key={p.key} style={S.paramCell}>
+                  <div style={S.paramLabel}>{p.label}</div>
+                  <div style={S.paramValue}>
+                    {typeof headerData[p.key] === 'number' ? fmtNum(headerData[p.key]) : headerData[p.key]}
+                    {p.unit && <span style={{ fontSize: 9, color: '#94a3b8' }}> {p.unit}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ──── PUMP DATA ──── */}
+        {drillingParams && (drillingParams.pump1_liner || drillingParams.pump2_liner) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.pumpData')}</div>
+            <div style={S.paramGrid}>
+              {[
+                { label: t('ddr.pump1Liner'), key: 'pump1_liner', unit: 'in' },
+                { label: t('ddr.pump2Liner'), key: 'pump2_liner', unit: 'in' },
+                { label: t('ddr.pump3Liner'), key: 'pump3_liner', unit: 'in' },
+                { label: t('ddr.annularVelocity'), key: 'annular_velocity', unit: 'ft/min' },
+                { label: t('ddr.stringWeightUp'), key: 'string_weight_up', unit: 'klb' },
+                { label: t('ddr.stringWeightDown'), key: 'string_weight_down', unit: 'klb' },
+              ].filter(p => drillingParams[p.key] != null).map(p => (
+                <div key={p.key} style={S.paramCell}>
+                  <div style={S.paramLabel}>{p.label}</div>
+                  <div style={S.paramValue}>
+                    {fmtNum(drillingParams[p.key])} <span style={{ fontSize: 9, color: '#94a3b8' }}>{p.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ──── BIT DATA ──── */}
+        {drillingParams && (drillingParams.bit_brand || drillingParams.bit_type) && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.bitData')}</div>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}></th>
+                  <th style={S.th}>{t('ddr.bitBrand')}</th>
+                  <th style={S.th}>{t('ddr.bitSerial')}</th>
+                  <th style={S.th}>{t('ddr.bitType')}</th>
+                  <th style={S.th}>{t('ddr.bitSize')}</th>
+                  <th style={S.th}>{t('ddr.bitNozzles')}</th>
+                  <th style={S.th}>{t('ddr.bitDullIn')}</th>
+                  <th style={S.th}>{t('ddr.bitDullOut')}</th>
+                  <th style={S.th}>{t('ddr.bitFootage')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ ...S.td, fontWeight: 600 }}>{t('ddr.currentBit')}</td>
+                  <td style={S.td}>{drillingParams.bit_brand || '—'}</td>
+                  <td style={S.td}>{drillingParams.bit_serial || '—'}</td>
+                  <td style={S.td}>{drillingParams.bit_type || '—'}</td>
+                  <td style={S.td}>{fmtNum(drillingParams.bit_size)}</td>
+                  <td style={S.td}>{drillingParams.bit_nozzles || '—'}</td>
+                  <td style={S.td}>{drillingParams.bit_dull_in || '—'}</td>
+                  <td style={S.td}>{drillingParams.bit_dull_out || '—'}</td>
+                  <td style={S.td}>{fmtNum(drillingParams.bit_footage, 0)}</td>
+                </tr>
+                {(drillingParams.prev_bit_brand || drillingParams.prev_bit_type) && (
+                  <tr>
+                    <td style={{ ...S.td, fontWeight: 600 }}>{t('ddr.previousBit')}</td>
+                    <td style={S.td}>{drillingParams.prev_bit_brand || '—'}</td>
+                    <td style={S.td}>{drillingParams.prev_bit_serial || '—'}</td>
+                    <td style={S.td}>{drillingParams.prev_bit_type || '—'}</td>
+                    <td style={S.td}>{fmtNum(drillingParams.prev_bit_size)}</td>
+                    <td style={S.td}>—</td>
+                    <td style={S.td}>{drillingParams.prev_bit_dull_in || '—'}</td>
+                    <td style={S.td}>{drillingParams.prev_bit_dull_out || '—'}</td>
+                    <td style={S.td}>{fmtNum(drillingParams.prev_bit_footage, 0)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* ──── PERSONNEL ON LOCATION ──── */}
+        {hsseData?.personnel_companies && hsseData.personnel_companies.length > 0 && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.personnel')}</div>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}>#</th>
+                  <th style={S.th}>{t('ddr.companyName')}</th>
+                  <th style={S.th}>{t('ddr.headcount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hsseData.personnel_companies.map((c: any, i: number) => (
+                  <tr key={i}>
+                    <td style={S.td}>{i + 1}</td>
+                    <td style={S.td}>{c.company || '—'}</td>
+                    <td style={S.td}>{c.headcount || 0}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ ...S.td, fontWeight: 700 }} colSpan={2}>Total</td>
+                  <td style={{ ...S.td, fontWeight: 700 }}>{hsseData.personnel_companies.reduce((s: number, c: any) => s + (c.headcount || 0), 0)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* ──── MATERIALS / INVENTORY ──── */}
+        {mudInventory?.materials && mudInventory.materials.length > 0 && (
+          <>
+            <div style={S.sectionTitle}>{t('ddr.pdf.materials')}</div>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}>#</th>
+                  <th style={S.th}>{t('ddr.productName')}</th>
+                  <th style={S.th}>{t('ddr.materialInventory')}</th>
+                  <th style={S.th}>{t('ddr.materialUsed')}</th>
+                  <th style={S.th}>{t('ddr.materialUnit')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mudInventory.materials.map((m: any, i: number) => (
+                  <tr key={i}>
+                    <td style={S.td}>{i + 1}</td>
+                    <td style={S.td}>{m.product || '—'}</td>
+                    <td style={S.td}>{fmtNum(m.inventory, 0)}</td>
+                    <td style={S.td}>{fmtNum(m.used, 0)}</td>
+                    <td style={S.td}>{m.unit || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </>
         )}
 

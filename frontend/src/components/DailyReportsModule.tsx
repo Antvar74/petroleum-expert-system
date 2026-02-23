@@ -15,6 +15,7 @@ import {
   Save, Send, CheckCircle, Trash2, Edit3, FileText,
   BarChart3, Activity, AlertTriangle, Clock, DollarSign,
   TrendingDown, Zap, Filter, Download, Database,
+  Shield, Navigation, Layers, Gauge, Users, Package, Crosshair, Timer,
 } from 'lucide-react';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import DDRReportPDF from './DDRReportPDF';
@@ -234,6 +235,33 @@ const DailyReportsModule: React.FC = () => {
   const addBHA = () => setBhaData([...bhaData, emptyBHA()]);
   const removeBHA = (idx: number) => setBhaData(bhaData.filter((_, i) => i !== idx));
 
+  // ── Survey helpers ──
+  const updateSurvey = (idx: number, field: string, value: any) => {
+    const surveys = [...(headerData.surveys || [])];
+    surveys[idx] = { ...surveys[idx], [field]: value };
+    setHeaderData({ ...headerData, surveys });
+  };
+  const addSurvey = () => setHeaderData({ ...headerData, surveys: [...(headerData.surveys || []), { md: 0, tvd: 0, inc: 0, azi: 0, dls: 0 }] });
+  const removeSurvey = (idx: number) => setHeaderData({ ...headerData, surveys: (headerData.surveys || []).filter((_: any, i: number) => i !== idx) });
+
+  // ── Personnel companies helpers ──
+  const updateCompany = (idx: number, field: string, value: any) => {
+    const companies = [...(hsseData.personnel_companies || [])];
+    companies[idx] = { ...companies[idx], [field]: value };
+    setHsseData({ ...hsseData, personnel_companies: companies });
+  };
+  const addCompany = () => setHsseData({ ...hsseData, personnel_companies: [...(hsseData.personnel_companies || []), { company: '', headcount: 0 }] });
+  const removeCompany = (idx: number) => setHsseData({ ...hsseData, personnel_companies: (hsseData.personnel_companies || []).filter((_: any, i: number) => i !== idx) });
+
+  // ── Materials helpers ──
+  const updateMaterial = (idx: number, field: string, value: any) => {
+    const materials = [...(mudInventory.materials || [])];
+    materials[idx] = { ...materials[idx], [field]: value };
+    setMudInventory({ ...mudInventory, materials });
+  };
+  const addMaterial = () => setMudInventory({ ...mudInventory, materials: [...(mudInventory.materials || []), { product: '', inventory: 0, used: 0, unit: '' }] });
+  const removeMaterial = (idx: number) => setMudInventory({ ...mudInventory, materials: (mudInventory.materials || []).filter((_: any, i: number) => i !== idx) });
+
   const resetForm = () => {
     setEditingId(null);
     setReportDate(new Date().toISOString().split('T')[0]);
@@ -409,6 +437,14 @@ const DailyReportsModule: React.FC = () => {
     <div>
       <label className="text-xs text-white/40 block mb-1">{label}{unit && ` (${unit})`}</label>
       <input type={type} value={value || ''} onChange={e => onChange(type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)} className="input-field w-full py-2 px-3 text-sm" />
+    </div>
+  );
+
+  // Helper: textarea field
+  const TextArea = ({ label, value, onChange, rows = 3 }: any) => (
+    <div>
+      <label className="text-xs text-white/40 block mb-1">{label}</label>
+      <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} className="input-field w-full py-2 px-3 text-sm resize-y min-h-[60px]" />
     </div>
   );
 
@@ -593,7 +629,7 @@ const DailyReportsModule: React.FC = () => {
             </div>
           </div>
 
-          {/* Header */}
+          {/* Header — Expanded (#1) */}
           <Section id="header" title={t('ddr.headerSection')} icon={FileText}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Field label={t('ddr.operator')} value={headerData.operator} onChange={(v: string) => setHeaderData({ ...headerData, operator: v })} type="text" />
@@ -601,9 +637,30 @@ const DailyReportsModule: React.FC = () => {
               <Field label={t('ddr.rigName')} value={headerData.rig} onChange={(v: string) => setHeaderData({ ...headerData, rig: v })} type="text" />
               <Field label={t('ddr.fieldName')} value={headerData.field} onChange={(v: string) => setHeaderData({ ...headerData, field: v })} type="text" />
               <Field label={t('ddr.apiNumber')} value={headerData.api_number} onChange={(v: string) => setHeaderData({ ...headerData, api_number: v })} type="text" />
+              <Field label={t('ddr.contractNumber')} value={headerData.contract_number} onChange={(v: string) => setHeaderData({ ...headerData, contract_number: v })} type="text" />
               <Field label="AFE #" value={headerData.afe_number} onChange={(v: string) => setHeaderData({ ...headerData, afe_number: v })} type="text" />
               <Field label="AFE Budget" value={headerData.afe_budget} onChange={(v: number) => setHeaderData({ ...headerData, afe_budget: v })} unit="USD" />
+              <Field label={t('ddr.spudDate')} value={headerData.spud_date} onChange={(v: string) => setHeaderData({ ...headerData, spud_date: v })} type="date" />
+              <Field label={t('ddr.plannedDepth')} value={headerData.planned_depth} onChange={(v: number) => setHeaderData({ ...headerData, planned_depth: v })} unit="ft" />
+              <Field label={t('ddr.plannedDays')} value={headerData.planned_days} onChange={(v: number) => setHeaderData({ ...headerData, planned_days: v })} />
               <Field label="TVD" value={depthTvd} onChange={setDepthTvd} unit="ft" />
+              <Field label={t('ddr.wellPhase')} value={headerData.phase} onChange={(v: string) => setHeaderData({ ...headerData, phase: v })} type="text" />
+              <Field label={t('ddr.wellActivity')} value={headerData.activity} onChange={(v: string) => setHeaderData({ ...headerData, activity: v })} type="text" />
+            </div>
+          </Section>
+
+          {/* HSEQ / Safety (#2) */}
+          <Section id="hseq" title={t('ddr.hsseStructured')} icon={Shield}>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Field label={t('ddr.dslti')} value={hsseData.dslti} onChange={(v: number) => setHsseData({ ...hsseData, dslti: v })} />
+              <Field label={t('ddr.dslta')} value={hsseData.dslta} onChange={(v: number) => setHsseData({ ...hsseData, dslta: v })} />
+              <Field label={t('ddr.daysNoSpills')} value={hsseData.days_no_spills} onChange={(v: number) => setHsseData({ ...hsseData, days_no_spills: v })} />
+              <Field label={t('ddr.daysNoIncidents')} value={hsseData.days_no_incidents} onChange={(v: number) => setHsseData({ ...hsseData, days_no_incidents: v })} />
+              <Field label={t('ddr.safetyCards')} value={hsseData.safety_cards} onChange={(v: number) => setHsseData({ ...hsseData, safety_cards: v })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <Field label={t('ddr.supervisorDrilling')} value={hsseData.supervisor_drilling} onChange={(v: string) => setHsseData({ ...hsseData, supervisor_drilling: v })} type="text" />
+              <Field label={t('ddr.supervisorCompany')} value={hsseData.supervisor_company} onChange={(v: string) => setHsseData({ ...hsseData, supervisor_company: v })} type="text" />
             </div>
           </Section>
 
@@ -666,6 +723,31 @@ const DailyReportsModule: React.FC = () => {
             </button>
             <div className="mt-2 text-[10px] text-white/20">
               Total: {operations.reduce((s, o) => s + (o.hours || 0), 0).toFixed(1)} / 24.0 hrs
+            </div>
+          </Section>
+
+          {/* Summary / Program (#10) — EASIEST */}
+          <Section id="summary" title={t('ddr.summaryProgramSection')} icon={FileText}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TextArea label={t('ddr.prevDaySummary')} value={headerData.prev_day_summary} onChange={(v: string) => setHeaderData({ ...headerData, prev_day_summary: v })} rows={3} />
+              <TextArea label={t('ddr.daySummary')} value={headerData.day_summary} onChange={(v: string) => setHeaderData({ ...headerData, day_summary: v })} rows={3} />
+              <TextArea label={t('ddr.plannedProgram')} value={headerData.planned_program} onChange={(v: string) => setHeaderData({ ...headerData, planned_program: v })} rows={3} />
+              <TextArea label={t('ddr.urgentItems')} value={headerData.urgent_items} onChange={(v: string) => setHeaderData({ ...headerData, urgent_items: v })} rows={3} />
+            </div>
+          </Section>
+
+          {/* Time Classification (#6) */}
+          <Section id="timeclass" title={t('ddr.timeClassification')} icon={Timer}>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+              <div className="col-span-3 md:col-span-6 flex gap-2 items-center">
+                <span className="text-xs text-white/40 font-bold">{t('ddr.dailyHrs')}</span>
+              </div>
+              <Field label={t('ddr.productiveTime')} value={headerData.time_productive} onChange={(v: number) => setHeaderData({ ...headerData, time_productive: v })} unit="hrs" />
+              <Field label={t('ddr.unproductiveTime')} value={headerData.time_unproductive} onChange={(v: number) => setHeaderData({ ...headerData, time_unproductive: v })} unit="hrs" />
+              <Field label={t('ddr.downtimeHours')} value={headerData.time_downtime} onChange={(v: number) => setHeaderData({ ...headerData, time_downtime: v })} unit="hrs" />
+              <Field label={`${t('ddr.productiveTime')} ${t('ddr.cumulativeHrs')}`} value={headerData.cum_productive} onChange={(v: number) => setHeaderData({ ...headerData, cum_productive: v })} unit="hrs" />
+              <Field label={`${t('ddr.unproductiveTime')} ${t('ddr.cumulativeHrs')}`} value={headerData.cum_unproductive} onChange={(v: number) => setHeaderData({ ...headerData, cum_unproductive: v })} unit="hrs" />
+              <Field label={`${t('ddr.downtimeHours')} ${t('ddr.cumulativeHrs')}`} value={headerData.cum_downtime} onChange={(v: number) => setHeaderData({ ...headerData, cum_downtime: v })} unit="hrs" />
             </div>
           </Section>
 
@@ -749,7 +831,116 @@ const DailyReportsModule: React.FC = () => {
                   <Field label="CO2" value={gasMonitoring.co2} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, co2: v })} unit="%" />
                 </div>
               </Section>
+
+              {/* Bit Data (#3) */}
+              <Section id="bitdata" title={t('ddr.bitDataSection')} icon={Crosshair}>
+                <p className="text-[10px] text-white/30 font-bold uppercase mb-3">{t('ddr.currentBit')}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label={t('ddr.bitBrand')} value={drillingParams.bit_brand} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_brand: v })} type="text" />
+                  <Field label={t('ddr.bitSerial')} value={drillingParams.bit_serial} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_serial: v })} type="text" />
+                  <Field label={t('ddr.bitType')} value={drillingParams.bit_type} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_type: v })} type="text" />
+                  <Field label={t('ddr.bitSize')} value={drillingParams.bit_size} onChange={(v: number) => setDrillingParams({ ...drillingParams, bit_size: v })} unit="in" />
+                  <Field label={t('ddr.bitNozzles')} value={drillingParams.bit_nozzles} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_nozzles: v })} type="text" />
+                  <Field label={t('ddr.bitDullIn')} value={drillingParams.bit_dull_in} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_dull_in: v })} type="text" />
+                  <Field label={t('ddr.bitDullOut')} value={drillingParams.bit_dull_out} onChange={(v: string) => setDrillingParams({ ...drillingParams, bit_dull_out: v })} type="text" />
+                  <Field label={t('ddr.bitFootage')} value={drillingParams.bit_footage} onChange={(v: number) => setDrillingParams({ ...drillingParams, bit_footage: v })} unit="ft" />
+                </div>
+                <p className="text-[10px] text-white/30 font-bold uppercase mb-3 mt-5">{t('ddr.previousBit')}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label={t('ddr.bitBrand')} value={drillingParams.prev_bit_brand} onChange={(v: string) => setDrillingParams({ ...drillingParams, prev_bit_brand: v })} type="text" />
+                  <Field label={t('ddr.bitSerial')} value={drillingParams.prev_bit_serial} onChange={(v: string) => setDrillingParams({ ...drillingParams, prev_bit_serial: v })} type="text" />
+                  <Field label={t('ddr.bitType')} value={drillingParams.prev_bit_type} onChange={(v: string) => setDrillingParams({ ...drillingParams, prev_bit_type: v })} type="text" />
+                  <Field label={t('ddr.bitSize')} value={drillingParams.prev_bit_size} onChange={(v: number) => setDrillingParams({ ...drillingParams, prev_bit_size: v })} unit="in" />
+                  <Field label={t('ddr.bitDullIn')} value={drillingParams.prev_bit_dull_in} onChange={(v: string) => setDrillingParams({ ...drillingParams, prev_bit_dull_in: v })} type="text" />
+                  <Field label={t('ddr.bitDullOut')} value={drillingParams.prev_bit_dull_out} onChange={(v: string) => setDrillingParams({ ...drillingParams, prev_bit_dull_out: v })} type="text" />
+                  <Field label={t('ddr.bitFootage')} value={drillingParams.prev_bit_footage} onChange={(v: number) => setDrillingParams({ ...drillingParams, prev_bit_footage: v })} unit="ft" />
+                </div>
+              </Section>
+
+              {/* Survey / Deviation (#4) */}
+              <Section id="survey" title={`${t('ddr.surveySection')} (${(headerData.surveys || []).length})`} icon={Navigation}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-white/40 border-b border-white/5 text-xs">
+                        <th className="text-left py-2 px-1 w-20">{t('ddr.surveyMD')}</th>
+                        <th className="text-left py-2 px-1 w-20">{t('ddr.surveyTVD')}</th>
+                        <th className="text-left py-2 px-1 w-16">{t('ddr.surveyInc')}</th>
+                        <th className="text-left py-2 px-1 w-16">{t('ddr.surveyAzi')}</th>
+                        <th className="text-left py-2 px-1 w-20">{t('ddr.surveyDLS')}</th>
+                        <th className="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(headerData.surveys || []).map((s: any, i: number) => (
+                        <tr key={i} className="border-b border-white/5">
+                          <td className="py-1 px-1"><input type="number" value={s.md || ''} onChange={e => updateSurvey(i, 'md', parseFloat(e.target.value) || 0)} className="input-field w-18 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" value={s.tvd || ''} onChange={e => updateSurvey(i, 'tvd', parseFloat(e.target.value) || 0)} className="input-field w-18 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" step="0.1" value={s.inc || ''} onChange={e => updateSurvey(i, 'inc', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" step="0.1" value={s.azi || ''} onChange={e => updateSurvey(i, 'azi', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" step="0.01" value={s.dls || ''} onChange={e => updateSurvey(i, 'dls', parseFloat(e.target.value) || 0)} className="input-field w-18 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><button onClick={() => removeSurvey(i)} className="text-white/20 hover:text-red-400"><Trash2 size={12} /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button onClick={addSurvey} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+                  <Plus size={12} /> {t('ddr.addSurveyStation')}
+                </button>
+              </Section>
+
+              {/* Casing Record (#5) */}
+              <Section id="casing" title={t('ddr.casingRecord')} icon={Layers}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label={t('ddr.lastCasing')} value={headerData.last_casing} onChange={(v: string) => setHeaderData({ ...headerData, last_casing: v })} type="text" />
+                  <Field label={t('ddr.lastCasingDepth')} value={headerData.last_casing_depth} onChange={(v: number) => setHeaderData({ ...headerData, last_casing_depth: v })} unit="ft" />
+                  <Field label={t('ddr.nextCasing')} value={headerData.next_casing} onChange={(v: string) => setHeaderData({ ...headerData, next_casing: v })} type="text" />
+                  <Field label={t('ddr.nextCasingDepth')} value={headerData.next_casing_depth} onChange={(v: number) => setHeaderData({ ...headerData, next_casing_depth: v })} unit="ft" />
+                </div>
+              </Section>
+
+              {/* Surface Equipment Tests (#7) */}
+              <Section id="surfacetests" title={t('ddr.surfaceEquipTests')} icon={Gauge}>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <Field label={t('ddr.bopTestDate')} value={headerData.bop_test_date} onChange={(v: string) => setHeaderData({ ...headerData, bop_test_date: v })} type="date" />
+                  <Field label={t('ddr.bopTestPressure')} value={headerData.bop_test_pressure} onChange={(v: number) => setHeaderData({ ...headerData, bop_test_pressure: v })} unit="psi" />
+                  <Field label={t('ddr.koomeyTime')} value={headerData.koomey_time} onChange={(v: number) => setHeaderData({ ...headerData, koomey_time: v })} unit="sec" />
+                  <Field label={t('ddr.tonMiles')} value={headerData.ton_miles} onChange={(v: number) => setHeaderData({ ...headerData, ton_miles: v })} />
+                  <Field label={t('ddr.standpipePressureSurf')} value={headerData.standpipe_pressure} onChange={(v: number) => setHeaderData({ ...headerData, standpipe_pressure: v })} unit="psi" />
+                  <Field label={t('ddr.casingPressureSurf')} value={headerData.casing_pressure} onChange={(v: number) => setHeaderData({ ...headerData, casing_pressure: v })} unit="psi" />
+                </div>
+              </Section>
+
+              {/* Pump Data (#8) */}
+              <Section id="pumpdata" title={t('ddr.pumpDataSection')} icon={Gauge}>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <Field label={t('ddr.pump1Liner')} value={drillingParams.pump1_liner} onChange={(v: number) => setDrillingParams({ ...drillingParams, pump1_liner: v })} unit="in" />
+                  <Field label={t('ddr.pump2Liner')} value={drillingParams.pump2_liner} onChange={(v: number) => setDrillingParams({ ...drillingParams, pump2_liner: v })} unit="in" />
+                  <Field label={t('ddr.pump3Liner')} value={drillingParams.pump3_liner} onChange={(v: number) => setDrillingParams({ ...drillingParams, pump3_liner: v })} unit="in" />
+                  <Field label={t('ddr.annularVelocity')} value={drillingParams.annular_velocity} onChange={(v: number) => setDrillingParams({ ...drillingParams, annular_velocity: v })} unit="ft/min" />
+                  <Field label={t('ddr.stringWeightUp')} value={drillingParams.string_weight_up} onChange={(v: number) => setDrillingParams({ ...drillingParams, string_weight_up: v })} unit="klb" />
+                  <Field label={t('ddr.stringWeightDown')} value={drillingParams.string_weight_down} onChange={(v: number) => setDrillingParams({ ...drillingParams, string_weight_down: v })} unit="klb" />
+                </div>
+              </Section>
             </>
+          )}
+
+          {/* Extended Mud Properties (#9) — shown for non-mobilization only */}
+          {reportType !== 'mobilization' && (
+            <Section id="mudext" title={`${t('ddr.mudProperties')} — ${t('ddr.mudType') || 'Extended'}`} icon={TrendingDown}>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Field label={t('ddr.mudType')} value={mudProps.mud_type} onChange={(v: string) => setMudProps({ ...mudProps, mud_type: v })} type="text" />
+                <Field label={t('ddr.marshFunnel')} value={mudProps.marsh_funnel} onChange={(v: number) => setMudProps({ ...mudProps, marsh_funnel: v })} unit="sec" />
+                <Field label={t('ddr.oilPct')} value={mudProps.oil_pct} onChange={(v: number) => setMudProps({ ...mudProps, oil_pct: v })} unit="%" />
+                <Field label={t('ddr.waterPct')} value={mudProps.water_pct} onChange={(v: number) => setMudProps({ ...mudProps, water_pct: v })} unit="%" />
+                <Field label={t('ddr.calcium')} value={mudProps.calcium} onChange={(v: number) => setMudProps({ ...mudProps, calcium: v })} unit="mg/L" />
+                <Field label={t('ddr.alkalinity')} value={mudProps.alkalinity} onChange={(v: number) => setMudProps({ ...mudProps, alkalinity: v })} unit="mL" />
+                <Field label={t('ddr.va')} value={mudProps.va} onChange={(v: number) => setMudProps({ ...mudProps, va: v })} unit="cP" />
+                <Field label={t('ddr.es')} value={mudProps.es} onChange={(v: number) => setMudProps({ ...mudProps, es: v })} unit="V" />
+                <Field label={t('ddr.mudTemperature')} value={mudProps.temperature} onChange={(v: number) => setMudProps({ ...mudProps, temperature: v })} unit="°F" />
+              </div>
+            </Section>
           )}
 
           {/* Cost Summary */}
@@ -764,6 +955,64 @@ const DailyReportsModule: React.FC = () => {
               <Field label={t('ddr.totalDayCost')} value={costSummary.total_day} onChange={(v: number) => setCostSummary({ ...costSummary, total_day: v })} unit="USD" />
               <Field label={t('ddr.totalCumCost')} value={costSummary.total_cumulative} onChange={(v: number) => setCostSummary({ ...costSummary, total_cumulative: v })} unit="USD" />
             </div>
+          </Section>
+
+          {/* Personnel on Location (#11) */}
+          <Section id="personnel" title={`${t('ddr.personnelSection')} (${(hsseData.personnel_companies || []).length})`} icon={Users}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-white/40 border-b border-white/5 text-xs">
+                    <th className="text-left py-2 px-1">{t('ddr.companyName')}</th>
+                    <th className="text-left py-2 px-1 w-24">{t('ddr.headcount')}</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(hsseData.personnel_companies || []).map((c: any, i: number) => (
+                    <tr key={i} className="border-b border-white/5">
+                      <td className="py-1 px-1"><input type="text" value={c.company || ''} onChange={e => updateCompany(i, 'company', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. Halliburton" /></td>
+                      <td className="py-1 px-1"><input type="number" value={c.headcount || ''} onChange={e => updateCompany(i, 'headcount', parseInt(e.target.value) || 0)} className="input-field w-20 py-1 px-1.5 text-xs" /></td>
+                      <td className="py-1 px-1"><button onClick={() => removeCompany(i)} className="text-white/20 hover:text-red-400"><Trash2 size={12} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button onClick={addCompany} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+              <Plus size={12} /> {t('ddr.addCompanyRow')}
+            </button>
+          </Section>
+
+          {/* Materials / Inventory (#12) */}
+          <Section id="materials" title={`${t('ddr.materialsSection')} (${(mudInventory.materials || []).length})`} icon={Package}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-white/40 border-b border-white/5 text-xs">
+                    <th className="text-left py-2 px-1">{t('ddr.productName')}</th>
+                    <th className="text-left py-2 px-1 w-24">{t('ddr.materialInventory')}</th>
+                    <th className="text-left py-2 px-1 w-24">{t('ddr.materialUsed')}</th>
+                    <th className="text-left py-2 px-1 w-20">{t('ddr.materialUnit')}</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(mudInventory.materials || []).map((m: any, i: number) => (
+                    <tr key={i} className="border-b border-white/5">
+                      <td className="py-1 px-1"><input type="text" value={m.product || ''} onChange={e => updateMaterial(i, 'product', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. Barite" /></td>
+                      <td className="py-1 px-1"><input type="number" value={m.inventory || ''} onChange={e => updateMaterial(i, 'inventory', parseFloat(e.target.value) || 0)} className="input-field w-20 py-1 px-1.5 text-xs" /></td>
+                      <td className="py-1 px-1"><input type="number" value={m.used || ''} onChange={e => updateMaterial(i, 'used', parseFloat(e.target.value) || 0)} className="input-field w-20 py-1 px-1.5 text-xs" /></td>
+                      <td className="py-1 px-1"><input type="text" value={m.unit || ''} onChange={e => updateMaterial(i, 'unit', e.target.value)} className="input-field w-18 py-1 px-1.5 text-xs" placeholder="sxs" /></td>
+                      <td className="py-1 px-1"><button onClick={() => removeMaterial(i)} className="text-white/20 hover:text-red-400"><Trash2 size={12} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button onClick={addMaterial} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+              <Plus size={12} /> {t('ddr.addMaterial')}
+            </button>
           </Section>
 
           {/* Completion-specific */}
@@ -910,6 +1159,8 @@ const DailyReportsModule: React.FC = () => {
         bhaData={bhaData}
         gasMonitoring={gasMonitoring}
         costSummary={costSummary}
+        hsseData={hsseData}
+        mudInventory={mudInventory}
         completionData={completionData}
         terminationData={terminationData}
         status={editingId ? (reports.find(r => r.id === editingId)?.status || 'draft') : 'draft'}
