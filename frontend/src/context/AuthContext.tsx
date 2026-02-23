@@ -106,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen for forced logout from axios interceptor
   useEffect(() => {
     const handler = () => {
+      clearAuth();
       setToken(null);
       setUser(null);
     };

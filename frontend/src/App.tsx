@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { ArrowLeft, Activity, GitBranch, Loader2, Database } from 'lucide-react';
 import LanguageSelector from './components/LanguageSelector';
-import { API_BASE_URL } from './config';
+import api from './lib/api';
 import { ToastProvider, useToast } from './components/ui/Toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/LoginPage';
@@ -69,20 +68,20 @@ function AppContent() {
         well_id: selectedWell.id
       };
 
-      const response = await axios.post(`${API_BASE_URL}/events`, payload);
+      const response = await api.post(`/events`, payload);
       const { id: eventId } = response.data;
 
       // 2. Trigger Physics Calculation (Async)
       setSubmitStep(t('app.runningPhysics'));
       try {
-        await axios.post(`${API_BASE_URL}/events/${eventId}/calculate`);
+        await api.post(`/events/${eventId}/calculate`);
       } catch (calcError) {
         console.warn("Physics calculation failed:", calcError);
       }
 
       // 3. Initialize analysis directly from Event (no legacy Problem bridge)
       setSubmitStep(t('app.initializingPipeline'));
-      const analysisResponse = await axios.post(`${API_BASE_URL}/events/${eventId}/analysis/init`, {
+      const analysisResponse = await api.post(`/events/${eventId}/analysis/init`, {
         workflow: eventData.workflow || "standard",
         leader: eventData.leader
       });

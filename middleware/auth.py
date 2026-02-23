@@ -83,12 +83,18 @@ async def verify_auth(
             user_id = payload.get("sub")
             if user_id is None:
                 raise HTTPException(status_code=401, detail="Invalid token payload")
-            user = db.query(User).filter(User.id == int(user_id)).first()
+            try:
+                uid = int(user_id)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            user = db.query(User).filter(User.id == uid).first()
             if not user:
                 raise HTTPException(status_code=401, detail="User not found")
             if not user.is_active:
                 raise HTTPException(status_code=403, detail="Account is disabled")
             return user
+        except HTTPException:
+            raise
         except JWTError:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -134,9 +140,15 @@ async def get_current_user(
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = db.query(User).filter(User.id == int(user_id)).first()
+        try:
+            uid = int(user_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = db.query(User).filter(User.id == uid).first()
         if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="User not found or disabled")
         return user
+    except HTTPException:
+        raise
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

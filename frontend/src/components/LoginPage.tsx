@@ -46,31 +46,28 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    // Client-side validation (before loading state)
+    if (isRegister) {
+      if (password !== confirmPassword) {
+        setError(t('auth.passwordMismatch'));
+        return;
+      }
+      if (password.length < 6) {
+        setError(t('auth.passwordTooShort'));
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       if (isRegister) {
-        if (password !== confirmPassword) {
-          setError(t('auth.passwordMismatch'));
-          setLoading(false);
-          return;
-        }
-        if (password.length < 6) {
-          setError(t('auth.passwordTooShort'));
-          setLoading(false);
-          return;
-        }
         await register(username, email, password, fullName || undefined);
       } else {
         await login(loginField, password);
       }
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      if (detail) {
-        setError(detail);
-      } else {
-        setError(t('auth.genericError'));
-      }
+      setError(err?.response?.data?.detail || t('auth.genericError'));
     } finally {
       setLoading(false);
     }
