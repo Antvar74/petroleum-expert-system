@@ -5,14 +5,9 @@ Supports username/email login, bcrypt password hashing, and role-based access.
 """
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from passlib.context import CryptContext
+import bcrypt
 
 from .database import Base
-
-# ---------------------------------------------------------------------------
-# Password hashing
-# ---------------------------------------------------------------------------
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class User(Base):
@@ -30,8 +25,12 @@ class User(Base):
 
     # --- helpers -----------------------------------------------------------
     def verify_password(self, plain_password: str) -> bool:
-        return pwd_context.verify(plain_password, self.hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            self.hashed_password.encode("utf-8"),
+        )
 
     @staticmethod
     def hash_password(plain_password: str) -> str:
-        return pwd_context.hash(plain_password)
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(plain_password.encode("utf-8"), salt).decode("utf-8")
