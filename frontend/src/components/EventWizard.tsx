@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
+import DataReadinessPanel from './DataReadinessPanel';
 
 interface EventWizardProps {
     onComplete: (eventData: any) => void;
@@ -45,6 +46,32 @@ const EVENT_TYPES_CONFIG: Record<string, { id: string; family: string }[]> = {
 };
 
 const FAMILY_IDS = ['well', 'fluids', 'mechanics', 'control', 'human'] as const;
+
+// =====================================================================
+// EVENT TYPE → MODULE MAPPING for DataReadinessPanel
+// Maps EventWizard event types to DATA_REQUIREMENTS module IDs and events
+// =====================================================================
+const EVENT_TO_MODULE: Record<string, { moduleId: string; event?: string }> = {
+    // Drilling events
+    stuck_pipe:           { moduleId: 'stuck-pipe' },
+    lost_circulation:     { moduleId: 'hydraulics', event: 'lost_circulation' },
+    kick:                 { moduleId: 'well-control', event: 'kick' },
+    bha_failure:          { moduleId: 'vibrations' },
+    torque_drag:          { moduleId: 'torque-drag', event: 'high_torque' },
+    severe_vibration:     { moduleId: 'vibrations', event: 'lateral' },
+    wellbore_instability: { moduleId: 'wellbore-cleanup' },
+    // Completion events
+    perforation_failure:  { moduleId: 'shot-efficiency' },
+    formation_damage:     { moduleId: 'completion-design', event: 'skin_damage' },
+    sand_production:      { moduleId: 'sand-control' },
+    packer_failure:       { moduleId: 'packer-forces' },
+    gravel_pack_failure:  { moduleId: 'sand-control' },
+    // Workover events
+    ct_failure:           { moduleId: 'workover-hydraulics' },
+    bop_failure:          { moduleId: 'workover-hydraulics' },
+    stuck_string:         { moduleId: 'torque-drag' },
+    surface_equipment:    { moduleId: 'workover-hydraulics' },
+};
 
 // =====================================================================
 // MINIMUM REQUIRED FIELDS PER EVENT TYPE — Nivel Elite
@@ -560,6 +587,16 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         return (
             <div className="space-y-6 animate-fadeIn">
                 <h3 className="text-xl font-bold text-white mb-4">{t('eventWizard.step2Title')}</h3>
+
+                {/* Data Readiness Recommendations */}
+                {phase && eventType && EVENT_TO_MODULE[eventType] && (
+                    <DataReadinessPanel
+                        moduleId={EVENT_TO_MODULE[eventType].moduleId}
+                        phase={phase}
+                        event={EVENT_TO_MODULE[eventType].event}
+                        currentData={mergedData || {}}
+                    />
+                )}
 
                 {!extractedData ? (
                     <>
