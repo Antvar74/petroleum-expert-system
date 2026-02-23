@@ -40,7 +40,8 @@
     "vibrations": "Vibraciones",
     "cementing": "Cementación",
     "casingDesign": "Diseño de Casing",
-    "dailyReports": "Reportes Diarios / DDR"
+    "dailyReports": "Reportes Diarios / DDR",
+    "petrophysics": "Petrofísica Avanzada"
   },
   "app": {
     "creatingEvent": "Creando registro del evento...",
@@ -158,7 +159,8 @@
     "moduleDescSE": "Modelo de skin Karakas-Tariq, geometría de perforaciones, análisis de eficiencia de flujo",
     "moduleDescVB": "Análisis de vibraciones BHA, RPM críticas, modos lateral y torsional",
     "moduleDescCem": "Diseño de lechada, mecánica de desplazamiento, centralización, simulación de trabajo",
-    "moduleDescCsg": "Casos de carga, diseño burst/colapso/tensión, factores de seguridad, selección de grado"
+    "moduleDescCsg": "Casos de carga, diseño burst/colapso/tensión, factores de seguridad, selección de grado",
+    "moduleDescPetro": "Importación LAS, Sw Waxman-Smits y Dual-Water, Pickett plot, crossplots, net pay"
   },
   "ddr": {
     "title": "Reportes Diarios / DDR",

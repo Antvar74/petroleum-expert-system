@@ -40,7 +40,8 @@
     "vibrations": "Vibrations",
     "cementing": "Cementing",
     "casingDesign": "Casing Design",
-    "dailyReports": "Daily Reports / DDR"
+    "dailyReports": "Daily Reports / DDR",
+    "petrophysics": "Advanced Petrophysics"
   },
   "app": {
     "creatingEvent": "Creating event record...",
@@ -158,7 +159,8 @@
     "moduleDescSE": "Karakas-Tariq skin model, perforation geometry, flow efficiency analysis",
     "moduleDescVB": "BHA vibration analysis, critical RPM, lateral & torsional modes",
     "moduleDescCem": "Slurry design, displacement mechanics, centralization, job simulation",
-    "moduleDescCsg": "Load cases, burst/collapse/tension design, safety factors, grade selection"
+    "moduleDescCsg": "Load cases, burst/collapse/tension design, safety factors, grade selection",
+    "moduleDescPetro": "LAS import, Waxman-Smits & Dual-Water Sw, Pickett plot, crossplots, net pay"
   },
   "ddr": {
     "title": "Daily Reports / DDR",

@@ -24,6 +24,7 @@ import VibrationsModule from './components/VibrationsModule';
 import CementingModule from './components/CementingModule';
 import CasingDesignModule from './components/CasingDesignModule';
 import DailyReportsModule from './components/DailyReportsModule';
+import PetrophysicsModule from './components/PetrophysicsModule';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 function AppContent() {
@@ -197,6 +198,8 @@ function AppContent() {
         return <CasingDesignModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'daily-reports':
         return <DailyReportsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
+      case 'petrophysics':
+        return <PetrophysicsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'settings':
         return <div className="p-12 text-center text-white/40 italic">{t('app.settingsComingSoon')}</div>;
       default:

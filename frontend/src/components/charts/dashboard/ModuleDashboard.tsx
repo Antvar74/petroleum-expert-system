@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
   Waves, Anchor, Wrench, Filter, ClipboardList,
-  Layers, Target, Vibrate, Cylinder, ShieldCheck,
+  Layers, Target, Vibrate, Cylinder, ShieldCheck, FileBarChart,
 } from 'lucide-react';
 import SparklineChart from './SparklineChart';
 
@@ -168,6 +168,16 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-emerald-500/10 border-emerald-500/20',
     sparkColor: '#10b981',
   },
+  {
+    id: 'petro',
+    view: 'petrophysics',
+    nameKey: 'modules.petrophysics',
+    descKey: 'dashboard.moduleDescPetro',
+    icon: FileBarChart,
+    color: 'text-violet-400',
+    bgColor: 'bg-violet-500/10 border-violet-500/20',
+    sparkColor: '#8b5cf6',
+  },
 ];
 
 const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId }) => {
@@ -240,9 +250,9 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
         <h3 className="font-bold text-sm mb-4">{t('dashboard.systemCapabilities')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: t('dashboard.engineeringModules'), value: '14', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC, DDR, CD, SE, VB, Cem, Csg' },
-            { label: t('dashboard.chartTypes'), value: '71+', detail: t('dashboard.rechartsCustomSVG') },
-            { label: t('dashboard.calculationEngines'), value: '16', detail: t('dashboard.purePython') },
+            { label: t('dashboard.engineeringModules'), value: '15', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC, DDR, CD, SE, VB, Cem, Csg, Petro' },
+            { label: t('dashboard.chartTypes'), value: '78+', detail: t('dashboard.rechartsCustomSVG') },
+            { label: t('dashboard.calculationEngines'), value: '17', detail: t('dashboard.purePython') },
             { label: t('dashboard.pdfExport'), value: t('dashboard.yes'), detail: t('dashboard.professionalReports') },
           ].map((stat, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-4 text-center">
