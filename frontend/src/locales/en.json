@@ -170,9 +170,10 @@
   },
   "ddr": {
     "title": "Daily Reports / DDR",
-    "subtitle": "Daily Drilling, Completion & Termination Reports",
+    "subtitle": "Daily Mobilization, Drilling, Completion & Termination Reports",
     "reports": "Reports",
     "newDDR": "New DDR",
+    "mobilization": "Mobilization",
     "completion": "Completion",
     "termination": "Termination",
     "kpis": "KPIs",
@@ -313,6 +314,7 @@
     "activeWell": "Active well:",
     "noReportsForAnalysis": "Create at least one report to enable AI analysis.",
     "pdf": {
+      "mobilizationReport": "MOBILIZATION REPORT",
       "dailyDrillingReport": "DAILY DRILLING REPORT",
       "completionReport": "COMPLETION REPORT",
       "terminationReport": "TERMINATION REPORT",

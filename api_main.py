@@ -3090,8 +3090,8 @@ def create_daily_report(well_id: int, data: Dict[str, Any] = Body(...), db: Sess
         report_date = report_date_str
 
     report_type = data.get("report_type", "drilling")
-    if report_type not in ("drilling", "completion", "termination"):
-        raise HTTPException(status_code=400, detail="report_type must be: drilling, completion, or termination")
+    if report_type not in ("mobilization", "drilling", "completion", "termination"):
+        raise HTTPException(status_code=400, detail="report_type must be: mobilization, drilling, completion, or termination")
 
     # Auto-increment report number
     last_report = db.query(DailyReport).filter(

@@ -170,9 +170,10 @@
   },
   "ddr": {
     "title": "Reportes Diarios / DDR",
-    "subtitle": "Reportes de Perforación, Completación y Terminación",
+    "subtitle": "Reportes de Movilización, Perforación, Completación y Terminación",
     "reports": "Reportes",
     "newDDR": "Nuevo DDR",
+    "mobilization": "Movilización",
     "completion": "Completación",
     "termination": "Terminación",
     "kpis": "KPIs",
@@ -313,6 +314,7 @@
     "activeWell": "Pozo activo:",
     "noReportsForAnalysis": "Crea al menos un reporte para habilitar el análisis IA.",
     "pdf": {
+      "mobilizationReport": "REPORTE DE MOVILIZACIÓN",
       "dailyDrillingReport": "REPORTE DIARIO DE PERFORACIÓN",
       "completionReport": "REPORTE DE COMPLETACIÓN",
       "terminationReport": "REPORTE DE TERMINACIÓN",

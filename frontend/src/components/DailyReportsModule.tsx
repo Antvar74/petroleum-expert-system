@@ -522,7 +522,7 @@ const DailyReportsModule: React.FC = () => {
           {/* Filters */}
           <div className="flex gap-3 items-center">
             <Filter size={14} className="text-white/30" />
-            {['', 'drilling', 'completion', 'termination'].map(ft => (
+            {['', 'mobilization', 'drilling', 'completion', 'termination'].map(ft => (
               <button
                 key={ft}
                 onClick={() => { setFilterType(ft); setTimeout(fetchReports, 50); }}
@@ -581,6 +581,7 @@ const DailyReportsModule: React.FC = () => {
               <div>
                 <label className="text-xs text-white/40 block mb-1">{t('ddr.reportType') || 'Report Type'}</label>
                 <select value={reportType} onChange={e => setReportType(e.target.value)} className="input-field w-full py-2 px-3 text-sm">
+                  <option value="mobilization">{t('ddr.mobilization')}</option>
                   <option value="drilling">{t('ddr.drilling') || 'Drilling'}</option>
                   <option value="completion">{t('ddr.completion')}</option>
                   <option value="termination">{t('ddr.termination')}</option>
@@ -668,83 +669,88 @@ const DailyReportsModule: React.FC = () => {
             </div>
           </Section>
 
-          {/* Drilling Parameters */}
-          <Section id="drilling" title={t('ddr.drillingParams')} icon={Activity}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Field label="WOB" value={drillingParams.wob} onChange={(v: number) => setDrillingParams({ ...drillingParams, wob: v })} unit="klb" />
-              <Field label="RPM" value={drillingParams.rpm} onChange={(v: number) => setDrillingParams({ ...drillingParams, rpm: v })} />
-              <Field label="SPM" value={drillingParams.spm} onChange={(v: number) => setDrillingParams({ ...drillingParams, spm: v })} />
-              <Field label={t('ddr.flowRate')} value={drillingParams.flow_rate} onChange={(v: number) => setDrillingParams({ ...drillingParams, flow_rate: v })} unit="gpm" />
-              <Field label="SPP" value={drillingParams.spp} onChange={(v: number) => setDrillingParams({ ...drillingParams, spp: v })} unit="psi" />
-              <Field label={t('ddr.torque')} value={drillingParams.torque} onChange={(v: number) => setDrillingParams({ ...drillingParams, torque: v })} unit="ft-lb" />
-              <Field label="ROP" value={drillingParams.rop} onChange={(v: number) => setDrillingParams({ ...drillingParams, rop: v })} unit="ft/hr" />
-              <Field label="ECD" value={drillingParams.ecd} onChange={(v: number) => setDrillingParams({ ...drillingParams, ecd: v })} unit="ppg" />
-              <Field label={t('ddr.hookLoad')} value={drillingParams.hook_load} onChange={(v: number) => setDrillingParams({ ...drillingParams, hook_load: v })} unit="klb" />
-              <Field label="ESD" value={drillingParams.esd} onChange={(v: number) => setDrillingParams({ ...drillingParams, esd: v })} unit="ppg" />
-            </div>
-          </Section>
+          {/* Drilling-specific sections (hidden for mobilization reports) */}
+          {reportType !== 'mobilization' && (
+            <>
+              {/* Drilling Parameters */}
+              <Section id="drilling" title={t('ddr.drillingParams')} icon={Activity}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label="WOB" value={drillingParams.wob} onChange={(v: number) => setDrillingParams({ ...drillingParams, wob: v })} unit="klb" />
+                  <Field label="RPM" value={drillingParams.rpm} onChange={(v: number) => setDrillingParams({ ...drillingParams, rpm: v })} />
+                  <Field label="SPM" value={drillingParams.spm} onChange={(v: number) => setDrillingParams({ ...drillingParams, spm: v })} />
+                  <Field label={t('ddr.flowRate')} value={drillingParams.flow_rate} onChange={(v: number) => setDrillingParams({ ...drillingParams, flow_rate: v })} unit="gpm" />
+                  <Field label="SPP" value={drillingParams.spp} onChange={(v: number) => setDrillingParams({ ...drillingParams, spp: v })} unit="psi" />
+                  <Field label={t('ddr.torque')} value={drillingParams.torque} onChange={(v: number) => setDrillingParams({ ...drillingParams, torque: v })} unit="ft-lb" />
+                  <Field label="ROP" value={drillingParams.rop} onChange={(v: number) => setDrillingParams({ ...drillingParams, rop: v })} unit="ft/hr" />
+                  <Field label="ECD" value={drillingParams.ecd} onChange={(v: number) => setDrillingParams({ ...drillingParams, ecd: v })} unit="ppg" />
+                  <Field label={t('ddr.hookLoad')} value={drillingParams.hook_load} onChange={(v: number) => setDrillingParams({ ...drillingParams, hook_load: v })} unit="klb" />
+                  <Field label="ESD" value={drillingParams.esd} onChange={(v: number) => setDrillingParams({ ...drillingParams, esd: v })} unit="ppg" />
+                </div>
+              </Section>
 
-          {/* Mud Properties */}
-          <Section id="mud" title={t('ddr.mudProperties')} icon={TrendingDown}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Field label={t('ddr.mudWeight')} value={mudProps.density} onChange={(v: number) => setMudProps({ ...mudProps, density: v })} unit="ppg" />
-              <Field label="PV" value={mudProps.pv} onChange={(v: number) => setMudProps({ ...mudProps, pv: v })} unit="cP" />
-              <Field label="YP" value={mudProps.yp} onChange={(v: number) => setMudProps({ ...mudProps, yp: v })} unit="lb/100ft²" />
-              <Field label={t('ddr.gels10s')} value={mudProps.gels_10s} onChange={(v: number) => setMudProps({ ...mudProps, gels_10s: v })} unit="lb/100ft²" />
-              <Field label={t('ddr.gels10m')} value={mudProps.gels_10m} onChange={(v: number) => setMudProps({ ...mudProps, gels_10m: v })} unit="lb/100ft²" />
-              <Field label={t('ddr.filtrate')} value={mudProps.filtrate} onChange={(v: number) => setMudProps({ ...mudProps, filtrate: v })} unit="ml/30min" />
-              <Field label="pH" value={mudProps.ph} onChange={(v: number) => setMudProps({ ...mudProps, ph: v })} />
-              <Field label={t('ddr.chlorides')} value={mudProps.chlorides} onChange={(v: number) => setMudProps({ ...mudProps, chlorides: v })} unit="mg/L" />
-              <Field label="MBT" value={mudProps.mbt} onChange={(v: number) => setMudProps({ ...mudProps, mbt: v })} unit="lb/bbl" />
-              <Field label={t('ddr.solidsPct')} value={mudProps.solids_pct} onChange={(v: number) => setMudProps({ ...mudProps, solids_pct: v })} unit="%" />
-            </div>
-          </Section>
+              {/* Mud Properties */}
+              <Section id="mud" title={t('ddr.mudProperties')} icon={TrendingDown}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label={t('ddr.mudWeight')} value={mudProps.density} onChange={(v: number) => setMudProps({ ...mudProps, density: v })} unit="ppg" />
+                  <Field label="PV" value={mudProps.pv} onChange={(v: number) => setMudProps({ ...mudProps, pv: v })} unit="cP" />
+                  <Field label="YP" value={mudProps.yp} onChange={(v: number) => setMudProps({ ...mudProps, yp: v })} unit="lb/100ft²" />
+                  <Field label={t('ddr.gels10s')} value={mudProps.gels_10s} onChange={(v: number) => setMudProps({ ...mudProps, gels_10s: v })} unit="lb/100ft²" />
+                  <Field label={t('ddr.gels10m')} value={mudProps.gels_10m} onChange={(v: number) => setMudProps({ ...mudProps, gels_10m: v })} unit="lb/100ft²" />
+                  <Field label={t('ddr.filtrate')} value={mudProps.filtrate} onChange={(v: number) => setMudProps({ ...mudProps, filtrate: v })} unit="ml/30min" />
+                  <Field label="pH" value={mudProps.ph} onChange={(v: number) => setMudProps({ ...mudProps, ph: v })} />
+                  <Field label={t('ddr.chlorides')} value={mudProps.chlorides} onChange={(v: number) => setMudProps({ ...mudProps, chlorides: v })} unit="mg/L" />
+                  <Field label="MBT" value={mudProps.mbt} onChange={(v: number) => setMudProps({ ...mudProps, mbt: v })} unit="lb/bbl" />
+                  <Field label={t('ddr.solidsPct')} value={mudProps.solids_pct} onChange={(v: number) => setMudProps({ ...mudProps, solids_pct: v })} unit="%" />
+                </div>
+              </Section>
 
-          {/* BHA */}
-          <Section id="bha" title={`${t('ddr.bhaSection')} (${bhaData.length})`} icon={Zap}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-white/40 border-b border-white/5 text-xs">
-                    <th className="text-left py-2 px-1">Component</th>
-                    <th className="text-left py-2 px-1">OD (in)</th>
-                    <th className="text-left py-2 px-1">Length (ft)</th>
-                    <th className="text-left py-2 px-1">Weight (lb)</th>
-                    <th className="text-left py-2 px-1">Serial #</th>
-                    <th className="w-8"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bhaData.map((b, i) => (
-                    <tr key={i} className="border-b border-white/5">
-                      <td className="py-1 px-1"><input type="text" value={b.component_type} onChange={e => updateBHA(i, 'component_type', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. PDC Bit" /></td>
-                      <td className="py-1 px-1"><input type="number" value={b.od || ''} onChange={e => updateBHA(i, 'od', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
-                      <td className="py-1 px-1"><input type="number" value={b.length || ''} onChange={e => updateBHA(i, 'length', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
-                      <td className="py-1 px-1"><input type="number" value={b.weight || ''} onChange={e => updateBHA(i, 'weight', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
-                      <td className="py-1 px-1"><input type="text" value={b.serial_number} onChange={e => updateBHA(i, 'serial_number', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" /></td>
-                      <td className="py-1 px-1"><button onClick={() => removeBHA(i)} className="text-white/20 hover:text-red-400"><Trash2 size={12} /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button onClick={addBHA} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
-              <Plus size={12} /> Add Component
-            </button>
-          </Section>
+              {/* BHA */}
+              <Section id="bha" title={`${t('ddr.bhaSection')} (${bhaData.length})`} icon={Zap}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-white/40 border-b border-white/5 text-xs">
+                        <th className="text-left py-2 px-1">Component</th>
+                        <th className="text-left py-2 px-1">OD (in)</th>
+                        <th className="text-left py-2 px-1">Length (ft)</th>
+                        <th className="text-left py-2 px-1">Weight (lb)</th>
+                        <th className="text-left py-2 px-1">Serial #</th>
+                        <th className="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bhaData.map((b, i) => (
+                        <tr key={i} className="border-b border-white/5">
+                          <td className="py-1 px-1"><input type="text" value={b.component_type} onChange={e => updateBHA(i, 'component_type', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. PDC Bit" /></td>
+                          <td className="py-1 px-1"><input type="number" value={b.od || ''} onChange={e => updateBHA(i, 'od', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" value={b.length || ''} onChange={e => updateBHA(i, 'length', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="number" value={b.weight || ''} onChange={e => updateBHA(i, 'weight', parseFloat(e.target.value) || 0)} className="input-field w-16 py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><input type="text" value={b.serial_number} onChange={e => updateBHA(i, 'serial_number', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" /></td>
+                          <td className="py-1 px-1"><button onClick={() => removeBHA(i)} className="text-white/20 hover:text-red-400"><Trash2 size={12} /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button onClick={addBHA} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+                  <Plus size={12} /> Add Component
+                </button>
+              </Section>
 
-          {/* Gas Monitoring */}
-          <Section id="gas" title={t('ddr.gasMonitoring')} icon={AlertTriangle}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Field label={t('ddr.backgroundGas')} value={gasMonitoring.background_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, background_gas: v })} unit="%" />
-              <Field label={t('ddr.connectionGas')} value={gasMonitoring.connection_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, connection_gas: v })} unit="%" />
-              <Field label={t('ddr.tripGas')} value={gasMonitoring.trip_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, trip_gas: v })} unit="%" />
-              <Field label="C1 (Methane)" value={gasMonitoring.c1} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, c1: v })} unit="ppm" />
-              <Field label="C2 (Ethane)" value={gasMonitoring.c2} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, c2: v })} unit="ppm" />
-              <Field label="H2S" value={gasMonitoring.h2s} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, h2s: v })} unit="ppm" />
-              <Field label="CO2" value={gasMonitoring.co2} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, co2: v })} unit="%" />
-            </div>
-          </Section>
+              {/* Gas Monitoring */}
+              <Section id="gas" title={t('ddr.gasMonitoring')} icon={AlertTriangle}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Field label={t('ddr.backgroundGas')} value={gasMonitoring.background_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, background_gas: v })} unit="%" />
+                  <Field label={t('ddr.connectionGas')} value={gasMonitoring.connection_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, connection_gas: v })} unit="%" />
+                  <Field label={t('ddr.tripGas')} value={gasMonitoring.trip_gas} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, trip_gas: v })} unit="%" />
+                  <Field label="C1 (Methane)" value={gasMonitoring.c1} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, c1: v })} unit="ppm" />
+                  <Field label="C2 (Ethane)" value={gasMonitoring.c2} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, c2: v })} unit="ppm" />
+                  <Field label="H2S" value={gasMonitoring.h2s} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, h2s: v })} unit="ppm" />
+                  <Field label="CO2" value={gasMonitoring.co2} onChange={(v: number) => setGasMonitoring({ ...gasMonitoring, co2: v })} unit="%" />
+                </div>
+              </Section>
+            </>
+          )}
 
           {/* Cost Summary */}
           <Section id="cost" title={t('ddr.costSummary')} icon={DollarSign}>

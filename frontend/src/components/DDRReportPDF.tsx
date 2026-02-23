@@ -227,8 +227,11 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
   const avgROP = drillingHours > 0 ? footage / drillingHours : 0;
 
   const statusColor = status === 'approved' ? '#16a34a' : status === 'submitted' ? '#2563eb' : '#94a3b8';
-  const typeLabel = reportType === 'drilling' ? t('ddr.pdf.dailyDrillingReport') :
-    reportType === 'completion' ? t('ddr.pdf.completionReport') : t('ddr.pdf.terminationReport');
+  const typeLabel =
+    reportType === 'mobilization' ? t('ddr.pdf.mobilizationReport') :
+    reportType === 'drilling'     ? t('ddr.pdf.dailyDrillingReport') :
+    reportType === 'completion'   ? t('ddr.pdf.completionReport') :
+    t('ddr.pdf.terminationReport');
 
   return (
     <div ref={ref} style={{ display: 'none' }}>
