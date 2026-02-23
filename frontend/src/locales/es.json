@@ -1412,5 +1412,33 @@
     },
     "present": "Cargado",
     "missing": "Faltante"
+  },
+  "auth": {
+    "subtitle": "Sistema Experto en Ingeniería Petrolera",
+    "welcomeBack": "Bienvenido de vuelta",
+    "loginSubtitle": "Inicia sesión para acceder a tu espacio de trabajo",
+    "createAccount": "Crear cuenta",
+    "createAccountSubtitle": "Configura tu perfil de PetroExpert",
+    "usernameOrEmail": "Usuario o Email",
+    "loginPlaceholder": "Ingresa tu usuario o email",
+    "username": "Nombre de usuario",
+    "usernamePlaceholder": "Elige un nombre de usuario",
+    "fullName": "Nombre completo",
+    "fullNamePlaceholder": "Juan Pérez",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "tu@empresa.com",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "loginButton": "Iniciar sesión",
+    "registerButton": "Crear cuenta",
+    "haveAccount": "¿Ya tienes una cuenta?",
+    "noAccount": "¿No tienes una cuenta?",
+    "loginLink": "Inicia sesión",
+    "registerLink": "Crea una",
+    "logout": "Cerrar sesión",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "genericError": "Ocurrió un error. Por favor intenta de nuevo.",
+    "footer": "PetroExpert \u00a9 2025 \u2014 Todos los derechos reservados"
   }
 }

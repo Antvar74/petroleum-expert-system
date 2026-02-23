@@ -1412,5 +1412,33 @@
     },
     "present": "Loaded",
     "missing": "Missing"
+  },
+  "auth": {
+    "subtitle": "Petroleum Engineering Expert System",
+    "welcomeBack": "Welcome back",
+    "loginSubtitle": "Sign in to access your engineering workspace",
+    "createAccount": "Create account",
+    "createAccountSubtitle": "Set up your PetroExpert profile",
+    "usernameOrEmail": "Username or Email",
+    "loginPlaceholder": "Enter your username or email",
+    "username": "Username",
+    "usernamePlaceholder": "Choose a username",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "John Doe",
+    "email": "Email",
+    "emailPlaceholder": "you@company.com",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginButton": "Sign In",
+    "registerButton": "Create Account",
+    "haveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "loginLink": "Sign in",
+    "registerLink": "Create one",
+    "logout": "Sign out",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "genericError": "An error occurred. Please try again.",
+    "footer": "PetroExpert \u00a9 2025 \u2014 All rights reserved"
   }
 }

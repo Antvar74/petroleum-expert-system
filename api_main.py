@@ -18,7 +18,8 @@ from models import init_db, get_db, Well, Problem, Analysis, Program, Operationa
 from orchestrator.api_coordinator import APICoordinator
 from orchestrator.data_requirements import get_requirements as get_data_requirements
 from utils.optimization_engine import OptimizationEngine
-from middleware.auth import verify_api_key
+from middleware.auth import verify_auth
+from routes.auth import router as auth_router
 
 
 # Lifespan — replaces deprecated @app.on_event("startup")
@@ -31,9 +32,12 @@ async def lifespan(app):
 app = FastAPI(
     title="Petroleum Expert System API",
     root_path="/api" if os.environ.get("VERCEL") else "",
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_auth)],
     lifespan=lifespan,
 )
+
+# Auth routes are PUBLIC (no global auth dependency)
+app.include_router(auth_router)
 
 # Global Exception Handler
 from fastapi import Request

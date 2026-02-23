@@ -5,6 +5,8 @@ import { ArrowLeft, Activity, GitBranch, Loader2, Database } from 'lucide-react'
 import LanguageSelector from './components/LanguageSelector';
 import { API_BASE_URL } from './config';
 import { ToastProvider, useToast } from './components/ui/Toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
 import WellSelector from './components/WellSelector';
 import EventWizard from './components/EventWizard';
@@ -30,12 +32,27 @@ import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 function AppContent() {
   const { t } = useTranslation();
+  const { user, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState('module-dashboard');
   const [selectedWell, setSelectedWell] = useState<any>(null);
   const [activeAnalysis, setActiveAnalysis] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStep, setSubmitStep] = useState('');
   const { addToast } = useToast();
+
+  // Auth loading spinner
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-industrial-950 flex items-center justify-center">
+        <Loader2 size={40} className="text-industrial-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated — show login page
+  if (!user) {
+    return <LoginPage />;
+  }
 
   const handleWellSelect = (well: any) => {
     setSelectedWell(well);
@@ -212,7 +229,7 @@ function AppContent() {
 
   return (
     <div className="w-full flex h-screen overflow-hidden bg-industrial-950 text-white selection:bg-industrial-500/30">
-      <Sidebar currentView={currentView} setCurrentView={setCurrentView} selectedWell={selectedWell} />
+      <Sidebar currentView={currentView} setCurrentView={setCurrentView} selectedWell={selectedWell} user={user} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 border-b border-white/5 bg-black/20 backdrop-blur-md flex items-center justify-between px-12 z-10">
@@ -297,9 +314,11 @@ function AppContent() {
 
 function App() {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <AuthProvider>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 

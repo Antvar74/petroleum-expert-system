@@ -24,9 +24,12 @@ import {
     Database,
     Search,
     Radio,
+    LogOut,
+    User,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useAuth, type AuthUser } from '../context/AuthContext';
 
 interface SelectedWell {
     id: number;
@@ -38,6 +41,7 @@ interface SidebarProps {
     currentView: string;
     setCurrentView: (view: string) => void;
     selectedWell?: SelectedWell | null;
+    user?: AuthUser | null;
 }
 
 interface SystemHealth {
@@ -47,8 +51,9 @@ interface SystemHealth {
     database: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selectedWell }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selectedWell, user }) => {
     const { t } = useTranslation();
+    const { logout } = useAuth();
     const [health, setHealth] = useState<SystemHealth | null>(null);
     const [healthError, setHealthError] = useState(false);
 
@@ -254,15 +259,38 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
             </div>
 
             <div className="flex-shrink-0 p-8 border-t border-white/5 bg-white/5">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-industrial-500/20 border border-industrial-500/30 flex items-center justify-center text-industrial-500 font-bold text-xs">
+                {/* User card */}
+                {user && (
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-industrial-500/20 border border-industrial-500/30 flex items-center justify-center text-industrial-500 font-bold text-xs">
+                            <User size={18} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-white truncate">{user.full_name || user.username}</p>
+                            <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold truncate">{user.role}</p>
+                        </div>
+                        <button
+                            onClick={logout}
+                            className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title={t('auth.logout')}
+                        >
+                            <LogOut size={16} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Well info */}
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 font-bold text-[10px]">
                         {wellInitials}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-white truncate">{wellDisplayName}</p>
-                        <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold truncate">{wellSubtitle}</p>
+                        <p className="text-[11px] font-bold text-white/60 truncate">{wellDisplayName}</p>
+                        <p className="text-[9px] text-white/20 uppercase tracking-widest font-bold truncate">{wellSubtitle}</p>
                     </div>
                 </div>
+
+                {/* Health bar */}
                 <div className="bg-industrial-950 p-4 rounded-xl border border-white/5">
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter flex items-center gap-1.5">
