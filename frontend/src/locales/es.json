@@ -153,7 +153,12 @@
     "moduleDescPF": "Análisis de fuerzas tubing-packer, evaluación de pandeo, efectos térmicos y de presión",
     "moduleDescWH": "Pérdidas de presión CT, fuerzas de snubbing, análisis de peso/arrastre, estimación de alcance máximo",
     "moduleDescSC": "Análisis PSD, diseño de gravel pack, selección de malla, evaluación de riesgo de arenamiento",
-    "moduleDescDDR": "Reportes diarios de perforación, completación, terminación, seguimiento KPI y bitácora de operaciones"
+    "moduleDescDDR": "Reportes diarios de perforación, completación, terminación, seguimiento KPI y bitácora de operaciones",
+    "moduleDescCD": "Diseño de intervalos, análisis de skin, optimización de perforaciones, eficiencia de flujo",
+    "moduleDescSE": "Modelo de skin Karakas-Tariq, geometría de perforaciones, análisis de eficiencia de flujo",
+    "moduleDescVB": "Análisis de vibraciones BHA, RPM críticas, modos lateral y torsional",
+    "moduleDescCem": "Diseño de lechada, mecánica de desplazamiento, centralización, simulación de trabajo",
+    "moduleDescCsg": "Casos de carga, diseño burst/colapso/tensión, factores de seguridad, selección de grado"
   },
   "ddr": {
     "title": "Reportes Diarios / DDR",

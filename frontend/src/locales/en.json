@@ -153,7 +153,12 @@
     "moduleDescPF": "Tubing-packer force analysis, buckling assessment, thermal & pressure effects",
     "moduleDescWH": "CT pressure losses, snubbing forces, weight/drag analysis, max reach estimation",
     "moduleDescSC": "PSD analysis, gravel pack design, screen selection, sanding risk assessment",
-    "moduleDescDDR": "Daily drilling reports, completion reports, termination reports, KPI tracking & operations log"
+    "moduleDescDDR": "Daily drilling reports, completion reports, termination reports, KPI tracking & operations log",
+    "moduleDescCD": "Interval design, skin factor analysis, perforation optimization, flow efficiency",
+    "moduleDescSE": "Karakas-Tariq skin model, perforation geometry, flow efficiency analysis",
+    "moduleDescVB": "BHA vibration analysis, critical RPM, lateral & torsional modes",
+    "moduleDescCem": "Slurry design, displacement mechanics, centralization, job simulation",
+    "moduleDescCsg": "Load cases, burst/collapse/tension design, safety factors, grade selection"
   },
   "ddr": {
     "title": "Daily Reports / DDR",

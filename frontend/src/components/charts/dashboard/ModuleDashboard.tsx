@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import {
   Activity, Droplets, AlertTriangle, Shield, ChevronRight, BarChart3,
   Waves, Anchor, Wrench, Filter, ClipboardList,
+  Layers, Target, Vibrate, Cylinder, ShieldCheck,
 } from 'lucide-react';
 import SparklineChart from './SparklineChart';
 
@@ -117,6 +118,56 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-blue-500/10 border-blue-500/20',
     sparkColor: '#3b82f6',
   },
+  {
+    id: 'cd',
+    view: 'completion-design',
+    nameKey: 'modules.completionDesign',
+    descKey: 'dashboard.moduleDescCD',
+    icon: Layers,
+    color: 'text-indigo-400',
+    bgColor: 'bg-indigo-500/10 border-indigo-500/20',
+    sparkColor: '#6366f1',
+  },
+  {
+    id: 'se',
+    view: 'shot-efficiency',
+    nameKey: 'modules.shotEfficiency',
+    descKey: 'dashboard.moduleDescSE',
+    icon: Target,
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-500/10 border-rose-500/20',
+    sparkColor: '#fb7185',
+  },
+  {
+    id: 'vb',
+    view: 'vibrations',
+    nameKey: 'modules.vibrations',
+    descKey: 'dashboard.moduleDescVB',
+    icon: Vibrate,
+    color: 'text-lime-400',
+    bgColor: 'bg-lime-500/10 border-lime-500/20',
+    sparkColor: '#84cc16',
+  },
+  {
+    id: 'cem',
+    view: 'cementing',
+    nameKey: 'modules.cementing',
+    descKey: 'dashboard.moduleDescCem',
+    icon: Cylinder,
+    color: 'text-sky-400',
+    bgColor: 'bg-sky-500/10 border-sky-500/20',
+    sparkColor: '#0ea5e9',
+  },
+  {
+    id: 'csg',
+    view: 'casing-design',
+    nameKey: 'modules.casingDesign',
+    descKey: 'dashboard.moduleDescCsg',
+    icon: ShieldCheck,
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/10 border-emerald-500/20',
+    sparkColor: '#10b981',
+  },
 ];
 
 const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId }) => {
@@ -189,9 +240,9 @@ const ModuleDashboard: React.FC<ModuleDashboardProps> = ({ onNavigate, wellId })
         <h3 className="font-bold text-sm mb-4">{t('dashboard.systemCapabilities')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: t('dashboard.engineeringModules'), value: '9', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC, DDR' },
-            { label: t('dashboard.chartTypes'), value: '41+', detail: t('dashboard.rechartsCustomSVG') },
-            { label: t('dashboard.calculationEngines'), value: '9', detail: t('dashboard.purePython') },
+            { label: t('dashboard.engineeringModules'), value: '14', detail: 'T&D, Hyd, SP, WC, CU, PF, WH, SC, DDR, CD, SE, VB, Cem, Csg' },
+            { label: t('dashboard.chartTypes'), value: '71+', detail: t('dashboard.rechartsCustomSVG') },
+            { label: t('dashboard.calculationEngines'), value: '16', detail: t('dashboard.purePython') },
             { label: t('dashboard.pdfExport'), value: t('dashboard.yes'), detail: t('dashboard.professionalReports') },
           ].map((stat, i) => (
             <div key={i} className="bg-white/5 rounded-xl p-4 text-center">
