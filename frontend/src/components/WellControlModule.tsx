@@ -8,6 +8,8 @@ import KillMethodCompare from './charts/wc/KillMethodCompare';
 import WellborePressureProfile from './charts/wc/WellborePressureProfile';
 import VolumetricCyclesChart from './charts/wc/VolumetricCyclesChart';
 import InfluxAnalysisGauge from './charts/wc/InfluxAnalysisGauge';
+import KickMigrationChart from './charts/wc/KickMigrationChart';
+import KillCirculationChart from './charts/wc/KillCirculationChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
@@ -53,6 +55,18 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     depth_md: 10000, formation_pressure: 5720,
   });
   const [bullheadResult, setBullheadResult] = useState<any>(null);
+
+  // Simulation state
+  const [simParams, setSimParams] = useState({
+    well_depth_tvd: 10000, mud_weight: 10.0, kick_volume_bbl: 20,
+    kick_gradient: 0.1, sidpp: 200, sicp: 350,
+    annular_capacity_bbl_ft: 0.0459, time_steps_min: 120,
+    kill_mud_weight: 11.0, scr: 400,
+    strokes_to_bit: 1000, strokes_bit_to_surface: 2000,
+    kill_method: 'drillers',
+  });
+  const [kickMigrationResult, setKickMigrationResult] = useState<any>(null);
+  const [killSimResult, setKillSimResult] = useState<any>(null);
 
   // AI Analysis state
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -105,6 +119,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     { id: 'schedule', label: t('wellControl.tabs.schedule') },
     { id: 'pressure-profile', label: t('wellControl.tabs.pressureProfile') },
     { id: 'methods', label: t('wellControl.tabs.methods') },
+    { id: 'simulation', label: t('wellControl.tabs.simulation') },
   ];
 
   const savePreRecord = async () => {
@@ -164,6 +179,36 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     try {
       const res = await axios.post(`${API_BASE_URL}/kill-sheet/bullhead`, bullheadParams);
       setBullheadResult(res.data);
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    setLoading(false);
+  };
+
+  const runKickMigration = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/calculate/well-control/kick-migration`, {
+        well_depth_tvd: simParams.well_depth_tvd, mud_weight: simParams.mud_weight,
+        kick_volume_bbl: simParams.kick_volume_bbl, kick_gradient: simParams.kick_gradient,
+        sidpp: simParams.sidpp, sicp: simParams.sicp,
+        annular_capacity_bbl_ft: simParams.annular_capacity_bbl_ft,
+        time_steps_min: simParams.time_steps_min,
+      });
+      setKickMigrationResult(res.data);
+    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    setLoading(false);
+  };
+
+  const runKillSimulation = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/calculate/well-control/kill-simulation`, {
+        well_depth_tvd: simParams.well_depth_tvd, mud_weight: simParams.mud_weight,
+        kill_mud_weight: simParams.kill_mud_weight, sidpp: simParams.sidpp,
+        scr: simParams.scr, strokes_to_bit: simParams.strokes_to_bit,
+        strokes_bit_to_surface: simParams.strokes_bit_to_surface,
+        method: simParams.kill_method,
+      });
+      setKillSimResult(res.data);
     } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
     setLoading(false);
   };
@@ -444,6 +489,89 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'simulation' && (
+          <motion.div key="simulation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+            {/* Simulation Parameters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Kick Migration */}
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h4 className="font-bold text-lg mb-2">{t('wellControl.simulation.kickMigration')}</h4>
+                <p className="text-white/40 text-sm mb-4">{t('wellControl.simulation.kickMigrationDesc')}</p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <InputField label="TVD (ft)" value={simParams.well_depth_tvd} onChange={(v) => setSimParams({ ...simParams, well_depth_tvd: v })} />
+                  <InputField label={t('wellControl.simulation.mudWeight')} value={simParams.mud_weight} onChange={(v) => setSimParams({ ...simParams, mud_weight: v })} step="0.1" />
+                  <InputField label={t('wellControl.simulation.kickVolume')} value={simParams.kick_volume_bbl} onChange={(v) => setSimParams({ ...simParams, kick_volume_bbl: v })} />
+                  <InputField label="SIDPP (psi)" value={simParams.sidpp} onChange={(v) => setSimParams({ ...simParams, sidpp: v })} />
+                  <InputField label="SICP (psi)" value={simParams.sicp} onChange={(v) => setSimParams({ ...simParams, sicp: v })} />
+                  <InputField label={t('wellControl.simulation.timeSteps')} value={simParams.time_steps_min} onChange={(v) => setSimParams({ ...simParams, time_steps_min: v })} />
+                </div>
+                <button onClick={runKickMigration} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">
+                  {loading ? t('common.calculating') : t('wellControl.simulation.runKickSim')}
+                </button>
+                {kickMigrationResult && (
+                  <div className="mt-4 p-3 bg-white/5 rounded-lg text-xs space-y-1">
+                    <p className="text-white/60">{t('wellControl.simulation.maxCP')}: <span className="text-red-400 font-bold">{kickMigrationResult.max_casing_pressure} psi</span></p>
+                    <p className="text-white/60">{t('wellControl.simulation.surfaceArrival')}: <span className="text-industrial-400 font-bold">{kickMigrationResult.surface_arrival_min ? `${kickMigrationResult.surface_arrival_min} min` : 'N/A'}</span></p>
+                    <p className="text-white/60">{t('wellControl.simulation.dataPoints')}: <span className="text-white/80 font-bold">{kickMigrationResult.time_series?.length}</span></p>
+                  </div>
+                )}
+              </div>
+
+              {/* Kill Circulation */}
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h4 className="font-bold text-lg mb-2">{t('wellControl.simulation.killCirculation')}</h4>
+                <p className="text-white/40 text-sm mb-4">{t('wellControl.simulation.killCirculationDesc')}</p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <InputField label={t('wellControl.simulation.killMW')} value={simParams.kill_mud_weight} onChange={(v) => setSimParams({ ...simParams, kill_mud_weight: v })} step="0.1" />
+                  <InputField label={t('wellControl.simulation.scr')} value={simParams.scr} onChange={(v) => setSimParams({ ...simParams, scr: v })} />
+                  <InputField label={t('wellControl.simulation.strokesToBit')} value={simParams.strokes_to_bit} onChange={(v) => setSimParams({ ...simParams, strokes_to_bit: v })} />
+                  <InputField label={t('wellControl.simulation.strokesBitToSurf')} value={simParams.strokes_bit_to_surface} onChange={(v) => setSimParams({ ...simParams, strokes_bit_to_surface: v })} />
+                </div>
+                <div className="mb-4">
+                  <label className="text-xs text-white/40 block mb-1">{t('wellControl.simulation.method')}</label>
+                  <select
+                    value={simParams.kill_method}
+                    onChange={(e) => setSimParams({ ...simParams, kill_method: e.target.value })}
+                    className="input-field w-full py-2 px-3 text-sm"
+                  >
+                    <option value="drillers">{t('wellControl.simulation.drillers')}</option>
+                    <option value="wait_weight">{t('wellControl.simulation.waitWeight')}</option>
+                  </select>
+                </div>
+                <button onClick={runKillSimulation} disabled={loading} className="btn-primary w-full text-sm disabled:opacity-50">
+                  {loading ? t('common.calculating') : t('wellControl.simulation.runKillSim')}
+                </button>
+                {killSimResult && (
+                  <div className="mt-4 p-3 bg-white/5 rounded-lg text-xs space-y-1">
+                    <p className="text-white/60">ICP: <span className="text-blue-400 font-bold">{killSimResult.icp} psi</span></p>
+                    <p className="text-white/60">FCP: <span className="text-green-400 font-bold">{killSimResult.fcp} psi</span></p>
+                    <p className="text-white/60">{t('wellControl.simulation.totalStrokes')}: <span className="text-white/80 font-bold">{killSimResult.total_strokes}</span></p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Charts */}
+            {kickMigrationResult?.time_series?.length > 0 && (
+              <KickMigrationChart
+                data={kickMigrationResult.time_series}
+                maxCasingPressure={kickMigrationResult.max_casing_pressure}
+                surfaceArrivalMin={kickMigrationResult.surface_arrival_min}
+              />
+            )}
+
+            {killSimResult?.drill_pipe_pressure?.length > 0 && (
+              <KillCirculationChart
+                dpp={killSimResult.drill_pipe_pressure}
+                cp={killSimResult.casing_pressure}
+                icp={killSimResult.icp}
+                fcp={killSimResult.fcp}
+                method={killSimResult.method}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

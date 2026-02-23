@@ -642,7 +642,30 @@
       "active": "Active Kill",
       "schedule": "Pressure Schedule",
       "pressureProfile": "Pressure Profile",
-      "methods": "Kill Methods"
+      "methods": "Kill Methods",
+      "simulation": "Simulation"
+    },
+    "simulation": {
+      "kickMigration": "Gas Kick Migration",
+      "kickMigrationDesc": "Simulate gas migration in shut-in well with Z-factor expansion",
+      "killCirculation": "Kill Circulation",
+      "killCirculationDesc": "Step-by-step kill simulation with DPP/CP tracking",
+      "mudWeight": "Mud Weight (ppg)",
+      "kickVolume": "Kick Volume (bbl)",
+      "timeSteps": "Sim Time (min)",
+      "killMW": "Kill MW (ppg)",
+      "scr": "SCR Pressure (psi)",
+      "strokesToBit": "Strokes to Bit",
+      "strokesBitToSurf": "Strokes Bit→Surface",
+      "method": "Kill Method",
+      "drillers": "Driller's Method",
+      "waitWeight": "Wait & Weight",
+      "runKickSim": "Run Kick Migration",
+      "runKillSim": "Run Kill Simulation",
+      "maxCP": "Max Casing Pressure",
+      "surfaceArrival": "Surface Arrival",
+      "dataPoints": "Data Points",
+      "totalStrokes": "Total Strokes"
     },
     "prerecord": {
       "title": "Pre-Record Kill Sheet Data",

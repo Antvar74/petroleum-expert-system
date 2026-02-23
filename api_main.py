@@ -3999,6 +3999,44 @@ def standalone_petro_evaluation(data: Dict[str, Any] = Body(...)):
     )
 
 
+# ── Transient Flow Simulation Routes ───────────────────────────────────────────
+
+from orchestrator.transient_flow_engine import TransientFlowEngine
+
+
+@app.post("/calculate/well-control/kick-migration")
+def standalone_kick_migration(data: Dict[str, Any] = Body(...)):
+    """Simulate gas kick migration in a shut-in well."""
+    return TransientFlowEngine.simulate_kick_migration(
+        well_depth_tvd=data.get("well_depth_tvd", 10000),
+        mud_weight=data.get("mud_weight", 10.0),
+        kick_volume_bbl=data.get("kick_volume_bbl", 20),
+        kick_gradient=data.get("kick_gradient", 0.1),
+        sidpp=data.get("sidpp", 200),
+        sicp=data.get("sicp", 350),
+        annular_capacity_bbl_ft=data.get("annular_capacity_bbl_ft", 0.0459),
+        time_steps_min=data.get("time_steps_min", 120),
+        gas_gravity=data.get("gas_gravity", 0.65),
+        migration_rate_ft_hr=data.get("migration_rate_ft_hr", 1000.0),
+    )
+
+
+@app.post("/calculate/well-control/kill-simulation")
+def standalone_kill_simulation(data: Dict[str, Any] = Body(...)):
+    """Simulate kill circulation step-by-step."""
+    return TransientFlowEngine.simulate_kill_circulation(
+        well_depth_tvd=data.get("well_depth_tvd", 10000),
+        mud_weight=data.get("mud_weight", 10.0),
+        kill_mud_weight=data.get("kill_mud_weight", 11.0),
+        sidpp=data.get("sidpp", 200),
+        scr=data.get("scr", 400),
+        strokes_to_bit=data.get("strokes_to_bit", 1000),
+        strokes_bit_to_surface=data.get("strokes_bit_to_surface", 2000),
+        method=data.get("method", "drillers"),
+        step_size=data.get("step_size", 50),
+    )
+
+
 # ── WITSML Integration Routes ──────────────────────────────────────────────────
 
 from orchestrator.witsml_client import WITSMLClient

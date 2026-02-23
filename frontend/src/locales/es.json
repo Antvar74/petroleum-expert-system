@@ -642,7 +642,30 @@
       "active": "Kill Activo",
       "schedule": "Programa de Presión",
       "pressureProfile": "Perfil de Presión",
-      "methods": "Métodos de Kill"
+      "methods": "Métodos de Kill",
+      "simulation": "Simulación"
+    },
+    "simulation": {
+      "kickMigration": "Migración de Gas Kick",
+      "kickMigrationDesc": "Simula migración de gas en pozo cerrado con expansión por factor Z",
+      "killCirculation": "Circulación de Matado",
+      "killCirculationDesc": "Simulación paso a paso con seguimiento de DPP/CP",
+      "mudWeight": "Peso de Lodo (ppg)",
+      "kickVolume": "Volumen de Kick (bbl)",
+      "timeSteps": "Tiempo Sim (min)",
+      "killMW": "MW de Matado (ppg)",
+      "scr": "Presión SCR (psi)",
+      "strokesToBit": "Emboladas a Barrena",
+      "strokesBitToSurf": "Emboladas Barrena→Superficie",
+      "method": "Método de Matado",
+      "drillers": "Método del Perforador",
+      "waitWeight": "Esperar y Densificar",
+      "runKickSim": "Correr Migración de Kick",
+      "runKillSim": "Correr Simulación de Matado",
+      "maxCP": "Presión Máx Casing",
+      "surfaceArrival": "Llegada a Superficie",
+      "dataPoints": "Puntos de Datos",
+      "totalStrokes": "Emboladas Totales"
     },
     "prerecord": {
       "title": "Datos de Kill Sheet Pre-Registro",
