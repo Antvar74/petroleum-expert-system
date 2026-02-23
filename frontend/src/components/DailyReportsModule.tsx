@@ -16,12 +16,14 @@ import {
   BarChart3, Activity, AlertTriangle, Clock, DollarSign,
   TrendingDown, Zap, Filter, Download, Database,
   Shield, Navigation, Layers, Gauge, Users, Package, Crosshair, Timer,
+  Upload,
 } from 'lucide-react';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import DDRReportPDF from './DDRReportPDF';
 // @ts-ignore — html2pdf has no types
 import html2pdf from 'html2pdf.js';
 import type { Provider } from '../types/ai';
+import * as XLSX from 'xlsx';
 
 // Charts
 import TimeDepthChart from './charts/ddr/TimeDepthChart';
@@ -149,6 +151,8 @@ const DailyReportsModule: React.FC = () => {
 
   // PDF
   const pdfRef = useRef<HTMLDivElement>(null);
+  // BHA file upload
+  const bhaFileRef = useRef<HTMLInputElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // ---------------------------------------------------------------
@@ -234,6 +238,69 @@ const DailyReportsModule: React.FC = () => {
   };
   const addBHA = () => setBhaData([...bhaData, emptyBHA()]);
   const removeBHA = (idx: number) => setBhaData(bhaData.filter((_, i) => i !== idx));
+
+  // ── BHA file upload (CSV / Excel) ──
+  const BHA_COL_MAP: Record<string, string> = {
+    'component': 'component_type', 'component type': 'component_type', 'component_type': 'component_type',
+    'componente': 'component_type', 'tipo': 'component_type', 'tipo componente': 'component_type',
+    'type': 'component_type', 'description': 'component_type', 'descripcion': 'component_type',
+    'od': 'od', 'od (in)': 'od', 'od(in)': 'od', 'de': 'od', 'de (in)': 'od',
+    'outer diameter': 'od', 'diametro externo': 'od',
+    'length': 'length', 'length (ft)': 'length', 'length(ft)': 'length',
+    'longitud': 'length', 'longitud (ft)': 'length', 'long': 'length', 'largo': 'length',
+    'weight': 'weight', 'weight (lb)': 'weight', 'weight(lb)': 'weight',
+    'peso': 'weight', 'peso (lb)': 'weight',
+    'serial': 'serial_number', 'serial #': 'serial_number', 'serial number': 'serial_number',
+    'serial_number': 'serial_number', 'serie': 'serial_number', 'serie #': 'serial_number',
+    'numero serie': 'serial_number', 'no. serie': 'serial_number',
+  };
+
+  const handleBHAFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) { addToast(t('ddr.bhaUploadEmpty'), 'error'); return; }
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (rows.length === 0) { addToast(t('ddr.bhaUploadEmpty'), 'error'); return; }
+
+        // Map file columns → BHA fields
+        const hdrMap: Record<string, string> = {};
+        for (const fh of Object.keys(rows[0])) {
+          const mapped = BHA_COL_MAP[fh.trim().toLowerCase()];
+          if (mapped) hdrMap[fh] = mapped;
+        }
+        if (!Object.values(hdrMap).includes('component_type')) {
+          addToast(t('ddr.bhaUploadNoColumns'), 'error'); return;
+        }
+
+        const parsed = rows
+          .map(row => {
+            const bha = emptyBHA();
+            for (const [fc, bf] of Object.entries(hdrMap)) {
+              const v = row[fc];
+              if (bf === 'component_type' || bf === 'serial_number') (bha as any)[bf] = String(v || '').trim();
+              else (bha as any)[bf] = parseFloat(v) || 0;
+            }
+            return bha;
+          })
+          .filter(b => b.component_type.trim() !== '');
+
+        if (parsed.length === 0) { addToast(t('ddr.bhaUploadEmpty'), 'error'); return; }
+        setBhaData(parsed);
+        addToast(t('ddr.bhaUploadSuccess', { count: parsed.length }), 'success');
+      } catch (err) {
+        console.error('BHA file parse error:', err);
+        addToast(t('ddr.bhaUploadError'), 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
 
   // ── Survey helpers ──
   const updateSurvey = (idx: number, field: string, value: any) => {
@@ -814,9 +881,15 @@ const DailyReportsModule: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-                <button onClick={addBHA} className="mt-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
-                  <Plus size={12} /> Add Component
-                </button>
+                <div className="mt-3 flex items-center gap-2">
+                  <button onClick={addBHA} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+                    <Plus size={12} /> {t('ddr.addBHAComponent')}
+                  </button>
+                  <button onClick={() => bhaFileRef.current?.click()} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white/40 hover:text-white/60 transition-colors flex items-center gap-1.5">
+                    <Upload size={12} /> {t('ddr.uploadBHA')}
+                  </button>
+                  <input ref={bhaFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBHAFileUpload} />
+                </div>
               </Section>
 
               {/* Gas Monitoring */}
