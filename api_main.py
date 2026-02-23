@@ -4123,5 +4123,111 @@ def witsml_build_query(data: Dict[str, Any] = Body(...)):
     return {"query_xml": xml, "type": query_type}
 
 
+# ── Data Ingestion Routes ──────────────────────────────────────────────────────
+
+from orchestrator.data_ingest import DataIngestionService
+
+
+@app.post("/data/ingest/las")
+def ingest_las(data: Dict[str, Any] = Body(...)):
+    """Parse LAS content and return normalized data."""
+    content = data.get("content", "")
+    if not content:
+        raise HTTPException(status_code=400, detail="Missing 'content' field")
+    parsed = DataIngestionService.parse_las(content)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    normalized = DataIngestionService.normalize(parsed["data"])
+    return {"data": normalized, "point_count": len(normalized), "curves": parsed.get("curves", []),
+            "well_info": parsed.get("well_info", {})}
+
+
+@app.post("/data/ingest/dlis")
+def ingest_dlis(data: Dict[str, Any] = Body(...)):
+    """Parse DLIS file and return normalized data."""
+    file_path = data.get("file_path", "")
+    if not file_path:
+        raise HTTPException(status_code=400, detail="Missing 'file_path' field")
+    parsed = DataIngestionService.parse_dlis(file_path)
+    if "error" in parsed:
+        raise HTTPException(status_code=422, detail=parsed["error"])
+    normalized = DataIngestionService.normalize(parsed["data"])
+    return {"data": normalized, "point_count": len(normalized), "curves": parsed.get("curves", [])}
+
+
+# ── WITSML SOAP Routes ────────────────────────────────────────────────────────
+
+from orchestrator.witsml_client import WITSMLSoapClient
+
+
+@app.post("/witsml/soap/connect")
+def witsml_soap_connect(data: Dict[str, Any] = Body(...)):
+    """Connect to WITSML server via SOAP (or mock mode)."""
+    client = WITSMLSoapClient(
+        url=data.get("url", ""),
+        username=data.get("username", ""),
+        password=data.get("password", ""),
+        mock_mode=data.get("mock_mode", True),
+    )
+    return client.connect()
+
+
+@app.post("/witsml/soap/fetch")
+def witsml_soap_fetch(data: Dict[str, Any] = Body(...)):
+    """WMLS_GetFromStore via SOAP client."""
+    client = WITSMLSoapClient(
+        url=data.get("url", ""),
+        username=data.get("username", ""),
+        password=data.get("password", ""),
+        mock_mode=data.get("mock_mode", True),
+    )
+    witsml_type = data.get("type", "log")
+    query_xml = data.get("query_xml", "<logs/>")
+    xml_response = client.get_from_store(witsml_type, query_xml)
+    # Parse the XML response
+    if witsml_type == "log":
+        parsed = WITSMLClient.parse_log_response(xml_response)
+    elif witsml_type == "trajectory":
+        parsed = WITSMLClient.parse_trajectory_response(xml_response)
+    else:
+        return {"raw_xml": xml_response}
+    return parsed
+
+
+@app.post("/witsml/soap/poll")
+def witsml_soap_poll(data: Dict[str, Any] = Body(...)):
+    """Fetch latest log data via SOAP polling."""
+    client = WITSMLSoapClient(
+        url=data.get("url", ""),
+        username=data.get("username", ""),
+        password=data.get("password", ""),
+        mock_mode=data.get("mock_mode", True),
+    )
+    result = client.fetch_latest_log(
+        well_uid=data.get("well_uid", ""),
+        wellbore_uid=data.get("wellbore_uid", ""),
+        mnemonics=data.get("mnemonics"),
+        last_index=data.get("last_index"),
+    )
+    return result
+
+
+@app.post("/calculate/well-control/kick-migration-multiphase")
+def standalone_kick_migration_multiphase(data: Dict[str, Any] = Body(...)):
+    """Simulate gas kick migration using Zuber-Findlay drift-flux model."""
+    return TransientFlowEngine.simulate_kick_migration_multiphase(
+        well_depth_tvd=data.get("well_depth_tvd", 10000),
+        mud_weight=data.get("mud_weight", 10.0),
+        kick_volume_bbl=data.get("kick_volume_bbl", 20),
+        sidpp=data.get("sidpp", 200),
+        sicp=data.get("sicp", 350),
+        annular_id_in=data.get("annular_id_in", 8.681),
+        pipe_od_in=data.get("pipe_od_in", 5.0),
+        gas_gravity=data.get("gas_gravity", 0.65),
+        time_steps_min=data.get("time_steps_min", 120),
+        n_cells=data.get("n_cells", 50),
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
