@@ -1269,5 +1269,27 @@
     "password": "Contraseña",
     "connecting": "Conectando...",
     "connect": "Conectar"
+  },
+  "dataReadiness": {
+    "title": "Preparación de Datos",
+    "required": "Requerido",
+    "optional": "Opcional (mejora la precisión)",
+    "missingAction": "Sube archivo o ingresa manualmente",
+    "usingDefault": "Usando {{value}}",
+    "recommendedUploads": "Archivos recomendados",
+    "phase": "Fase",
+    "event": "Evento",
+    "noEvent": "General",
+    "readinessLabel": "Preparación de Datos",
+    "sufficient": "Suficiente para análisis",
+    "insufficient": "Se necesitan más datos",
+    "source": "Fuente: {{source}}",
+    "phases": {
+      "drilling": "Perforación",
+      "completion": "Completación",
+      "workover": "Workover"
+    },
+    "present": "Cargado",
+    "missing": "Faltante"
   }
 }

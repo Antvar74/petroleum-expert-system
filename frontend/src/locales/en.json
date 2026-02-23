@@ -1269,5 +1269,27 @@
     "password": "Password",
     "connecting": "Connecting...",
     "connect": "Connect"
+  },
+  "dataReadiness": {
+    "title": "Data Readiness",
+    "required": "Required",
+    "optional": "Optional (improves accuracy)",
+    "missingAction": "Upload or enter manually",
+    "usingDefault": "Using {{value}}",
+    "recommendedUploads": "Recommended uploads",
+    "phase": "Phase",
+    "event": "Event",
+    "noEvent": "General",
+    "readinessLabel": "Data Readiness",
+    "sufficient": "Sufficient for analysis",
+    "insufficient": "More data needed",
+    "source": "Source: {{source}}",
+    "phases": {
+      "drilling": "Drilling",
+      "completion": "Completion",
+      "workover": "Workover"
+    },
+    "present": "Loaded",
+    "missing": "Missing"
   }
 }
