@@ -11,5 +11,10 @@ pypdf>=3.0.0
 google-generativeai>=0.3.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
+# Petrophysics & Transient Simulation:
+lasio>=0.31
+scipy>=1.11.0
+# Descomentar para soporte DLIS (requiere compilación C++):
+# dlisio>=0.3.8
 # Descomentar para soporte PostgreSQL:
 # psycopg2-binary>=2.9.0
