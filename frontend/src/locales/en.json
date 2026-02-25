@@ -86,8 +86,7 @@
     "selectModule": "Select a module from the sidebar",
     "wellRequired": "Well Selection Required",
     "wellRequiredDescription": "This section requires an active well. Select a well to access event analysis and well-specific data.",
-    "selectWell": "Select Well",
-    "petrophysicsAdvanced": "Advanced Petrophysics"
+    "selectWell": "Select Well"
   },
   "sidebar": {
     "engineeringDashboard": "Dashboard",

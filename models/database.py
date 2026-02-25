@@ -98,13 +98,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # Migration: add event_id column to analyses if missing
-    from sqlalchemy import inspect, text
-    insp = inspect(engine)
-    columns = [col["name"] for col in insp.get_columns("analyses")]
-    if "event_id" not in columns:
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE analyses ADD COLUMN event_id INTEGER REFERENCES events(id)"))
+    # NOTE: Schema migrations are now managed by Alembic.
+    # Run: alembic upgrade head
 
 def get_db():
     db = SessionLocal()
