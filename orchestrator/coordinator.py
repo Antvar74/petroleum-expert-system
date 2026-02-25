@@ -19,6 +19,7 @@ from agents.optimization_engineer import OptimizationEngineerAgent
 from agents.hse_engineer import HSEEngineerAgent
 from agents.geomechanic_engineer import GeomechanicsEngineerAgent
 from agents.directional_engineer import DirectionalEngineerAgent
+from agents.completion_engineer import CompletionEngineerAgent
 from models import OperationalProblem, AnalysisResult
 import json
 
@@ -41,7 +42,8 @@ class StuckPipeCoordinator:
             "optimization_engineer": OptimizationEngineerAgent(),
             "hse_engineer": HSEEngineerAgent(),
             "geomechanic_engineer": GeomechanicsEngineerAgent(),
-            "directional_engineer": DirectionalEngineerAgent()
+            "directional_engineer": DirectionalEngineerAgent(),
+            "completion_engineer": CompletionEngineerAgent()
         }
 
         # Standard workflow for event investigation.

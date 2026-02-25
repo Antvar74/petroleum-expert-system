@@ -179,17 +179,17 @@ class ModuleAnalysisEngine:
         return self._package(analysis, module, result_data, well_name, language, provider)
 
     async def analyze_completion_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Completion Design results using well_engineer agent."""
+        """Analyze Completion Design results using completion_engineer agent."""
         problem = self._build_cd_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("completion_engineer", problem, context, provider=provider)
         return self._package(analysis, "completion_design", result_data, well_name, language, provider)
 
     async def analyze_shot_efficiency(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Shot Efficiency results using well_engineer agent."""
+        """Analyze Shot Efficiency results using completion_engineer agent."""
         problem = self._build_se_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("completion_engineer", problem, context, provider=provider)
         return self._package(analysis, "shot_efficiency", result_data, well_name, language, provider)
 
     async def analyze_vibrations(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
