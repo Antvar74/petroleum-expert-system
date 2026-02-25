@@ -581,3 +581,49 @@ class TestFullVibrationAnalysis:
         )
         alert_text = " ".join(result["alerts"])
         assert "axial" in alert_text.lower() or "resonance" in alert_text.lower() or len(result["alerts"]) > 0
+
+
+# ===========================================================================
+# 8. REGRESSION TESTS (AUDIT-IDENTIFIED BUGS)
+# ===========================================================================
+class TestRegressionAuditFixes:
+    """Regression tests ensuring audit-identified bugs stay fixed."""
+
+    def test_lateral_rpm_never_below_30(self, engine):
+        """Lateral RPM must never be below 30 for any reasonable BHA."""
+        for length in [100, 200, 300, 500]:
+            result = engine.calculate_critical_rpm_lateral(
+                bha_length_ft=length, bha_od_in=6.75, bha_id_in=2.813,
+                bha_weight_lbft=83.0, hole_diameter_in=8.5,
+            )
+            assert result["critical_rpm"] >= 30, f"L={length}: RPM={result['critical_rpm']}"
+
+    def test_map_range_exceeds_threshold(self, engine):
+        """Stability map must discriminate -- range > 5 points (was 2.7 with bug)."""
+        result = engine.generate_vibration_map(
+            bit_diameter_in=8.5, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300, hole_diameter_in=8.5,
+        )
+        scores = [pt["stability_index"] for pt in result["map_data"]]
+        assert max(scores) - min(scores) > 5
+
+    def test_mse_efficiency_not_hardcoded(self, engine):
+        """Efficiency must NOT be hard-coded 35%. Must vary with inputs or be None."""
+        r1 = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5, ucs_psi=5000)
+        r2 = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5, ucs_psi=50000)
+        assert r1["efficiency_pct"] != r2["efficiency_pct"]
+
+    def test_mse_efficiency_none_without_ucs(self, engine):
+        """Without UCS, efficiency must be None."""
+        result = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5)
+        assert result["efficiency_pct"] is None
+
+    def test_friction_torque_not_r_over_3(self, engine):
+        """Friction torque must use 2R/3, not R/3."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5, bha_length_ft=300,
+            bha_od_in=6.75, bha_id_in=2.813, friction_factor=0.25,
+        )
+        # R/3 gives ~590, 2R/3 gives ~1181
+        assert result["friction_torque_ftlb"] > 900
