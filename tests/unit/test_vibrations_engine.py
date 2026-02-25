@@ -544,6 +544,27 @@ class TestFullVibrationAnalysis:
         )
         assert isinstance(result["alerts"], list)
 
+    def test_multi_component_lateral_when_bha_components_provided(self, engine):
+        """When bha_components with stabilizers are given, use multi-component lateral route."""
+        bha_components = [
+            {"type": "bit", "length_ft": 1, "od": 8.5, "id_inner": 2.5, "weight_ppf": 50},
+            {"type": "motor", "length_ft": 30, "od": 6.75, "id_inner": 3.0, "weight_ppf": 83},
+            {"type": "stabilizer", "length_ft": 3, "od": 8.25, "id_inner": 2.5, "weight_ppf": 100},
+            {"type": "collar", "length_ft": 60, "od": 6.75, "id_inner": 2.813, "weight_ppf": 83},
+            {"type": "stabilizer", "length_ft": 3, "od": 8.25, "id_inner": 2.5, "weight_ppf": 100},
+            {"type": "collar", "length_ft": 90, "od": 6.75, "id_inner": 2.813, "weight_ppf": 83},
+        ]
+        result = engine.calculate_full_vibration_analysis(
+            wob_klb=20, rpm=120, rop_fph=50, torque_ftlb=10000,
+            bit_diameter_in=8.5, bha_components=bha_components,
+        )
+        lateral = result["lateral_vibrations"]
+        # Multi-component route should produce valid critical RPM
+        assert lateral.get("mode_1_critical_rpm", lateral.get("critical_rpm", 0)) > 10
+        # Should have full analysis keys
+        assert "summary" in result
+        assert "vibration_map" in result
+
     def test_near_resonance_generates_alert(self, engine):
         """Operating near axial critical RPM should trigger an alert."""
         # First, find the axial critical RPM for the default BHA

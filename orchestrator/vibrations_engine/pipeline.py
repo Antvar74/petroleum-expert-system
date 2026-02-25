@@ -1,9 +1,10 @@
 """Full vibration analysis pipeline -- orchestrates all sub-modules."""
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from .critical_speeds import (
     calculate_critical_rpm_axial,
     calculate_critical_rpm_lateral,
+    calculate_critical_rpm_lateral_multi,
 )
 from .stick_slip import calculate_stick_slip_severity
 from .mse import calculate_mse
@@ -29,6 +30,7 @@ def calculate_full_vibration_analysis(
     friction_factor: float = 0.25,
     stabilizer_spacing_ft: Optional[float] = None,
     ucs_psi: Optional[float] = None,
+    bha_components: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
     """
     Complete vibration analysis combining all modes.
@@ -46,16 +48,27 @@ def calculate_full_vibration_analysis(
     )
 
     # 2. Lateral vibrations
-    lateral = calculate_critical_rpm_lateral(
-        bha_length_ft=bha_length_ft,
-        bha_od_in=bha_od_in,
-        bha_id_in=bha_id_in,
-        bha_weight_lbft=bha_weight_lbft,
-        hole_diameter_in=hole_diameter_in,
-        mud_weight_ppg=mud_weight_ppg,
-        inclination_deg=inclination_deg,
-        stabilizer_spacing_ft=stabilizer_spacing_ft,
-    )
+    if bha_components:
+        lateral = calculate_critical_rpm_lateral_multi(
+            bha_components=bha_components,
+            mud_weight_ppg=mud_weight_ppg,
+            hole_diameter_in=hole_diameter_in,
+        )
+        # Extract critical RPM for stability index (use mode 1)
+        lateral_crit_rpm = lateral.get("mode_1_critical_rpm", 999)
+        # Add a "critical_rpm" key for consistency with stability_index expectations
+        lateral["critical_rpm"] = lateral_crit_rpm
+    else:
+        lateral = calculate_critical_rpm_lateral(
+            bha_length_ft=bha_length_ft,
+            bha_od_in=bha_od_in,
+            bha_id_in=bha_id_in,
+            bha_weight_lbft=bha_weight_lbft,
+            hole_diameter_in=hole_diameter_in,
+            mud_weight_ppg=mud_weight_ppg,
+            inclination_deg=inclination_deg,
+            stabilizer_spacing_ft=stabilizer_spacing_ft,
+        )
 
     # 3. Stick-slip
     stick_slip = calculate_stick_slip_severity(
