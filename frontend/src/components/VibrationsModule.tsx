@@ -23,7 +23,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   const [activeTab, setActiveTab] = useState('input');
   const [loading, setLoading] = useState(false);
 
-  const [params, setParams] = useState({
+  const [params, setParams] = useState<Record<string, number | undefined>>({
     wob_klb: 20,
     rpm: 120,
     rop_fph: 60,
@@ -40,6 +40,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     hole_diameter_in: 8.5,
     inclination_deg: 15,
     friction_factor: 0.25,
+    stabilizer_spacing_ft: undefined,
+    ucs_psi: undefined,
+    n_blades: undefined,
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -53,8 +56,14 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     wellName,
   });
 
+  const optionalFields = new Set(['stabilizer_spacing_ft', 'ucs_psi', 'n_blades']);
+
   const updateParam = (key: string, value: string) => {
-    setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+    if (optionalFields.has(key)) {
+      setParams(prev => ({ ...prev, [key]: value === '' ? undefined : parseFloat(value) || 0 }));
+    } else {
+      setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+    }
   };
 
   const calculate = useCallback(async () => {
@@ -63,7 +72,8 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
       const url = wellId
         ? `/wells/${wellId}/vibrations`
         : `/calculate/vibrations`;
-      const res = await api.post(url, params);
+      const cleanParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+      const res = await api.post(url, cleanParams);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: unknown) {
@@ -123,11 +133,15 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                     { key: 'hole_diameter_in', label: t('vibrations.holeDiameter'), step: '0.125' },
                     { key: 'inclination_deg', label: t('vibrations.inclination'), step: '5' },
                     { key: 'friction_factor', label: t('vibrations.frictionCoeff'), step: '0.05' },
-                  ].map(({ key, label, step }) => (
+                    { key: 'stabilizer_spacing_ft', label: 'Estabilizador (ft)', step: '5', placeholder: 'Auto (max 90 ft)' },
+                    { key: 'ucs_psi', label: 'UCS (psi)', step: '1000', placeholder: 'Opcional' },
+                    { key: 'n_blades', label: 'Blades PDC', step: '1', placeholder: 'Opcional' },
+                  ].map(({ key, label, step, placeholder }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
                       <input type="number" step={step}
-                        value={(params as Record<string, number>)[key]}
+                        value={params[key] ?? ''}
+                        placeholder={placeholder}
                         onChange={e => updateParam(key, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-rose-500 focus:outline-none"
                       />
@@ -177,7 +191,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               {[
                 { label: t('vibrations.stability'), value: `${result.summary?.stability_index?.toFixed(0)}/100`, color: statusColor(result.summary?.stability_status || '') },
                 { label: t('vibrations.criticalRpmAxial'), value: `${result.summary?.critical_rpm_axial?.toFixed(0)}`, color: 'text-blue-400' },
-                { label: t('vibrations.criticalRpmLateral'), value: `${result.summary?.critical_rpm_lateral?.toFixed(0)}`, color: 'text-cyan-400' },
+                { label: t('vibrations.criticalRpmLateral'), value: `${result.summary?.critical_rpm_lateral?.toFixed(0)}${(result.lateral_vibrations as Record<string, unknown>)?.span_source === 'estimated' ? ' (est)' : ''}`, color: 'text-cyan-400' },
                 { label: 'Stick-Slip', value: `${result.summary?.stick_slip_severity?.toFixed(2)} (${result.summary?.stick_slip_class})`, color: statusColor(result.summary?.stick_slip_class === 'Mild' ? 'Stable' : result.summary?.stick_slip_class === 'Moderate' ? 'Marginal' : 'Critical') },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
@@ -195,16 +209,19 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                   <div><span className="text-gray-400">MSE Total:</span> <span className="font-bold text-lg">{result.mse?.mse_total_psi?.toLocaleString()} psi</span></div>
                   <div><span className="text-gray-400">Rotario:</span> <span className="font-mono">{result.mse?.mse_rotary_psi?.toLocaleString()} psi ({result.mse?.rotary_pct}%)</span></div>
                   <div><span className="text-gray-400">Empuje:</span> <span className="font-mono">{result.mse?.mse_thrust_psi?.toLocaleString()} psi ({result.mse?.thrust_pct}%)</span></div>
-                  <div><span className="text-gray-400">Eficiencia:</span> <span className="font-mono">{result.mse?.efficiency_pct}%</span></div>
+                  {result.mse?.efficiency_pct != null ? (
+                    <div><span className="text-gray-400">Eficiencia:</span> <span className="font-mono">{result.mse.efficiency_pct}%</span>
+                      <span className="text-xs text-gray-500 ml-1">({result.mse?.classification_basis === 'ucs_based' ? 'UCS-based' : 'estimada'})</span>
+                    </div>
+                  ) : (
+                    <div><span className="text-gray-400">Eficiencia:</span> <span className="text-gray-500 italic text-xs">Proporcione UCS para calculo</span></div>
+                  )}
                   <div>
                     <span className="text-gray-400">Estado:</span>{' '}
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusColor(result.mse?.classification === 'Efficient' ? 'Stable' : result.mse?.classification === 'Normal' ? 'Marginal' : 'Critical')}`}>
                       {result.mse?.classification}
                     </span>
                   </div>
-                  {result.mse?.is_founder_point && (
-                    <div className="text-red-400 text-xs font-bold mt-2">&#9888; Founder Point Detected!</div>
-                  )}
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
