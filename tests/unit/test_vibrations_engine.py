@@ -261,6 +261,17 @@ class TestStickSlip:
         high_wob = engine.calculate_stick_slip_severity(wob_klb=40, **common)
         assert high_wob["severity_index"] > low_wob["severity_index"]
 
+    def test_friction_torque_uses_two_thirds_radius(self, engine, typical_bha):
+        """Friction torque must use 2R/3 effective radius (centroid of uniform PDC face)."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20.0, torque_ftlb=12000,
+            bit_diameter_in=8.5, bha_length_ft=typical_bha["bha_length_ft"],
+            bha_od_in=typical_bha["bha_od_in"], bha_id_in=typical_bha["bha_id_in"],
+            mud_weight_ppg=typical_bha["mud_weight_ppg"], friction_factor=0.25,
+        )
+        # T = mu * WOB * 2R/3 = 0.25 * 20000 * 2*(8.5/24)/3 = 1181 ft-lb
+        assert 1100 <= result["friction_torque_ftlb"] <= 1250
+
     def test_zero_rpm_returns_error(self, engine, typical_bha):
         """RPM = 0 should produce error dict."""
         result = engine.calculate_stick_slip_severity(

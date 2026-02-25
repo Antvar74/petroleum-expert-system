@@ -24,7 +24,7 @@ def calculate_stick_slip_severity(
     Severity = (omega_max - omega_min) / omega_avg
 
     Estimated from torque fluctuation model:
-    - Friction torque at bit: T_friction = mu * WOB * R_bit / 3
+    - Friction torque at bit: T_friction = mu * WOB * 2*R_bit / 3
     - Torsional spring constant: k_t = G * J / L
     - Angular displacement: delta_theta = T_friction / k_t
 
@@ -54,7 +54,7 @@ def calculate_stick_slip_severity(
     # Friction torque at bit (ft-lbs)
     r_bit_ft = bit_diameter_in / (2.0 * 12.0)
     wob_lbs = wob_klb * 1000.0
-    t_friction = friction_factor * wob_lbs * r_bit_ft / 3.0
+    t_friction = friction_factor * wob_lbs * r_bit_ft * 2.0 / 3.0
 
     # Torsional stiffness of BHA
     # G = E / (2(1+nu)) ~ 11.5e6 psi for steel
