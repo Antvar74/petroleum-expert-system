@@ -27,6 +27,16 @@ COPY api_main.py ./
 # Create data directory for SQLite persistence
 RUN mkdir -p /app/data
 
+# Copy schemas
+COPY schemas/ ./schemas/
+
+# Create non-root user and set ownership
+RUN addgroup --gid 1001 appgroup && \
+    adduser --uid 1001 --ingroup appgroup --disabled-password --no-create-home appuser && \
+    chown -R appuser:appgroup /app
+
+USER appuser
+
 # Expose API port
 EXPOSE 8000
 

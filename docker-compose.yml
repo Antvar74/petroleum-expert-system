@@ -11,7 +11,14 @@ services:
       - certbot-var:/var/lib/letsencrypt
       - certbot-www:/var/www/certbot
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   app:
@@ -24,6 +31,12 @@ services:
       - DATABASE_URL=sqlite:////app/data/petroleum_expert.db
     volumes:
       - app-data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # ================================================================
