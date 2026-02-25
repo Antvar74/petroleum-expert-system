@@ -355,6 +355,50 @@ class TestCalculateSkinFactor:
         # With a longer tunnel, s_p should be more negative (or at least not greater)
         assert long_["s_p"] <= short["s_p"]
 
+    def test_s_v_nonzero(self, engine):
+        """S_v should be non-zero with corrected K-T h_D^B exponent (SPE 18247)."""
+        result = engine.calculate_skin_factor(
+            perf_length_in=12.0, perf_radius_in=0.20,
+            wellbore_radius_ft=0.354, spf=4, phasing_deg=90,
+            h_perf_ft=30.0, kv_kh=0.5,
+        )
+        assert result["s_v"] > 0.0, "S_v must be non-zero with corrected K-T formula"
+
+    def test_s_v_varies_with_spf(self, engine):
+        """S_v should change when SPF changes (different vertical convergence)."""
+        base_kw = dict(perf_length_in=12.0, perf_radius_in=0.20,
+                       wellbore_radius_ft=0.354, phasing_deg=90,
+                       h_perf_ft=30.0, kv_kh=0.5)
+        r1 = engine.calculate_skin_factor(spf=1, **base_kw)
+        r4 = engine.calculate_skin_factor(spf=4, **base_kw)
+        r12 = engine.calculate_skin_factor(spf=12, **base_kw)
+        assert r1["s_v"] != r4["s_v"]
+        assert r4["s_v"] != r12["s_v"]
+
+    def test_s_wb_nonzero(self, engine):
+        """S_wb should be non-zero for standard perforation geometry."""
+        result = engine.calculate_skin_factor(
+            perf_length_in=12.0, perf_radius_in=0.20,
+            wellbore_radius_ft=0.354, spf=4, phasing_deg=90,
+            h_perf_ft=30.0, kv_kh=0.5,
+        )
+        assert result["s_wb"] > 0.0, "S_wb must be non-zero"
+
+    def test_s_wb_uses_dimensionless_wellbore_radius(self, engine):
+        """S_wb must use r_wD = r_w / (r_w + l_p) per SPE 18247, not r_p / r_w."""
+        result = engine.calculate_skin_factor(
+            perf_length_in=12.0, perf_radius_in=0.20,
+            wellbore_radius_ft=0.354, spf=4, phasing_deg=90,
+            h_perf_ft=5.0, kv_kh=0.5,
+        )
+        # r_wD = 0.354 / (0.354 + 1.0) = 0.2615
+        # S_wb = 0.0066 * exp(5.320 * 0.2615) ≈ 0.0265
+        assert result["s_wb"] > 0.02, (
+            f"S_wb={result['s_wb']} is too small; "
+            f"should use r_wD=r_w/(r_w+l_p) per SPE 18247"
+        )
+        assert result["s_wb"] < 0.10, "S_wb should be small for standard geometry"
+
 
 # ===========================================================================
 # rank_intervals
