@@ -1,7 +1,12 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from .database import Base
+
+
+def _utcnow():
+    """Timezone-aware UTC timestamp for SQLAlchemy column defaults."""
+    return datetime.now(timezone.utc)
 
 class Event(Base):
     """
@@ -20,7 +25,7 @@ class Event(Base):
     
     # Metadata
     description = Column(Text, nullable=True) 
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=_utcnow)
     status = Column(String, default="open") # open, analyzing, resolved
     
     # Relationships
@@ -95,7 +100,7 @@ class RCAReport(Base):
     prevention_actions = Column(JSON, nullable=True)
     
     confidence_score = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     
     event = relationship("Event", back_populates="rca_analysis")
 
@@ -151,7 +156,7 @@ class TorqueDragResult(Base):
     rpm = Column(Float, nullable=True)
     result_data = Column(JSON)         # per-station results array
     summary = Column(JSON)             # surface hookload, torque, alerts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -204,7 +209,7 @@ class HydraulicResult(Base):
     bit_hydraulics = Column(JSON)      # TFA, HSI, impact force, jet velocity
     surge_swab = Column(JSON, nullable=True)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -229,7 +234,7 @@ class StuckPipeAnalysis(Base):
     risk_matrix = Column(JSON, nullable=True) # {probability, severity, risk_level, factors}
     recommended_actions = Column(JSON)        # ordered list of actions
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     well = relationship("Well")
 
 
@@ -276,7 +281,7 @@ class KillSheet(Base):
     kill_method = Column(String, nullable=True)  # drillers, wait_weight, volumetric, bullhead
 
     status = Column(String, default="pre-recorded")  # pre-recorded, active, completed
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -303,7 +308,7 @@ class WellboreCleanupResult(Base):
 
     result_data = Column(JSON)             # full calculation results
     summary = Column(JSON)                 # summary metrics + alerts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -327,7 +332,7 @@ class PackerForcesResult(Base):
 
     result_data = Column(JSON)             # full calculation results
     summary = Column(JSON)                 # summary metrics + alerts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -353,7 +358,7 @@ class WorkoverHydraulicsResult(Base):
 
     result_data = Column(JSON)             # full calculation results
     summary = Column(JSON)                 # summary metrics + alerts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -377,7 +382,7 @@ class SandControlResult(Base):
 
     result_data = Column(JSON)             # full calculation results
     summary = Column(JSON)                 # summary metrics + alerts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -401,7 +406,7 @@ class CompletionDesignResult(Base):
 
     result_data = Column(JSON)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -424,7 +429,7 @@ class ShotEfficiencyResult(Base):
 
     result_data = Column(JSON)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -447,7 +452,7 @@ class VibrationsResult(Base):
 
     result_data = Column(JSON)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -471,7 +476,7 @@ class CementingResult(Base):
 
     result_data = Column(JSON)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -495,7 +500,7 @@ class CasingDesignResult(Base):
 
     result_data = Column(JSON)
     summary = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     well = relationship("Well")
 
@@ -546,8 +551,8 @@ class DailyReport(Base):
     status = Column(String, default="draft")         # draft, submitted, approved
     created_by = Column(String, nullable=True)
     approved_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     well = relationship("Well")
     operations = relationship("ReportOperation", back_populates="report", cascade="all, delete-orphan")

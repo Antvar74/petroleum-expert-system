@@ -225,7 +225,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
   ];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+    <div className="animate-fadeIn space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
@@ -438,7 +438,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
 

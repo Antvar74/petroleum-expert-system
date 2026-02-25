@@ -3,12 +3,6 @@ Drilling Engineer / Company Man Agent
 Elite expert system for drilling operations, RCA, and well delivery
 """
 
-# System prompt for the Drilling Engineer / Company Man agent
-# System prompt for the Drilling Engineer / Company Man agent
-# Now loaded from data/prompts/drilling-engineer-specialist.md
-DRILLING_ENGINEER_PROMPT = "You are an elite Drilling Engineer / Company Man."
-
-
 from agents.base_agent import BaseAgent
 
 class DrillingEngineerAgent(BaseAgent):
@@ -43,6 +37,4 @@ class DrillingEngineerAgent(BaseAgent):
         """
         return self.analyze_interactive(problem_description)
 
-# Keep the original prompt variable available for other modules if needed
-# DRILLING_ENGINEER_PROMPT is defined above
 

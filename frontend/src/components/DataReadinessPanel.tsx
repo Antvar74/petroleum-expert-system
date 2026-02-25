@@ -107,10 +107,8 @@ const DataReadinessPanel: React.FC<DataReadinessPanelProps> = ({
   const isSufficient = readiness.pct >= minPct;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-panel rounded-2xl border border-white/5 mb-6 overflow-hidden"
+    <div
+      className="animate-fadeIn glass-panel rounded-2xl border border-white/5 mb-6 overflow-hidden"
     >
       {/* -- Header -- */}
       <button
@@ -258,7 +256,7 @@ const DataReadinessPanel: React.FC<DataReadinessPanelProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
 

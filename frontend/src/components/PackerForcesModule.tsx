@@ -285,12 +285,12 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
         )}
 
         {activeTab === 'results' && !result && (
-          <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="animate-fadeIn">
             <div className="glass-panel p-12 rounded-2xl border border-white/5 text-center text-gray-500">
               <Anchor size={48} className="mx-auto mb-4 opacity-30" />
               <p>{t('packerForces.noResults')}</p>
             </div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

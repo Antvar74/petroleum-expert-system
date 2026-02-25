@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from starlette.requests import Request
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models import get_db, Well
 from middleware.rate_limit import limiter, LLM_LIMIT
@@ -259,7 +259,7 @@ def update_daily_report(well_id: int, report_id: int, data: UpdateDailyReportReq
         if isinstance(rd, str):
             report.report_date = datetime.strptime(rd, "%Y-%m-%d").date()
 
-    report.updated_at = datetime.utcnow()
+    report.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     # Re-sync operations if operations_log was updated

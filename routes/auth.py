@@ -31,7 +31,7 @@ _INVITE_CODE: str | None = os.environ.get("INVITE_CODE")  # None = no code requi
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
     full_name: str | None = None
     invite_code: str | None = None
 

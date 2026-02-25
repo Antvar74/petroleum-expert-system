@@ -243,7 +243,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
 
             {/* Current question */}
             {currentQuestion && (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel p-8 rounded-2xl border border-white/5">
+              <div className="animate-fadeIn glass-panel p-8 rounded-2xl border border-white/5">
                 <p className="text-xs text-white/40 mb-2">{t('stuckPipe.diagnosis.question', { num: diagnosisPath.length + 1 })}</p>
                 <h3 className="text-xl font-bold mb-6">{currentQuestion.question}</h3>
                 <div className="flex gap-4">
@@ -254,12 +254,12 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                     {t('common.no')}
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Result */}
             {diagnosisResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="animate-fadeIn space-y-4">
                 <div className="glass-panel p-8 rounded-2xl border border-industrial-500/20 bg-industrial-500/5">
                   <div className="flex items-center gap-3 mb-4">
                     <Target className="text-industrial-500" size={24} />
@@ -279,7 +279,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                   </div>
                 </div>
                 <button onClick={startDiagnosis} className="text-sm text-white/40 hover:text-white underline">{t('stuckPipe.diagnosis.restart')}</button>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
@@ -305,7 +305,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
             </div>
 
             {fpResult && !fpResult.error && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Free Point Indicator visual */}
                   <FreePointIndicator
@@ -333,7 +333,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
@@ -362,7 +362,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
             </div>
 
             {riskResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="animate-fadeIn grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <InteractiveRiskMatrix
                     probability={riskResult.probability}
@@ -382,7 +382,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
                   riskLevel={riskResult.risk_level}
                   height={300}
                 />
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}

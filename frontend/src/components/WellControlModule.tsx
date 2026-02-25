@@ -252,7 +252,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
             </div>
 
             {preRecordResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="animate-fadeIn space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                     <p className="text-xs text-white/40 mb-1">{t('wellControl.prerecord.hydrostatic')}</p>
@@ -274,7 +274,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                     <p className="text-xs text-white/30">bbl</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
@@ -302,7 +302,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
             </div>
 
             {killResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 {/* Alerts */}
                 {killResult.alerts?.length > 0 && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
@@ -339,7 +339,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                     ))}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}

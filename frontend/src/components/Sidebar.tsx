@@ -157,9 +157,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
                     {/* Divider */}
                     <div className="my-3 border-t border-white/5" />
 
-                    {/* Divider */}
-                    <div className="my-3 border-t border-white/5" />
-
                     {/* Reporting — independent module */}
                     <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-1 pb-1">{t('sidebar.reporting')}</p>
                     {reportingItems.map((item) => (

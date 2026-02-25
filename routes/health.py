@@ -7,7 +7,7 @@ Provides:
   GET /models                              — available local models
   GET /modules/{module_id}/data-requirements — data requirements for a module
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, Any, Optional
 from sqlalchemy import text as sa_text
@@ -26,7 +26,7 @@ router = APIRouter(tags=["system"])
 async def system_health():
     """Return system connectivity status (LLM provider, DB, agent count)."""
     coordinator = get_coordinator()
-    status: Dict[str, Any] = {"api": "ok", "timestamp": datetime.utcnow().isoformat()}
+    status: Dict[str, Any] = {"api": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
     # Check LLM provider
     try:

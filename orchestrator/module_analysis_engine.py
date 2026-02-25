@@ -7,7 +7,7 @@ of the 4 engineering module results: Torque & Drag, Hydraulics/ECD, Stuck Pipe, 
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from orchestrator.api_coordinator import APICoordinator
 
@@ -671,7 +671,7 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
     def _package(self, analysis: Dict, module: str, result_data: Dict, well_name: str, language: str = "en", provider: str = "auto") -> Dict:
         return {
             "module": module,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "analysis": analysis.get("analysis", ""),
             "confidence": analysis.get("confidence", "MEDIUM"),
             "agent_used": analysis.get("agent", ""),

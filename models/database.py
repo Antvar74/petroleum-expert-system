@@ -1,7 +1,12 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _utcnow():
+    """Timezone-aware UTC timestamp for SQLAlchemy column defaults."""
+    return datetime.now(timezone.utc)
 import os
 
 # Base directory for database
@@ -37,7 +42,7 @@ class Well(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     location = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     
     problems = relationship("Problem", back_populates="well", cascade="all, delete-orphan")
     programs = relationship("Program", back_populates="well", cascade="all, delete-orphan")
@@ -60,7 +65,7 @@ class Problem(Base):
     overpull = Column(Float, nullable=True)
     string_weight = Column(Float, nullable=True)
     additional_data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     
     well = relationship("Well", back_populates="problems")
     analyses = relationship("Analysis", back_populates="problem", cascade="all, delete-orphan")
@@ -72,7 +77,7 @@ class Program(Base):
     type = Column(String) # 'drilling', 'completion', 'workover'
     status = Column(String, default="draft")
     content = Column(JSON, nullable=True) # Full structured plan
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     
     well = relationship("Well", back_populates="programs")
 
@@ -88,7 +93,7 @@ class Analysis(Base):
     individual_analyses = Column(JSON, nullable=True) # List of dicts
     final_synthesis = Column(JSON, nullable=True)
     leader_agent_id = Column(String, nullable=True) # ID of the agent leading the investigation
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     
     problem = relationship("Problem", back_populates="analyses")
 

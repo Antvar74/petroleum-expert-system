@@ -40,5 +40,11 @@ USER appuser
 # Expose API port
 EXPOSE 8000
 
-# Run with uvicorn
-CMD ["uvicorn", "api_main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with Gunicorn + Uvicorn workers for production
+# WEB_CONCURRENCY controls worker count (default: 4)
+CMD ["gunicorn", "api_main:app", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "4", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--timeout", "300", \
+     "--graceful-timeout", "30"]

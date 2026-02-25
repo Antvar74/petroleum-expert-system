@@ -31,11 +31,10 @@ interface CompletedAnalysis {
 interface AnalysisDashboardProps {
     analysisId: number;
     workflow: string[];
-    onComplete?: () => void;
     onBack?: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onComplete: _onComplete, onBack }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workflow, onBack }) => {
     const { t } = useTranslation();
     const { addToast } = useToast();
 
@@ -228,7 +227,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     // --- RENDER: Final Report with Synthesis ---
     if (finalReport) {
         return (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto py-12 space-y-8">
+            <div className="animate-fadeIn max-w-5xl mx-auto py-12 space-y-8">
                 <style>{`
                     .pdf-generation { background-color: white !important; color: black !important; }
                     .pdf-generation .prose { color: black !important; }
@@ -313,7 +312,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
 
                 {/* RCA Section */}
                 {rcaReport && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="animate-fadeIn">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-red-500">
                                 <AlertTriangle size={24} />
@@ -324,9 +323,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             </div>
                         </div>
                         <RCAVisualizer report={rcaReport} />
-                    </motion.div>
+                    </div>
                 )}
-            </motion.div>
+            </div>
         );
     }
 
@@ -418,10 +417,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 <div className="lg:col-span-2 space-y-6">
                     {/* Error Banner */}
                     {errorMessage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3"
+                        <div
+                            className="animate-fadeIn bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3"
                         >
                             <AlertTriangle size={20} className="text-red-400 shrink-0" />
                             <p className="text-sm text-red-300 flex-1">{errorMessage}</p>
@@ -431,7 +428,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                             >
                                 <RotateCcw size={12} /> {t('common.retry')}
                             </button>
-                        </motion.div>
+                        </div>
                     )}
 
                     {/* Completed Analyses - Expandable */}

@@ -543,7 +543,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
             {/* Results */}
             {tdResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
@@ -681,7 +681,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                     </div>
                   </div>
                 )}
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
@@ -704,7 +704,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
             </div>
 
             {compareResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 {/* Multi-series chart using compare endpoint data */}
                 <TDMultiSeriesChart
                   data={compareResult.combined || []}
@@ -723,7 +723,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                   buoyedWeight={computeBuoyedWeight()}
                   height={250}
                 />
-              </motion.div>
+              </div>
             )}
 
             {/* Back-Calculate Friction */}
@@ -754,7 +754,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
             </div>
 
             {backCalcResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="animate-fadeIn grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <p className="text-xs text-white/40 mb-1">{t('torqueDrag.backCalc.frictionFactor')}</p>
                   <p className="text-3xl font-bold text-industrial-400">{backCalcResult.friction_factor}</p>
@@ -774,7 +774,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                   </p>
                   <p className="text-xs text-white/30">{backCalcResult.iterations} {t('common.iterations')}</p>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}

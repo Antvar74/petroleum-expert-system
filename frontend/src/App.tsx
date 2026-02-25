@@ -143,7 +143,6 @@ function AppContent() {
             <AnalysisDashboard
               analysisId={activeAnalysis.id}
               workflow={activeAnalysis.workflow || activeAnalysis.workflow_used || []}
-              onComplete={() => setCurrentView('rca')}
               onBack={() => setCurrentView('dashboard')}
             />
           </div>

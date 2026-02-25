@@ -288,7 +288,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
             </div>
 
             {hydResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 {/* ECD status badge */}
                 <div className="flex justify-end">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${hydResult.ecd?.status?.includes('HIGH') ? 'bg-red-500/20 text-red-400' : hydResult.ecd?.status?.includes('LOW') ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
@@ -355,7 +355,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                     </tbody>
                   </table>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
@@ -399,7 +399,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
             </div>
 
             {surgeResult && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="animate-fadeIn space-y-6">
                 {/* Surge/Swab Window visualization */}
                 <SurgeSwabWindow
                   mudWeight={surgeParams.mud_weight}
@@ -441,7 +441,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                     <p className="text-2xl font-bold text-industrial-400">{surgeResult.surge_pressure_psi}</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         )}
