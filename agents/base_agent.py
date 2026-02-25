@@ -101,7 +101,17 @@ USER REQUEST:
 # Problema a Analizar:
 {problem}
 """
-        
+
+        # Add module calculation results (structured data from engineering modules)
+        if context and "module_results" in context:
+            query += "\n\n# RESULTADOS CALCULADOS POR EL MÓDULO:\n"
+            query += f"```json\n{json.dumps(context['module_results'], indent=2, ensure_ascii=False)}\n```"
+            query += (
+                "\n\n> IMPORTANTE: Basa tu análisis EXCLUSIVAMENTE en los datos "
+                "numéricos anteriores. No inventes ni estimes valores — todos los "
+                "parámetros relevantes están incluidos arriba.\n"
+            )
+
         # Add previous analyses from other specialists
         if context and "previous_analyses" in context:
             query += "\n\n# Análisis de Otros Especialistas:\n"
