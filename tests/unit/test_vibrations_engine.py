@@ -304,8 +304,26 @@ class TestMSE:
         assert total == pytest.approx(parts, rel=0.001)
 
     def test_efficiency_bounded(self, mse_result):
-        """Efficiency percentage must be in [0, 100]."""
-        assert 0 <= mse_result["efficiency_pct"] <= 100
+        """Efficiency is None without UCS (fixture has no UCS)."""
+        assert mse_result["efficiency_pct"] is None
+
+    def test_efficiency_none_without_ucs(self, engine):
+        """Without UCS, efficiency must be None (not the old hard-coded 35%)."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+        )
+        assert result["efficiency_pct"] is None
+        assert result["classification_basis"] == "absolute_mse"
+
+    def test_efficiency_calculated_with_ucs(self, engine):
+        """With UCS provided, efficiency = UCS / MSE * 100."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+            ucs_psi=55000,
+        )
+        assert result["efficiency_pct"] is not None
+        assert 30 <= result["efficiency_pct"] <= 40  # ~34.4% for these params
+        assert result["classification_basis"] == "ucs_based"
 
     def test_high_mse_classification(self, engine):
         """Extremely high MSE (low ROP, high torque) should classify as Highly Inefficient."""

@@ -5,7 +5,7 @@ References:
 - Dupriest (2005): MSE-based drilling optimization
 """
 import math
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def calculate_mse(
@@ -13,7 +13,8 @@ def calculate_mse(
     torque_ftlb: float,
     rpm: float,
     rop_fph: float,
-    bit_diameter_in: float
+    bit_diameter_in: float,
+    ucs_psi: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Calculate Mechanical Specific Energy (Teale, 1965).
@@ -49,29 +50,39 @@ def calculate_mse(
     # Bit area
     bit_area = math.pi * d_sq / 4.0
 
-    # Efficiency estimate (assume typical CCS ranges)
-    # Shale: 5,000-15,000 psi, Sandstone: 10,000-30,000 psi, Limestone: 15,000-50,000 psi
-    estimated_ccs = mse_total * 0.35  # typical ~35% mechanical efficiency
-    efficiency_pct = min(100, (estimated_ccs / mse_total * 100)) if mse_total > 0 else 0
-
-    # Founder point detection
-    # MSE > 3x theoretical minimum suggests inefficiency (bit balling, vibrations)
-    mse_theoretical_min = mse_total * 0.35  # approx CCS
-    is_founder_point = mse_total > 3 * max(mse_theoretical_min, 5000)
-
-    # Classification
-    if mse_total < 20000:
-        classification = "Efficient"
-        color = "green"
-    elif mse_total < 50000:
-        classification = "Normal"
-        color = "yellow"
-    elif mse_total < 100000:
-        classification = "Inefficient"
-        color = "orange"
+    # Efficiency calculation
+    if ucs_psi is not None and ucs_psi > 0 and mse_total > 0:
+        efficiency_pct = round(min(100.0, ucs_psi / mse_total * 100.0), 1)
+        classification_basis = "ucs_based"
+        # UCS-based classification
+        if efficiency_pct > 80:
+            classification = "Efficient"
+            color = "green"
+        elif efficiency_pct > 40:
+            classification = "Normal"
+            color = "yellow"
+        elif efficiency_pct > 20:
+            classification = "Inefficient"
+            color = "orange"
+        else:
+            classification = "Highly Inefficient"
+            color = "red"
     else:
-        classification = "Highly Inefficient"
-        color = "red"
+        efficiency_pct = None
+        classification_basis = "absolute_mse"
+        # Absolute MSE classification (existing thresholds)
+        if mse_total < 20000:
+            classification = "Efficient"
+            color = "green"
+        elif mse_total < 50000:
+            classification = "Normal"
+            color = "yellow"
+        elif mse_total < 100000:
+            classification = "Inefficient"
+            color = "orange"
+        else:
+            classification = "Highly Inefficient"
+            color = "red"
 
     return {
         "mse_total_psi": round(mse_total, 0),
@@ -80,9 +91,8 @@ def calculate_mse(
         "rotary_pct": round(mse_rotary / mse_total * 100, 1) if mse_total > 0 else 0,
         "thrust_pct": round(mse_thrust / mse_total * 100, 1) if mse_total > 0 else 0,
         "bit_area_in2": round(bit_area, 2),
-        "efficiency_pct": round(efficiency_pct, 1),
-        "estimated_ccs_psi": round(estimated_ccs, 0),
-        "is_founder_point": is_founder_point,
+        "efficiency_pct": efficiency_pct,
+        "classification_basis": classification_basis,
         "classification": classification,
         "color": color,
     }

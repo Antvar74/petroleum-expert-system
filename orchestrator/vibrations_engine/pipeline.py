@@ -28,6 +28,7 @@ def calculate_full_vibration_analysis(
     inclination_deg: float = 0.0,
     friction_factor: float = 0.25,
     stabilizer_spacing_ft: Optional[float] = None,
+    ucs_psi: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Complete vibration analysis combining all modes.
@@ -76,6 +77,7 @@ def calculate_full_vibration_analysis(
         rpm=rpm,
         rop_fph=rop_fph,
         bit_diameter_in=bit_diameter_in,
+        ucs_psi=ucs_psi,
     )
 
     # 5. Combined stability
@@ -112,8 +114,8 @@ def calculate_full_vibration_analysis(
     ss_sev = stick_slip.get("severity_index", 0)
     if ss_sev > 1.0:
         alerts.append(f"Stick-slip severity {ss_sev:.2f} — {stick_slip.get('recommendation', '')}")
-    if mse.get("is_founder_point", False):
-        alerts.append("Founder point detected — MSE excessive, check bit condition")
+    if mse.get("mse_total_psi", 0) > 100000:
+        alerts.append("Excessive MSE detected — check bit condition and drilling parameters")
     if stability["stability_index"] < 40:
         alerts.append(f"Critical stability index {stability['stability_index']:.0f} — modify drilling parameters")
 
@@ -126,7 +128,7 @@ def calculate_full_vibration_analysis(
         "stick_slip_severity": stick_slip.get("severity_index", 0),
         "stick_slip_class": stick_slip.get("classification", "N/A"),
         "mse_psi": mse.get("mse_total_psi", 0),
-        "mse_efficiency_pct": mse.get("efficiency_pct", 0),
+        "mse_efficiency_pct": mse.get("efficiency_pct"),
         "optimal_wob": vib_map["optimal_point"]["wob"],
         "optimal_rpm": vib_map["optimal_point"]["rpm"],
         "alerts": alerts,
