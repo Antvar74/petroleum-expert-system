@@ -25,6 +25,10 @@ from agents.data_extractor import DataExtractionAgent
 from agents.rca_synthesizer import RCASynthesizerAgent
 from routes.dependencies import get_coordinator
 from schemas.events import CreateEventRequest, EventAnalysisInitRequest
+from utils.logger import get_logger
+from utils.upload_validation import validate_upload
+
+logger = get_logger("routes.events")
 
 router = APIRouter(tags=["events"])
 
@@ -49,7 +53,8 @@ async def extract_event_parameters(files: List[UploadFile] = File(...)):
 
             tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
             try:
-                tmp.write(await file.read())
+                validated_content = await validate_upload(file, allowed_extensions=[".pdf", ".csv", ".txt", ".md"])
+                tmp.write(validated_content)
                 tmp.close()
 
                 from utils.data_loader import load_data_context
@@ -64,8 +69,8 @@ async def extract_event_parameters(files: List[UploadFile] = File(...)):
         return extracted_data
 
     except Exception as e:
-        print(f"Extraction Endpoint Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Event parameter extraction failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/events")
@@ -135,9 +140,8 @@ def create_event(event_data: CreateEventRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
         db.rollback()
-        import traceback
-        print(f"Create Event Error: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Event creation failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/events/{event_id}/analysis/init")
@@ -207,8 +211,8 @@ def calculate_event_physics(event_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Calculation Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Event calculation failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/events/{event_id}/rca")
@@ -271,8 +275,8 @@ async def generate_structured_rca(event_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"RCA Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("RCA generation failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/events/{event_id}/rca")

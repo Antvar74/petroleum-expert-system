@@ -26,6 +26,9 @@ from models.models_v2 import Event, ParameterSet
 from routes.dependencies import get_coordinator
 from schemas.common import AnalysisInitRequest, TextResponseBody
 from schemas.analysis import RCAGenerateRequest
+from utils.logger import get_logger
+
+logger = get_logger("routes.analysis")
 
 router = APIRouter(tags=["analysis"])
 
@@ -95,10 +98,8 @@ def init_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        error_msg = f"ERROR in init_analysis: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+        logger.exception("init_analysis failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/analysis/{analysis_id}")
@@ -351,9 +352,9 @@ async def run_auto_step(request: Request, analysis_id: int, agent_id: str, db: S
             context_text = load_data_context(file_path)
             context["extracted_report_text"] = context_text
         except ValueError as ve:
-            print(f"Rejected unsafe data path: {ve}")
+            logger.warning("Rejected unsafe data path: %s", ve)
         except Exception as e:
-            print(f"Failed to load data context: {e}")
+            logger.warning("Failed to load data context: %s", e)
 
     updated_analysis = await coordinator.run_automated_step(agent_id, description, context)
 
@@ -459,9 +460,9 @@ async def generate_rca_report(request: Request, analysis_id: int, payload: RCAGe
             context_text = load_data_context(file_path)
             context["extracted_report_text"] = context_text
         except ValueError as ve:
-            print(f"Rejected unsafe data path: {ve}")
+            logger.warning("Rejected unsafe data path: %s", ve)
         except Exception as e:
-            print(f"Failed to load data context: {e}")
+            logger.warning("Failed to load data context: %s", e)
 
     methodology = payload.methodology
     user_data = payload.data

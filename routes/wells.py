@@ -15,6 +15,9 @@ from typing import List, Dict, Any, Optional
 
 from models import get_db, Well, Problem
 from schemas.wells import CreateProblemRequest
+from utils.logger import get_logger
+
+logger = get_logger("routes.wells")
 
 router = APIRouter(tags=["wells"])
 
@@ -49,8 +52,8 @@ def delete_well(well_id: int, db: Session = Depends(get_db)):
         return {"message": "Well deleted successfully"}
     except Exception as e:
         db.rollback()
-        print(f"ERROR deleting well: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        logger.exception("Failed to delete well %d", well_id)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # --- Problems ---

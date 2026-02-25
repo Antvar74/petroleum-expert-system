@@ -18,6 +18,7 @@ import pandas as pd
 from models import get_db, Well
 from orchestrator.data_ingest import DataIngestionService
 from schemas.files import IngestLASRequest, IngestDLISRequest
+from utils.upload_validation import validate_upload
 
 router = APIRouter(tags=["files"])
 
@@ -40,7 +41,7 @@ async def ingest_csv(well_id: int, file: UploadFile = File(...), db: Session = D
     if not well:
         raise HTTPException(status_code=404, detail="Well not found")
 
-    content = await file.read()
+    content = await validate_upload(file, allowed_extensions=[".csv"])
     try:
         df = pd.read_csv(io.BytesIO(content))
         return {

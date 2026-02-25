@@ -16,6 +16,7 @@ from orchestrator.module_analysis_engine import ModuleAnalysisEngine
 
 from schemas.common import AIAnalysisRequest
 from schemas.shot_efficiency import ShotEfficiencyCalculateRequest
+from utils.upload_validation import validate_upload
 
 router = APIRouter(tags=["shot-efficiency"])
 module_analyzer = ModuleAnalysisEngine()
@@ -59,7 +60,7 @@ async def upload_log_csv(well_id: int, file: UploadFile = File(...), db: Session
     if not well:
         raise HTTPException(status_code=404, detail="Well not found")
 
-    contents = await file.read()
+    contents = await validate_upload(file, allowed_extensions=[".csv"])
     try:
         df = pd.read_csv(io.BytesIO(contents))
         # Normalize column names

@@ -15,6 +15,9 @@ from sqlalchemy import text as sa_text
 from models import get_db
 from orchestrator.data_requirements import get_requirements as get_data_requirements
 from routes.dependencies import get_coordinator
+from utils.logger import get_logger
+
+logger = get_logger("routes.health")
 
 router = APIRouter(tags=["system"])
 
@@ -30,7 +33,8 @@ async def system_health():
         providers = await coordinator.gateway.get_available_providers()
         status["llm"] = {"status": "ok", "providers": providers}
     except Exception as e:
-        status["llm"] = {"status": "error", "detail": str(e)}
+        logger.warning("LLM provider check failed: %s", e)
+        status["llm"] = {"status": "error", "detail": "Provider unavailable"}
 
     # Agent count
     status["agents"] = len(coordinator.agents)

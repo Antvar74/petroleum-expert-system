@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-import logging
+from utils.logger import get_logger
 
 from models import init_db
 from middleware.auth import verify_auth, AUTH_MODE
@@ -51,7 +51,7 @@ from routes.modules.petrophysics import router as petrophysics_router
 
 # ── Application Setup ─────────────────────────────────────────────────────────
 
-_logger = logging.getLogger("petroexpert")
+_logger = get_logger("api")
 
 
 @asynccontextmanager
@@ -79,12 +79,10 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
-    error_msg = f"GLOBAL HANDLER: {str(exc)}\n{traceback.format_exc()}"
-    print(error_msg)
+    _logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"},
+        content={"detail": "Internal server error"},
     )
 
 
