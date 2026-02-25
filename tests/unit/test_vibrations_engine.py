@@ -347,6 +347,28 @@ class TestMSE:
         assert result["classification"] == "Highly Inefficient"
         assert result["color"] == "red"
 
+    def test_ucs_based_classification_efficient(self, engine):
+        """High UCS relative to MSE should classify as Efficient."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=5000, rpm=60, rop_fph=100, bit_diameter_in=8.5,
+            ucs_psi=50000,
+        )
+        # Low MSE + high UCS = high efficiency
+        assert result["classification_basis"] == "ucs_based"
+        assert result["efficiency_pct"] > 80
+        assert result["classification"] == "Efficient"
+
+    def test_ucs_based_classification_inefficient(self, engine):
+        """Low UCS relative to MSE should classify as Highly Inefficient."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=12000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+            ucs_psi=5000,
+        )
+        # High MSE + low UCS = low efficiency
+        assert result["classification_basis"] == "ucs_based"
+        assert result["efficiency_pct"] < 20
+        assert result["classification"] == "Highly Inefficient"
+
     def test_zero_rop_returns_error(self, engine):
         """ROP = 0 should produce an error."""
         result = engine.calculate_mse(
