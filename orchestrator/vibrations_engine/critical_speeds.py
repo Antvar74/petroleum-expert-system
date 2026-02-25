@@ -5,7 +5,7 @@ References:
 - Mitchell (2003): Transfer Matrix analysis of BHA vibrations
 """
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Shared steel constants
 STEEL_E = 30e6         # Young's modulus (psi)
@@ -100,7 +100,8 @@ def calculate_critical_rpm_lateral(
     bha_weight_lbft: float,
     hole_diameter_in: float,
     mud_weight_ppg: float = 10.0,
-    inclination_deg: float = 0.0
+    inclination_deg: float = 0.0,
+    stabilizer_spacing_ft: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Calculate critical RPM for lateral vibrations (whirl).
@@ -140,12 +141,20 @@ def calculate_critical_rpm_lateral(
     if w_buoyed <= 0 or i_moment <= 0:
         return {"error": "Invalid BHA parameters"}
 
+    # Determine span length for lateral calculation
+    if stabilizer_spacing_ft is not None and stabilizer_spacing_ft > 0:
+        span_ft = stabilizer_spacing_ft
+        span_source = "user"
+    else:
+        span_ft = min(bha_length_ft, 90.0)
+        span_source = "estimated"
+
     # Lateral critical RPM -- Euler-Bernoulli pinned-pinned 1st mode:
     # omega_n = (pi/L_in)^2 * sqrt(E*I*g / w_lbin)   [rad/s]
     # N_crit  = omega_n * 60 / (2*pi)
     #         = (30*pi / L_in^2) * sqrt(E*I*g / w_lbin)
     g_in = 386.4  # in/s^2, gravitational constant for lbm->slug conversion
-    l_in = bha_length_ft * 12.0
+    l_in = span_ft * 12.0
     w_lbin = w_buoyed / 12.0  # lb/ft -> lb/in
     numerator = 30.0 * math.pi * math.sqrt(e * i_moment * g_in / w_lbin)
     rpm_critical = numerator / (l_in ** 2) if l_in > 0 else 999
@@ -160,6 +169,8 @@ def calculate_critical_rpm_lateral(
     return {
         "critical_rpm": round(rpm_critical, 0),
         "mode": "Lateral (Whirl)",
+        "span_used_ft": round(span_ft, 1),
+        "span_source": span_source,
         "radial_clearance_in": round(clearance, 3),
         "buoyed_weight_lbft": round(w_buoyed, 2),
         "moment_of_inertia_in4": round(i_moment, 2),

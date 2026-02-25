@@ -147,13 +147,13 @@ class TestLateralVibrations:
         """Paslay-Dawson critical RPM must be positive."""
         assert lateral_result["critical_rpm"] > 0
 
-    def test_shorter_bha_higher_critical_rpm(self, engine):
-        """Shorter span between stabilizers => higher critical RPM."""
-        common = dict(bha_od_in=6.75, bha_id_in=2.813, bha_weight_lbft=83.0,
-                      hole_diameter_in=8.5, mud_weight_ppg=10.0)
-        long_bha = engine.calculate_critical_rpm_lateral(bha_length_ft=300, **common)
-        short_bha = engine.calculate_critical_rpm_lateral(bha_length_ft=100, **common)
-        assert short_bha["critical_rpm"] > long_bha["critical_rpm"]
+    def test_shorter_span_higher_critical_rpm(self, engine):
+        """Shorter stabilizer spacing => higher critical RPM."""
+        common = dict(bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+                      bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0)
+        long_span = engine.calculate_critical_rpm_lateral(stabilizer_spacing_ft=90, **common)
+        short_span = engine.calculate_critical_rpm_lateral(stabilizer_spacing_ft=60, **common)
+        assert short_span["critical_rpm"] > long_span["critical_rpm"]
 
     def test_whirl_severity_increases_with_inclination(self, engine, typical_bha):
         """Inclination adds sin(inc) factor to whirl severity."""
@@ -173,9 +173,31 @@ class TestLateralVibrations:
         expected = (8.5 - 6.75) / 2.0
         assert result["radial_clearance_in"] == pytest.approx(expected, abs=0.01)
 
+    def test_estimated_span_caps_at_90ft(self, engine):
+        """When no stabilizer_spacing given, L = min(bha_length, 90) — not full BHA length."""
+        result = engine.calculate_critical_rpm_lateral(
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0,
+        )
+        # With L=90 ft (capped), lateral RPM must be > 30 RPM
+        assert result["critical_rpm"] > 30
+        assert result["span_used_ft"] == 90.0
+        assert result["span_source"] == "estimated"
+
+    def test_user_provided_stabilizer_spacing(self, engine):
+        """When stabilizer_spacing_ft is given, use it directly."""
+        result = engine.calculate_critical_rpm_lateral(
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            stabilizer_spacing_ft=60.0,
+        )
+        assert result["critical_rpm"] > 50
+        assert result["span_used_ft"] == 60.0
+        assert result["span_source"] == "user"
+
     def test_critical_rpm_physical_range(self, lateral_result):
-        """Lateral critical RPM for 300 ft BHA must be in realistic range (1-500 RPM)."""
-        assert 1 <= lateral_result["critical_rpm"] <= 500
+        """Lateral critical RPM for 300 ft BHA must be in realistic range (30-500 RPM)."""
+        assert 30 <= lateral_result["critical_rpm"] <= 500
 
     def test_zero_length_returns_error(self, engine):
         """Zero BHA length must produce error."""
