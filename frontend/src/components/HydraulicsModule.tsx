@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplets, Plus, Trash2, Play, Waves, BrainCircuit, Upload } from 'lucide-react';
@@ -10,11 +10,11 @@ import SurgeSwabWindow from './charts/hyd/SurgeSwabWindow';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
-import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { APIError } from '../types/api';
 import type { CircuitSection, HydResult, HydSectionResult, SurgeSwabResult } from '../types/modules/hydraulics';
-import * as XLSX from 'xlsx';
 
 interface HydraulicsModuleProps {
   wellId?: number;
@@ -54,45 +54,19 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   const [surgeResult, setSurgeResult] = useState<SurgeSwabResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { addToast } = useToast();
+
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+    module: 'hydraulics',
+    wellId,
+    wellName,
+  });
   const circuitFileRef = useRef<HTMLInputElement>(null);
-  const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
-    { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
-  ]);
 
-  // Fetch available providers on mount
-  useEffect(() => {
-    api.get(`/providers`)
-      .then(res => setAvailableProviders(res.data))
-      .catch(() => { });
-  }, []);
-
-  const runAIAnalysis = async () => {
-    if (!hydResult && !surgeResult) return;
-    setIsAnalyzing(true);
-    try {
-      const analyzeUrl = wellId
-        ? `/wells/${wellId}/hydraulics/analyze`
-        : `/analyze/module`;
-      const res = await api.post(analyzeUrl, {
-        ...(wellId ? {} : { module: 'hydraulics', well_name: wellName || 'General Analysis' }),
-        result_data: { hydraulics: hydResult || {}, surge: surgeResult || {} },
-        params: hydParams,
-        language,
-        provider,
-      });
-      setAiAnalysis(res.data);
-    } catch (e: unknown) {
-      console.error('AI analysis error:', e);
-      const err = e as APIError; const errMsg = err.response?.data?.detail || err.message || 'Connection error. Please try again.';
-      setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
-    }
-    setIsAnalyzing(false);
+  const handleRunAnalysis = () => {
+    runAnalysis({ hydraulics: hydResult || {}, surge: surgeResult || {} }, hydParams);
   };
 
   const tabs = [
@@ -122,8 +96,9 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -168,7 +143,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     e.target.value = '';
   };
 
-  const saveSections = async () => {
+  const saveSections = useCallback(async () => {
     if (!wellId) return;
     setLoading(true);
     try {
@@ -178,9 +153,9 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
       addToast(t('hydraulics.circuit.circuitSaved'), 'success');
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
-  };
+  }, [wellId, sections, nozzles, addToast, t]);
 
-  const runHydraulics = async () => {
+  const runHydraulics = useCallback(async () => {
     setLoading(true);
     try {
       const nozSizes = nozzles.sizes.split(',').map(Number).filter(n => n > 0);
@@ -194,9 +169,9 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
       setHydResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
-  };
+  }, [wellId, hydParams, nozzles, sections, addToast]);
 
-  const runSurgeSwab = async () => {
+  const runSurgeSwab = useCallback(async () => {
     setLoading(true);
     try {
       const url = wellId
@@ -206,7 +181,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
       setSurgeResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
-  };
+  }, [wellId, surgeParams, addToast]);
 
   // (Pressure bar replaced by PressureWaterfallChart component)
 
@@ -492,7 +467,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                 ))}
               </div>
               <button
-                onClick={runAIAnalysis}
+                onClick={handleRunAnalysis}
                 disabled={isAnalyzing}
                 className="btn-primary py-3 px-8 text-lg disabled:opacity-50"
               >
@@ -511,7 +486,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
               agentRole={aiAnalysis?.agent_role || 'Mud Engineer'}
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
-              onAnalyze={runAIAnalysis}
+              onAnalyze={handleRunAnalysis}
               onClose={() => setAiAnalysis(null)}
               provider={provider}
               onProviderChange={setProvider}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Save, AlertTriangle, TrendingDown, BrainCircuit } from 'lucide-react';
@@ -12,9 +12,10 @@ import KillCirculationChart from './charts/wc/KillCirculationChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
-import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { APIError } from '../types/api';
 import type {
   KillSheetPreRecordResult,
   KillSheetResult,
@@ -78,49 +79,21 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
   const [killSimResult, setKillSimResult] = useState<KillSimulationResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { addToast } = useToast();
-  const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
-    { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
-  ]);
 
-  // Fetch available providers on mount
-  useEffect(() => {
-    api.get(`/providers`)
-      .then(res => setAvailableProviders(res.data))
-      .catch(() => { });
-  }, []);
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+    module: 'well-control',
+    wellId,
+    wellName,
+  });
 
-  const runAIAnalysis = async () => {
-    if (!killResult && !volResult && !bullheadResult) return;
-    setIsAnalyzing(true);
-    try {
-      const analyzeUrl = wellId
-        ? `/wells/${wellId}/well-control/analyze`
-        : `/analyze/module`;
-      const res = await api.post(analyzeUrl, {
-        ...(wellId ? {} : { module: 'well-control', well_name: wellName || 'General Analysis' }),
-        result_data: {
-          kill: killResult || {},
-          volumetric: volResult || {},
-          bullhead: bullheadResult || {},
-        },
-        params: preRecord,
-        language,
-        provider,
-      });
-      setAiAnalysis(res.data);
-    } catch (e: unknown) {
-      console.error('AI analysis error:', e);
-      const err = e as APIError;
-      const errMsg = err?.response?.data?.detail || err?.message || 'Connection error. Please try again.';
-      setAiAnalysis({ agent: 'Error', role: 'Error', analysis: `Error: ${errMsg}`, confidence: 'LOW' });
-    }
-    setIsAnalyzing(false);
+  const handleRunAnalysis = () => {
+    runAnalysis(
+      { kill: killResult || {}, volumetric: volResult || {}, bullhead: bullheadResult || {} },
+      preRecord
+    );
   };
 
   const tabs = [
@@ -132,7 +105,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     { id: 'simulation', label: t('wellControl.tabs.simulation') },
   ];
 
-  const savePreRecord = async () => {
+  const savePreRecord = useCallback(async () => {
     setLoading(true);
     try {
       const url = wellId
@@ -142,9 +115,9 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
       setPreRecordResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [wellId, preRecord, addToast]);
 
-  const runKillCalc = async () => {
+  const runKillCalc = useCallback(async () => {
     setLoading(true);
     try {
       const url = wellId
@@ -173,27 +146,27 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
       setKillResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [wellId, kickData, preRecord, preRecordResult, addToast]);
 
-  const runVolumetric = async () => {
+  const runVolumetric = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.post(`/kill-sheet/volumetric`, volParams);
       setVolResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [volParams, addToast]);
 
-  const runBullhead = async () => {
+  const runBullhead = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.post(`/kill-sheet/bullhead`, bullheadParams);
       setBullheadResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [bullheadParams, addToast]);
 
-  const runKickMigration = async () => {
+  const runKickMigration = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.post(`/calculate/well-control/kick-migration`, {
@@ -206,9 +179,9 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
       setKickMigrationResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [simParams, addToast]);
 
-  const runKillSimulation = async () => {
+  const runKillSimulation = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.post(`/calculate/well-control/kill-simulation`, {
@@ -221,7 +194,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
       setKillSimResult(res.data);
     } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
-  };
+  }, [simParams, addToast]);
 
   const InputField = ({ label, value, onChange, step }: { label: string; value: number; onChange: (v: number) => void; step?: string }) => (
     <div>
@@ -606,7 +579,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                 ))}
               </div>
               <button
-                onClick={runAIAnalysis}
+                onClick={handleRunAnalysis}
                 disabled={isAnalyzing}
                 className="btn-primary py-3 px-8 text-lg disabled:opacity-50"
               >
@@ -625,7 +598,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
               agentRole={aiAnalysis?.agent_role || 'Drilling Engineer'}
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
-              onAnalyze={runAIAnalysis}
+              onAnalyze={handleRunAnalysis}
               onClose={() => setAiAnalysis(null)}
               provider={provider}
               onProviderChange={setProvider}

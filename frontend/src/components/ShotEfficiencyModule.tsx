@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Play, RefreshCw, Upload } from 'lucide-react';
@@ -9,10 +9,10 @@ import IntervalRankingChart from './charts/se/IntervalRankingChart';
 import CutoffSensitivityChart from './charts/se/CutoffSensitivityChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ui/Toast';
-import type { Provider, ProviderOption } from '../types/ai';
-import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { APIError } from '../types/api';
 
 interface ShotEfficiencyModuleProps {
   wellId?: number;
@@ -57,19 +57,15 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
-  const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
-    { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
-  ]);
 
-  useEffect(() => {
-    api.get(`/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  }, []);
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+    module: 'shot-efficiency',
+    wellId,
+    wellName,
+  });
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
@@ -98,7 +94,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
     reader.readAsText(file);
   };
 
-  const calculate = async () => {
+  const calculate = useCallback(async () => {
     setLoading(true);
     try {
       let entries;
@@ -122,25 +118,10 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
       addToast('Error: ' + (e as APIError).response?.data?.detail || (e as APIError).message, 'error');
     }
     setLoading(false);
-  };
+  }, [wellId, params, logData, addToast]);
 
-  const runAIAnalysis = async () => {
-    if (!result) return;
-    setIsAnalyzing(true);
-    try {
-      const analyzeUrl = wellId
-        ? `/wells/${wellId}/shot-efficiency/analyze`
-        : `/analyze/module`;
-      const analyzeBody = {
-        ...(wellId ? {} : { module: 'shot-efficiency', well_name: wellName || 'General Analysis' }),
-        result_data: result, params, language, provider,
-      };
-      const res = await api.post(analyzeUrl, analyzeBody);
-      setAiAnalysis(res.data);
-    } catch (e: unknown) {
-      setAiAnalysis({ analysis: `Error: ${(e as APIError)?.response?.data?.detail || (e as APIError)?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
-    }
-    setIsAnalyzing(false);
+  const handleRunAnalysis = () => {
+    runAnalysis(result || {}, params);
   };
 
   const tabs = [
@@ -366,7 +347,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
               agentRole={aiAnalysis?.agent_role || ''}
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
-              onAnalyze={runAIAnalysis}
+              onAnalyze={handleRunAnalysis}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

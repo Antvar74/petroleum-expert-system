@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileBarChart, Play, Upload, RefreshCw } from 'lucide-react';
@@ -7,9 +7,10 @@ import PickettPlotChart from './charts/petro/PickettPlotChart';
 import CrossplotChart from './charts/petro/CrossplotChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
+import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useToast } from './ui/Toast';
-import type { Provider, ProviderOption } from '../types/ai';
-import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { Provider } from '../types/ai';
+import type { APIError } from '../types/api';
 
 /* ── Local response types (mirror backend Pydantic models) ────────── */
 
@@ -100,18 +101,14 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
   const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
   const [pickettResult, setPickettResult] = useState<PickettPlotResult | null>(null);
   const [crossplotResult, setCrossplotResult] = useState<CrossplotResult | null>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { addToast } = useToast();
-  const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
-    { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' },
-  ]);
 
-  useEffect(() => {
-    api.get(`/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
-  }, []);
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+    module: 'petrophysics',
+    wellId,
+    wellName,
+  });
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
@@ -163,7 +160,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
   };
 
   // ── Run full evaluation ──
-  const runEvaluation = async () => {
+  const runEvaluation = useCallback(async () => {
     setLoading(true);
     try {
       let entries;
@@ -211,27 +208,13 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
       addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  };
+  }, [logData, params, language, addToast]);
 
-  const runAIAnalysis = async () => {
-    setIsAnalyzing(true);
-    try {
-      const analyzeUrl = wellId
-        ? `/wells/${wellId}/petrophysics/analyze`
-        : `/analyze/module`;
-      const res = await api.post(analyzeUrl, {
-        ...(wellId ? {} : { module: 'petrophysics', well_name: wellName || 'General Analysis' }),
-        result_data: { evaluation: evalResult, pickett: pickettResult, crossplot: crossplotResult },
-        params,
-        language,
-        provider,
-      });
-      setAiAnalysis(res.data);
-    } catch (e: unknown) {
-      const err = e as APIError;
-      setAiAnalysis({ analysis: `Error: ${err.response?.data?.detail || err.message}`, agent: '', role: '', confidence: 'LOW' });
-    }
-    setIsAnalyzing(false);
+  const handleRunAnalysis = () => {
+    runAnalysis(
+      { evaluation: evalResult, pickett: pickettResult, crossplot: crossplotResult },
+      params as unknown as Record<string, unknown>
+    );
   };
 
   const tabs = [
@@ -447,7 +430,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
                 { label: 'Sw avg', value: `${(evalResult.summary.avg_sw_pay * 100).toFixed(1)}%` },
                 { label: 'k avg', value: `${evalResult.summary.avg_perm_pay.toFixed(0)} mD` },
               ] : []}
-              onAnalyze={runAIAnalysis}
+              onAnalyze={handleRunAnalysis}
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}

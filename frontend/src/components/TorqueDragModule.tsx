@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, Plus, Trash2, Play, RefreshCw, Upload, Layers, BrainCircuit } from 'lucide-react';
@@ -10,11 +10,11 @@ import WellboreTrajectory from './charts/td/WellboreTrajectory';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
-import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { APIError } from '../types/api';
 import type { SurveyStation, ComputedSurveyStation, DrillstringComponent, TDResult, TDComparisonResult, TDBackCalcResult, TDStationResult } from '../types/modules/torque-drag';
-import * as XLSX from 'xlsx';
 
 interface TorqueDragModuleProps {
   wellId?: number;
@@ -77,46 +77,20 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const [backCalcResult, setBackCalcResult] = useState<TDBackCalcResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { addToast } = useToast();
+
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+    module: 'torque-drag',
+    wellId,
+    wellName,
+  });
   const surveyFileRef = useRef<HTMLInputElement>(null);
   const drillstringFileRef = useRef<HTMLInputElement>(null);
-  const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders, setAvailableProviders] = useState<ProviderOption[]>([
-    { id: 'auto', name: 'Auto (Best Available)', name_es: 'Auto (Mejor Disponible)' }
-  ]);
 
-  // Fetch available providers on mount
-  useEffect(() => {
-    api.get(`/providers`)
-      .then(res => setAvailableProviders(res.data))
-      .catch(() => { });
-  }, []);
-
-  const runAIAnalysis = async () => {
-    if (!tdResult && !compareResult) return;
-    setIsAnalyzing(true);
-    try {
-      const analyzeUrl = wellId
-        ? `/wells/${wellId}/torque-drag/analyze`
-        : `/analyze/module`;
-      const res = await api.post(analyzeUrl, {
-        ...(wellId ? {} : { module: 'torque-drag', well_name: wellName || 'General Analysis' }),
-        result_data: tdResult || {},
-        params: tdParams,
-        language,
-        provider,
-      });
-      setAiAnalysis(res.data);
-    } catch (e: unknown) {
-      console.error('AI analysis error:', e);
-      const errMsg = (e as APIError)?.response?.data?.detail || (e as APIError)?.message || 'Connection error. Please try again.';
-      setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
-    }
-    setIsAnalyzing(false);
+  const handleRunAnalysis = () => {
+    runAnalysis(tdResult || {}, tdParams);
   };
 
   const tabs = [
@@ -156,8 +130,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -197,7 +172,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     e.target.value = '';
   };
 
-  const uploadSurvey = async () => {
+  const uploadSurvey = useCallback(async () => {
     if (!wellId) return;
     setLoading(true);
     try {
@@ -207,7 +182,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       addToast(t('torqueDrag.errorUploadSurvey') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  };
+  }, [wellId, surveyStations, addToast, t]);
 
   // --- Drillstring handlers ---
   const addSection = () => {
@@ -249,8 +224,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -291,7 +267,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     e.target.value = '';
   };
 
-  const uploadDrillstring = async () => {
+  const uploadDrillstring = useCallback(async () => {
     if (!wellId) return;
     setLoading(true);
     try {
@@ -301,10 +277,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  };
+  }, [wellId, drillstring, addToast, t]);
 
   // --- T&D calculation ---
-  const runTorqueDrag = async () => {
+  const runTorqueDrag = useCallback(async () => {
     setLoading(true);
     try {
       const url = wellId
@@ -319,10 +295,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  };
+  }, [wellId, tdParams, surveyStations, drillstring, addToast, t]);
 
   // --- Multi-operation compare ---
-  const runCompare = async () => {
+  const runCompare = useCallback(async () => {
     setCompareLoading(true);
     try {
       const url = wellId
@@ -355,7 +331,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setCompareLoading(false);
-  };
+  }, [wellId, tdParams, surveyStations, drillstring, addToast, t]);
 
   // Compute buoyed weight from drillstring + buoyancy factor
   const computeBuoyedWeight = (): number | undefined => {
@@ -365,7 +341,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   };
 
   // --- Back-calculate friction ---
-  const runBackCalc = async () => {
+  const runBackCalc = useCallback(async () => {
     setLoading(true);
     try {
       const url = wellId
@@ -380,7 +356,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
       addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  };
+  }, [wellId, backCalcParams, surveyStations, drillstring, addToast, t]);
 
   // Sub-tab state for analysis results
   const [analysisSubTab, setAnalysisSubTab] = useState('force');
@@ -824,7 +800,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                 ))}
               </div>
               <button
-                onClick={runAIAnalysis}
+                onClick={handleRunAnalysis}
                 disabled={isAnalyzing}
                 className="btn-primary py-3 px-8 text-lg disabled:opacity-50"
               >
@@ -843,7 +819,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
               agentRole={aiAnalysis?.agent_role || 'Well Engineer'}
               isLoading={isAnalyzing}
               keyMetrics={aiAnalysis?.key_metrics || []}
-              onAnalyze={runAIAnalysis}
+              onAnalyze={handleRunAnalysis}
               onClose={() => setAiAnalysis(null)}
               provider={provider}
               onProviderChange={setProvider}
