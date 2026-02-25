@@ -33,12 +33,6 @@ interface AIAnalysisPanelProps {
   availableProviders: ProviderOption[];
 }
 
-const CONFIDENCE_STYLES: Record<string, string> = {
-  HIGH: 'text-green-400 bg-green-500/10 border-green-500/30',
-  MEDIUM: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-  LOW: 'text-red-400 bg-red-500/10 border-red-500/30',
-};
-
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   moduleName,
   moduleIcon: ModuleIcon,
@@ -169,8 +163,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   };
 
-  const confStyle = CONFIDENCE_STYLES[confidence] || CONFIDENCE_STYLES.MEDIUM;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -193,9 +185,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               </h3>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-xs text-white/40">{agentRole}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full border ${confStyle}`}>
-                  {confidence}
-                </span>
               </div>
             </div>
           </div>

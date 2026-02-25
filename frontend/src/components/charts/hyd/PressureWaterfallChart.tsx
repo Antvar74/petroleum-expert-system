@@ -94,7 +94,7 @@ const PressureWaterfallChart: React.FC<PressureWaterfallChartProps> = ({ summary
             position="top"
             fill="rgba(255,255,255,0.6)"
             fontSize={10}
-            formatter={(v: any) => `${v} psi`}
+            formatter={(v: number) => `${v} psi`}
           />
         </Bar>
       </BarChart>

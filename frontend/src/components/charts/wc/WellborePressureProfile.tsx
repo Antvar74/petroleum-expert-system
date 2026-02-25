@@ -32,10 +32,10 @@ const WellborePressureProfile: React.FC<WellborePressureProfileProps> = ({
 
     // Generate depth points every 500 ft
     const step = Math.max(500, Math.floor(tvd / 20));
-    const points: any[] = [];
+    const points: Array<Record<string, number>> = [];
 
     for (let d = 0; d <= tvd; d += step) {
-      const point: any = { tvd: d };
+      const point: Record<string, number> = { tvd: d };
       // Hydrostatic: P = MW × 0.052 × TVD
       point.hydrostatic = Math.round(mudWeight * 0.052 * d);
       // Kill mud hydrostatic
@@ -56,7 +56,7 @@ const WellborePressureProfile: React.FC<WellborePressureProfileProps> = ({
     // Ensure we have the exact TD point
     const lastD = points[points.length - 1]?.tvd;
     if (lastD !== tvd) {
-      const point: any = { tvd };
+      const point: Record<string, number> = { tvd };
       point.hydrostatic = Math.round(mudWeight * 0.052 * tvd);
       if (killMudWeight) point.kill_hydrostatic = Math.round(killMudWeight * 0.052 * tvd);
       if (lotEmw) point.frac_gradient = Math.round(lotEmw * 0.052 * tvd);

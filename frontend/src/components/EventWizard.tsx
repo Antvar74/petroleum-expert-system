@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Check, ArrowRight, ArrowLeft as ArrowLeftIcon, Activity, PenTool, AlertTriangle, FilePlus, Pencil, Play } from 'lucide-react';
-import axios from 'axios';
+import api from '../lib/api';
 import { useTranslation } from 'react-i18next';
-import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
 import DataReadinessPanel from './DataReadinessPanel';
 
 interface EventWizardProps {
-    onComplete: (eventData: any) => void;
+    onComplete: (eventData: Record<string, unknown>) => void;
     onCancel: () => void;
 }
 
@@ -301,14 +300,14 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     const [eventType, setEventType] = useState<string | null>(null);
     const [files, setFiles] = useState<File[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
-    const [extractedData, setExtractedData] = useState<any>(null);
+    const [extractedData, setExtractedData] = useState<Record<string, unknown> | null>(null);
     const [manualOverrides, setManualOverrides] = useState<Record<string, string>>({});
     const [showManualInputs, setShowManualInputs] = useState(false);
     const [manualFieldsSnapshot, setManualFieldsSnapshot] = useState<string[]>([]);
     const additionalFileRef = useRef<HTMLInputElement>(null);
 
     // Step 3 state: Agent selection
-    const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+    const [availableAgents, setAvailableAgents] = useState<{id: string; role: string; name: string}[]>([]);
     const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
     const [leaderAgent, setLeaderAgent] = useState<string | null>(null);
 
@@ -335,11 +334,11 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
     // Fetch agents when reaching Step 3
     useEffect(() => {
         if (step === 3 && availableAgents.length === 0) {
-            axios.get(`${API_BASE_URL}/agents`)
+            api.get(`/agents`)
                 .then(res => {
                     setAvailableAgents(res.data);
                     // Pre-select all agents and set drilling_engineer as leader
-                    const allIds = res.data.map((a: any) => a.id);
+                    const allIds = res.data.map((a: {id: string}) => a.id);
                     setSelectedAgents(allIds);
                     setLeaderAgent(allIds.includes('drilling_engineer') ? 'drilling_engineer' : allIds[0]);
                 })
@@ -355,7 +354,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         return '_baseline'; // drilling default
     };
 
-    const validateMinimumData = (data: any): { valid: boolean; missingBaseline: string[]; missingSpecific: string[]; } => {
+    const validateMinimumData = (data: Record<string, unknown>): { valid: boolean; missingBaseline: string[]; missingSpecific: string[]; } => {
         const baselineKey = getBaselineKey();
         const baselineFields = MINIMUM_REQUIRED_FIELDS[baselineKey] || MINIMUM_REQUIRED_FIELDS._baseline;
 
@@ -376,7 +375,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
         return { valid: missingBaseline.length === 0 && hasAnySpecific, missingBaseline, missingSpecific };
     };
 
-    const getMissingFields = (data: any): string[] => {
+    const getMissingFields = (data: Record<string, unknown>): string[] => {
         const validation = validateMinimumData(data);
         const missing: string[] = [...validation.missingBaseline];
         if (validation.missingSpecific.length > 0) {
@@ -411,7 +410,7 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
             selectedFiles.forEach(file => { formData.append('files', file); });
 
             try {
-                const response = await axios.post(`${API_BASE_URL}/events/extract`, formData, {
+                const response = await api.post(`/events/extract`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 const newData = response.data;
@@ -678,10 +677,10 @@ const EventWizard: React.FC<EventWizardProps> = ({ onComplete, onCancel }) => {
                         </div>
 
                         {/* Operation Summary */}
-                        {(mergedData as any)?.operation_summary && (
+                        {(mergedData as Record<string, unknown>)?.operation_summary && (
                             <div className="bg-white/5 p-4 rounded border border-white/10">
                                 <label className="text-xs text-white/40 uppercase block mb-1">{t('eventWizard.operationSummary')}</label>
-                                <p className="text-white/80 text-sm">{(mergedData as any).operation_summary}</p>
+                                <p className="text-white/80 text-sm">{(mergedData as Record<string, unknown>).operation_summary}</p>
                             </div>
                         )}
 

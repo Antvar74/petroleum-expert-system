@@ -5,8 +5,7 @@
  * Follows the same Context + Provider pattern as ToastProvider.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import api from '../lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,10 +54,24 @@ function clearAuth() {
   localStorage.removeItem(USER_KEY);
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 function loadPersistedAuth(): { token: string | null; user: AuthUser | null } {
   const token = localStorage.getItem(TOKEN_KEY);
   const raw = localStorage.getItem(USER_KEY);
   if (token && raw) {
+    // Client-side expiry check — reject expired tokens immediately
+    if (isTokenExpired(token)) {
+      clearAuth();
+      return { token: null, user: null };
+    }
     try {
       return { token, user: JSON.parse(raw) };
     } catch {
@@ -82,9 +95,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved.token && saved.user) {
       setToken(saved.token);
       setUser(saved.user);
-      // Validate the token is still valid
-      axios
-        .get(`${API_BASE_URL}/auth/me`, {
+      // Validate the token is still valid via the centralized api client
+      api
+        .get(`/auth/me`, {
           headers: { Authorization: `Bearer ${saved.token}` },
         })
         .then((res) => {
@@ -115,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (loginStr: string, password: string) => {
-    const res = await axios.post(`${API_BASE_URL}/auth/login`, {
+    const res = await api.post(`/auth/login`, {
       login: loginStr,
       password,
     });
@@ -126,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const register = useCallback(async (username: string, email: string, password: string, fullName?: string) => {
-    const res = await axios.post(`${API_BASE_URL}/auth/register`, {
+    const res = await api.post(`/auth/register`, {
       username,
       email,
       password,

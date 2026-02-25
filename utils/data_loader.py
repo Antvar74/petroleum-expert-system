@@ -6,12 +6,18 @@ def load_data_context(filepath: str, max_pages: int = 20, max_rows: int = 100) -
     """
     Unified loader for PDF, CSV, MD, TXT files.
     Returns a string representation of the content suitable for LLM context.
-    
+
     Args:
         filepath: Path to the data file
         max_pages: Max pages for PDF
         max_rows: Max rows for CSV (to avoid context overflow)
     """
+    # Defense-in-depth: verify path is within the project data/ directory
+    data_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "data"))
+    real_path = os.path.realpath(filepath)
+    if not real_path.startswith(data_dir + os.sep) and real_path != data_dir:
+        return "Error: Access denied — path outside data directory"
+
     if not os.path.exists(filepath):
         return f"Error: File not found at {filepath}"
         

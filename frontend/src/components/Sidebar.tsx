@@ -23,12 +23,10 @@ import {
     WifiOff,
     Database,
     Search,
-    Radio,
     LogOut,
     User,
 } from 'lucide-react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import api from '../lib/api';
 import { useAuth, type AuthUser } from '../context/AuthContext';
 
 interface SelectedWell {
@@ -46,7 +44,7 @@ interface SidebarProps {
 
 interface SystemHealth {
     api: string;
-    llm: { status: string; providers?: any };
+    llm: { status: string; providers?: Record<string, unknown> };
     agents: number;
     database: string;
 }
@@ -60,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
     useEffect(() => {
         const checkHealth = async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
+                const res = await api.get(`/health`, { timeout: 5000 });
                 setHealth(res.data);
                 setHealthError(false);
             } catch {
@@ -104,11 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'vibrations', label: t('sidebar.vibrations'), icon: Vibrate },
         { id: 'cementing', label: t('sidebar.cementing'), icon: Cylinder },
         { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
-    ];
-
-    // Real-time monitoring
-    const realtimeItems = [
-        { id: 'real-time-monitor', label: t('sidebar.realTimeMonitor'), icon: Radio },
     ];
 
     // Reporting — independent, manages its own well selection
@@ -163,27 +156,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
 
                     {/* Divider */}
                     <div className="my-3 border-t border-white/5" />
-
-                    {/* Real-Time Monitoring */}
-                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20 px-5 pt-1 pb-1">{t('sidebar.realTime')}</p>
-                    {realtimeItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => setCurrentView(item.id)}
-                            className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all group flex-shrink-0 ${currentView === item.id
-                                ? 'bg-cyan-600/10 text-cyan-500 border border-cyan-500/20 shadow-inner'
-                                : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
-                                } `}
-                        >
-                            <item.icon size={18} className={currentView === item.id ? 'text-cyan-500' : 'group-hover:scale-110 transition-transform'} />
-                            <span className="font-bold text-xs tracking-tight">{item.label}</span>
-                            {currentView === item.id && (
-                                <div className="ml-auto">
-                                    <ChevronRight size={14} />
-                                </div>
-                            )}
-                        </button>
-                    ))}
 
                     {/* Divider */}
                     <div className="my-3 border-t border-white/5" />

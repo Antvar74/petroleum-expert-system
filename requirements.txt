@@ -7,6 +7,7 @@ pydantic[email]>=2.0.0
 httpx>=0.24.0
 bcrypt>=4.0.0
 python-jose[cryptography]>=3.3.0
+slowapi>=0.1.9
 pandas>=2.0.0
 python-multipart>=0.0.6
 pypdf>=3.0.0
@@ -18,7 +19,5 @@ lasio>=0.31
 scipy>=1.11.0
 # Descomentar para soporte DLIS (requiere compilación C++):
 # dlisio>=0.3.8
-# Descomentar para conexion WITSML SOAP real:
-# zeep>=4.2.0
 # Descomentar para soporte PostgreSQL:
 # psycopg2-binary>=2.9.0

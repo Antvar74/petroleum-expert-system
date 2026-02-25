@@ -1,13 +1,13 @@
+import type { Well } from '../types/api';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ui/Toast';
-import axios from 'axios';
+import api from '../lib/api';
 import { Database, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
-import { API_BASE_URL } from '../config';
 
 interface WellSelectorProps {
-    onSelect: (well: any) => void;
+    onSelect: (well: Well) => void;
 }
 
 
@@ -15,7 +15,7 @@ interface WellSelectorProps {
 const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
     const { t } = useTranslation();
     const { addToast } = useToast();
-    const [wells, setWells] = useState<any[]>([]);
+    const [wells, setWells] = useState<Well[]>([]);
     const [loading, setLoading] = useState(true);
     const [newWellName, setNewWellName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
@@ -28,7 +28,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
 
     const fetchWells = async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/wells`);
+            const response = await api.get(`/wells`);
             setWells(response.data);
             setLoading(false);
         } catch (error) {
@@ -42,7 +42,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
         if (!newWellName.trim()) return;
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/wells?name=${encodeURIComponent(newWellName)}`);
+            const response = await api.post(`/wells?name=${encodeURIComponent(newWellName)}`);
             setWells([...wells, response.data]);
             setNewWellName('');
             setIsAdding(false);
@@ -60,7 +60,7 @@ const WellSelector: React.FC<WellSelectorProps> = ({ onSelect }) => {
         if (!wellToDelete) return;
 
         try {
-            await axios.delete(`${API_BASE_URL}/wells/${wellToDelete}`);
+            await api.delete(`/wells/${wellToDelete}`);
             setWells(wells.filter(w => w.id !== wellToDelete));
             setWellToDelete(null);
         } catch (error) {

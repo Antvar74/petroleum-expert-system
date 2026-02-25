@@ -7,8 +7,8 @@ import ChartContainer from '../ChartContainer';
 import { Columns } from 'lucide-react';
 
 interface CasingProgramSchematicProps {
-  summary: any;
-  params: any;
+  summary: { selected_grade?: string; overall_status?: string } | null;
+  params: { casing_od_in?: number; casing_weight_ppf?: number; tvd_ft?: number; cement_top_tvd_ft?: number; cement_density_ppg?: number } | null;
   height?: number;
 }
 

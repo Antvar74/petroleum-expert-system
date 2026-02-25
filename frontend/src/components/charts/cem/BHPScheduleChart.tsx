@@ -9,14 +9,14 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { Gauge } from 'lucide-react';
 
 interface BHPScheduleChartProps {
-  bhp: any;
+  bhp: { schedule: Array<{ cumulative_bbl: number; bhp_psi: number; hydrostatic_psi?: number; friction_psi?: number; stage?: string }> };
   height?: number;
 }
 
 const BHPScheduleChart: React.FC<BHPScheduleChartProps> = ({ bhp, height = 350 }) => {
   if (!bhp?.schedule?.length) return null;
 
-  const data = bhp.schedule.map((pt: any) => ({
+  const data = bhp.schedule.map((pt: { cumulative_bbl: number; bhp_psi: number; hydrostatic_psi?: number; friction_psi?: number; stage?: string }) => ({
     volume: Math.round(pt.cumulative_bbl * 10) / 10,
     bhp: Math.round(pt.bhp_psi),
     hydrostatic: Math.round(pt.hydrostatic_psi || 0),
@@ -24,7 +24,7 @@ const BHPScheduleChart: React.FC<BHPScheduleChartProps> = ({ bhp, height = 350 }
     stage: pt.stage,
   }));
 
-  const maxBHP = Math.max(...data.map((d: any) => d.bhp));
+  const maxBHP = Math.max(...data.map((d: { volume: number; bhp: number; hydrostatic: number; friction: number; stage?: string }) => d.bhp));
 
   return (
     <ChartContainer
@@ -46,7 +46,7 @@ const BHPScheduleChart: React.FC<BHPScheduleChartProps> = ({ bhp, height = 350 }
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
           label={{ value: 'Presión (psi)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toLocaleString()} psi`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Number(v).toLocaleString()} psi`} />} />
         <Legend wrapperStyle={{ color: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
         <Bar dataKey="hydrostatic" stackId="a" fill="#3b82f6" fillOpacity={0.3} name="Hidrostática" />
         <Bar dataKey="friction" stackId="a" fill="#f97316" fillOpacity={0.3} name="Fricción" />

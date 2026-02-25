@@ -10,7 +10,7 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { Layers } from 'lucide-react';
 
 interface DisplacementScheduleChartProps {
-  displacement: any;
+  displacement: { schedule: Array<{ cumulative_bbl: number; time_min?: number; job_pct_complete: number; current_fluid?: string }>; events?: Array<{ event: string; volume_bbl: number }>; total_time_min?: number };
   height?: number;
 }
 
@@ -25,7 +25,7 @@ const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ d
   if (!displacement?.schedule?.length) return null;
 
   // Build data with one area per fluid stage
-  const data = displacement.schedule.map((pt: any) => {
+  const data = displacement.schedule.map((pt: { cumulative_bbl: number; time_min?: number; job_pct_complete: number; current_fluid?: string }) => {
     const fluid = pt.current_fluid || '';
     return {
       volume: Math.round(pt.cumulative_bbl * 10) / 10,
@@ -72,7 +72,7 @@ const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ d
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
           label={{ value: 'Progreso (%)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any, name: any) => {
+        <Tooltip content={<DarkTooltip formatter={(v: number, name: string) => {
           const labels: Record<string, string> = { spacer: 'Spacer', lead: 'Lead Cement', tail: 'Tail Cement', mud: 'Displacement Mud' };
           return `${Number(v).toFixed(1)}% — ${labels[name] || name}`;
         }} />} />
@@ -86,7 +86,7 @@ const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ d
         <Area type="monotone" dataKey="mud" stroke={FLUID_COLORS['Displacement (Mud)']} fill={FLUID_COLORS['Displacement (Mud)']}
           fillOpacity={0.15} strokeWidth={2} name="Displacement" dot={false} />
         {/* Event markers */}
-        {events.map((ev: any, i: number) => {
+        {events.map((ev: { event: string; volume_bbl: number }, i: number) => {
           const SHORT_LABELS: Record<string, string> = {
             'Spacer Away': 'Spacer',
             'Lead Cement Away': 'Lead',

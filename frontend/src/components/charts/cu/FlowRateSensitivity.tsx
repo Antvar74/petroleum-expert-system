@@ -8,7 +8,7 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { TrendingUp } from 'lucide-react';
 
 interface FlowRateSensitivityProps {
-  data: any[];
+  data: Array<{ flow_rate: number; hci?: number; ctr?: number }>;
   currentFlowRate?: number;
   height?: number;
 }

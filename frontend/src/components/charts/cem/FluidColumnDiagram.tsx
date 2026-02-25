@@ -7,7 +7,7 @@ import ChartContainer from '../ChartContainer';
 import { Cylinder } from 'lucide-react';
 
 interface FluidColumnDiagramProps {
-  volumes: any;
+  volumes: { total_pump_volume_bbl: number; spacer_volume_bbl?: number; lead_cement_bbl?: number; tail_cement_bbl?: number; displacement_volume_bbl?: number; lead_cement_sacks?: number; tail_cement_sacks?: number; [key: string]: number | undefined };
   height?: number;
 }
 

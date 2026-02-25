@@ -1,8 +1,23 @@
 services:
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-www:/var/www/certbot
+    depends_on:
+      - app
+    restart: unless-stopped
+
   app:
     build: .
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     env_file:
       - .env
     environment:
@@ -33,6 +48,24 @@ services:
   #     - pg-data:/var/lib/postgresql/data
   #   restart: unless-stopped
 
+  # ================================================================
+  # Certbot — Let's Encrypt certificate renewal
+  # Uncomment to enable automatic HTTPS certificate renewal.
+  # First run: bash scripts/init-letsencrypt.sh your-domain.com
+  # ================================================================
+
+  # certbot:
+  #   image: certbot/certbot
+  #   volumes:
+  #     - certbot-etc:/etc/letsencrypt
+  #     - certbot-var:/var/lib/letsencrypt
+  #     - certbot-www:/var/www/certbot
+  #   entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+  #   restart: unless-stopped
+
 volumes:
   app-data:
+  certbot-etc:
+  certbot-var:
+  certbot-www:
   # pg-data:

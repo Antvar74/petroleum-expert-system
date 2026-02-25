@@ -1,13 +1,5 @@
-# ========== Stage 1: Build Frontend ==========
-FROM node:20-alpine AS frontend-build
-
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --silent
-COPY frontend/ ./
-RUN npm run build
-
-# ========== Stage 2: Python Backend ==========
+# ========== PetroExpert Backend ==========
+# Frontend is built separately in nginx/Dockerfile
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -28,11 +20,9 @@ COPY knowledge_base/ ./knowledge_base/
 COPY middleware/ ./middleware/
 COPY models/ ./models/
 COPY orchestrator/ ./orchestrator/
+COPY routes/ ./routes/
 COPY utils/ ./utils/
 COPY api_main.py ./
-
-# Copy built frontend from Stage 1
-COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Create data directory for SQLite persistence
 RUN mkdir -p /app/data

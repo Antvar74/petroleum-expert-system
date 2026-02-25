@@ -59,7 +59,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
 };
 
 // Custom tooltip wrapper matching dark theme
-export const DarkTooltip: React.FC<{ active?: boolean; payload?: any[]; label?: any; formatter?: (value: any, name: string) => string }> = ({
+export const DarkTooltip: React.FC<{ active?: boolean; payload?: Array<{name: string; value: number; color?: string}>; label?: string | number; formatter?: (value: number, name: string) => string }> = ({
   active,
   payload,
   label,

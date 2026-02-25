@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileBarChart, Play, Upload, RefreshCw } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import AdvancedLogTrack from './charts/petro/AdvancedLogTrack';
 import PickettPlotChart from './charts/petro/PickettPlotChart';
 import CrossplotChart from './charts/petro/CrossplotChart';
@@ -10,6 +9,56 @@ import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
+
+/* ── Local response types (mirror backend Pydantic models) ────────── */
+
+interface EvalPoint {
+  md: number; gr: number; rhob: number; nphi: number; rt: number;
+  vsh: number; phi_total: number; phi_effective: number; sw: number;
+  k_md: number; is_pay: boolean; hc_saturation: number; sw_model: string;
+}
+
+interface EvalInterval {
+  top_md: number;
+  base_md: number;
+  thickness_ft: number;
+  avg_phi: number;
+  avg_sw: number;
+  avg_perm_md: number;
+}
+
+interface EvalSummary {
+  total_points: number;
+  net_pay_ft: number;
+  avg_phi_pay: number;
+  avg_sw_pay: number;
+  avg_perm_pay: number;
+}
+
+interface EvalResult {
+  evaluated_data: EvalPoint[];
+  summary: EvalSummary;
+  intervals: EvalInterval[];
+}
+
+interface PickettPlotResult {
+  points: { log_phi: number; log_rt: number; sw?: number }[];
+  iso_sw_lines: Record<string, { log_phi: number; log_rt: number }[]>;
+  regression?: { slope: number; intercept: number; estimated_m: number };
+}
+
+interface CrossplotResult {
+  points: { rhob: number; nphi: number; gas_flag: boolean; md?: number }[];
+  gas_count: number;
+  total_points: number;
+}
+
+interface PetroParams {
+  a: number; m: number; n: number; rw: number;
+  rho_matrix: number; rho_fluid: number; gr_clean: number; gr_shale: number;
+  phi_min: number; sw_max: number; vsh_max: number;
+}
 
 interface PetrophysicsModuleProps {
   wellId?: number;
@@ -43,15 +92,15 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
   const [activeTab, setActiveTab] = useState('input');
   const [loading, setLoading] = useState(false);
   const [logData, setLogData] = useState(JSON.stringify(SAMPLE_LOG_DATA, null, 2));
-  const [params, setParams] = useState({
+  const [params, setParams] = useState<PetroParams>({
     a: 1.0, m: 2.0, n: 2.0, rw: 0.05,
     rho_matrix: 2.65, rho_fluid: 1.0, gr_clean: 20, gr_shale: 120,
     phi_min: 0.08, sw_max: 0.60, vsh_max: 0.40,
   });
-  const [evalResult, setEvalResult] = useState<any>(null);
-  const [pickettResult, setPickettResult] = useState<any>(null);
-  const [crossplotResult, setCrossplotResult] = useState<any>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
+  const [pickettResult, setPickettResult] = useState<PickettPlotResult | null>(null);
+  const [crossplotResult, setCrossplotResult] = useState<CrossplotResult | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { addToast } = useToast();
@@ -61,7 +110,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
   ]);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
+    api.get(`/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
   }, []);
 
   const updateParam = (key: string, value: string) => {
@@ -78,7 +127,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
         const content = evt.target?.result as string;
         // If .las file, parse via API
         if (file.name.toLowerCase().endsWith('.las')) {
-          const res = await axios.post(`${API_BASE_URL}/calculate/petrophysics/parse-las`, {
+          const res = await api.post(`/calculate/petrophysics/parse-las`, {
             las_content: content,
           });
           if (res.data?.data) {
@@ -94,19 +143,20 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
           // CSV fallback
           const lines = content.trim().split('\n');
           const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-          const entries: any[] = [];
+          const entries: Record<string, number>[] = [];
           for (let i = 1; i < lines.length; i++) {
             const vals = lines[i].split(',');
             if (vals.length < headers.length) continue;
-            const entry: any = {};
+            const entry: Record<string, number> = {};
             headers.forEach((h, j) => { entry[h] = parseFloat(vals[j]?.trim()) || 0; });
             entries.push(entry);
           }
           setLogData(JSON.stringify(entries, null, 2));
           addToast(`CSV: ${entries.length} rows`, 'success');
         }
-      } catch (err: any) {
-        addToast('Error: ' + (err.response?.data?.detail || err.message), 'error');
+      } catch (err: unknown) {
+        const e = err as APIError;
+        addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
       }
     };
     reader.readAsText(file);
@@ -133,22 +183,22 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
         cutoffs: { phi_min: params.phi_min, sw_max: params.sw_max, vsh_max: params.vsh_max },
       };
 
-      const res = await axios.post(`${API_BASE_URL}/calculate/petrophysics/evaluate`, payload);
+      const res = await api.post(`/calculate/petrophysics/evaluate`, payload);
       setEvalResult(res.data);
 
       // Also run Pickett and crossplot
       if (res.data?.evaluated_data?.length) {
         const evalData = res.data.evaluated_data;
         const pickettData = evalData
-          .filter((d: any) => d.phi_effective > 0.01 && d.rt > 0.1)
-          .map((d: any) => ({ phi: d.phi_effective, rt: d.rt, sw: d.sw }));
+          .filter((d: EvalPoint) => d.phi_effective > 0.01 && d.rt > 0.1)
+          .map((d: EvalPoint) => ({ phi: d.phi_effective, rt: d.rt, sw: d.sw }));
 
         const [pickettRes, crossRes] = await Promise.all([
-          axios.post(`${API_BASE_URL}/calculate/petrophysics/pickett-plot`, {
+          api.post(`/calculate/petrophysics/pickett-plot`, {
             log_data: pickettData, rw: params.rw, a: params.a, m: params.m, n: params.n,
           }),
-          axios.post(`${API_BASE_URL}/calculate/petrophysics/crossplot`, {
-            log_data: evalData.map((d: any) => ({ rhob: d.rhob, nphi: d.nphi, md: d.md })),
+          api.post(`/calculate/petrophysics/crossplot`, {
+            log_data: evalData.map((d: EvalPoint) => ({ rhob: d.rhob, nphi: d.nphi, md: d.md })),
             rho_fluid: params.rho_fluid,
           }),
         ]);
@@ -157,8 +207,8 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
       }
 
       setActiveTab('log-tracks');
-    } catch (e: any) {
-      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   };
@@ -167,9 +217,9 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/petrophysics/analyze`
-        : `${API_BASE_URL}/analyze/module`;
-      const res = await axios.post(analyzeUrl, {
+        ? `/wells/${wellId}/petrophysics/analyze`
+        : `/analyze/module`;
+      const res = await api.post(analyzeUrl, {
         ...(wellId ? {} : { module: 'petrophysics', well_name: wellName || 'General Analysis' }),
         result_data: { evaluation: evalResult, pickett: pickettResult, crossplot: crossplotResult },
         params,
@@ -177,8 +227,9 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
         provider,
       });
       setAiAnalysis(res.data);
-    } catch (e: any) {
-      setAiAnalysis({ analysis: `Error: ${e.response?.data?.detail || e.message}` });
+    } catch (e: unknown) {
+      const err = e as APIError;
+      setAiAnalysis({ analysis: `Error: ${err.response?.data?.detail || err.message}`, agent: '', role: '', confidence: 'LOW' });
     }
     setIsAnalyzing(false);
   };
@@ -264,7 +315,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
                   <div key={p.key}>
                     <label className="block text-[10px] text-slate-400 mb-1">{p.label}</label>
                     <input type="number" step={p.step}
-                      value={(params as any)[p.key]}
+                      value={params[p.key as keyof PetroParams]}
                       onChange={e => updateParam(p.key, e.target.value)}
                       className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600/50 rounded text-xs text-white"
                     />
@@ -365,7 +416,7 @@ const PetrophysicsModule: React.FC<PetrophysicsModuleProps> = ({ wellId, wellNam
                       </tr>
                     </thead>
                     <tbody>
-                      {evalResult.intervals.map((iv: any, i: number) => (
+                      {evalResult.intervals.map((iv: EvalInterval, i: number) => (
                         <tr key={i} className="border-b border-slate-700/50 text-slate-300">
                           <td className="p-2">{iv.top_md}</td>
                           <td className="p-2">{iv.base_md}</td>

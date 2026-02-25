@@ -42,7 +42,7 @@
     "casingDesign": "Diseño de Casing",
     "dailyReports": "Reportes Diarios / DDR",
     "petrophysics": "Petrofísica Avanzada",
-    "realTimeMonitor": "WITSML Tiempo Real"
+    "petrophysicsAdvanced": "Petrofísica Avanzada"
   },
   "app": {
     "creatingEvent": "Creando registro del evento...",
@@ -63,7 +63,7 @@
     "multiAgentPipeline": "Pipeline Multi-Agente Especialista",
     "rootCauseAnalysis": "Análisis de Causa Raíz (RCA)",
     "engineeringDashboard": "Dashboard de Ingeniería",
-    "torqueDragRealTime": "Torque & Drag Tiempo Real",
+    "torqueDragTitle": "Torque & Drag",
     "hydraulicsECD": "Hidráulica / ECD Dinámico",
     "stuckPipeAnalyzer": "Analizador de Pega de Tubería",
     "wellControlKillSheet": "Control de Pozo / Kill Sheet",
@@ -86,8 +86,7 @@
     "selectModule": "Selecciona un módulo desde la barra lateral",
     "wellRequired": "Selección de Pozo Requerida",
     "wellRequiredDescription": "Esta sección requiere un pozo activo. Selecciona un pozo para acceder al análisis de eventos y datos específicos del pozo.",
-    "selectWell": "Seleccionar Pozo",
-    "realTimeMonitor": "Monitor WITSML Tiempo Real"
+    "selectWell": "Seleccionar Pozo"
   },
   "sidebar": {
     "engineeringDashboard": "Dashboard",
@@ -117,8 +116,6 @@
     "llmError": "Error LLM",
     "operational": "Operacional",
     "agents": "agentes",
-    "realTime": "Tiempo Real",
-    "realTimeMonitor": "Monitor WITSML",
     "reporting": "Reportes"
   },
   "well": {
@@ -151,7 +148,7 @@
     "professionalReports": "Reportes profesionales",
     "rechartsCustomSVG": "Recharts + SVG Custom",
     "yes": "Sí",
-    "moduleDescTD": "Análisis de fuerza axial en tiempo real, predicción de hookload y evaluación de pandeo",
+    "moduleDescTD": "Análisis de fuerza axial, predicción de hookload y evaluación de pandeo",
     "moduleDescHyd": "Distribución de pérdidas de presión, perfilaje ECD, optimización de barrena y análisis surge/swab",
     "moduleDescSP": "Diagnóstico de mecanismo, evaluación de matriz de riesgo, estimación de punto libre",
     "moduleDescWC": "Cálculos de kill sheet, programas de presión, métodos volumétrico y bullhead",
@@ -165,8 +162,7 @@
     "moduleDescVB": "Análisis de vibraciones BHA, RPM críticas, modos lateral y torsional",
     "moduleDescCem": "Diseño de lechada, mecánica de desplazamiento, centralización, simulación de trabajo",
     "moduleDescCsg": "Casos de carga, diseño burst/colapso/tensión, factores de seguridad, selección de grado",
-    "moduleDescPetro": "Importación LAS, Sw Waxman-Smits y Dual-Water, Pickett plot, crossplots, net pay",
-    "moduleDescRTM": "Ingesta de datos WITSML 1.4.1, indicadores KPI en tiempo real, gráficas de parámetros, sistema de alarmas"
+    "moduleDescPetro": "Importación LAS, Sw Waxman-Smits y Dual-Water, Pickett plot, crossplots, net pay"
   },
   "ddr": {
     "title": "Reportes Diarios / DDR",
@@ -549,7 +545,7 @@
       "survey": "Survey de Entrada",
       "drillstring": "Sarta de Perforación",
       "analysis": "Análisis T&D",
-      "compare": "Comparación en Tiempo Real"
+      "compare": "Comparación Multi-Op"
     },
     "survey": {
       "title": "Estaciones de Survey",
@@ -1352,44 +1348,6 @@
     "preventiveActions": "Acciones Preventivas",
     "exporting": "Exportando...",
     "exportToPDF": "Exportar RCA a PDF"
-  },
-  "realtime": {
-    "title": "Monitor WITSML Tiempo Real",
-    "subtitle": "Datos de perforación en tiempo real vía WITSML 1.4.1",
-    "connected": "Conectado",
-    "disconnected": "Desconectado",
-    "loadDemo": "Datos Demo",
-    "tabDashboard": "Dashboard",
-    "tabAlarms": "Alarmas",
-    "tabXmlInput": "Entrada de Datos",
-    "kpiROP": "ROP",
-    "kpiHookload": "Hookload",
-    "kpiECD": "ECD",
-    "kpiRPM": "RPM",
-    "kpiTorque": "Torque",
-    "kpiWOB": "WOB",
-    "kpiSPP": "SPP",
-    "kpiFlowRate": "Caudal",
-    "kpiMD": "Profundidad MD",
-    "noDataYet": "Sin datos en tiempo real",
-    "noDataHint": "Pega XML WITSML, conecta a un servidor o carga datos demo",
-    "chartTitle": "Parámetros de Perforación — Serie Temporal",
-    "alarmHistory": "Historial de Alarmas",
-    "clearAlarms": "Limpiar Todo",
-    "noAlarms": "Sin alarmas registradas",
-    "alarmECDHigh": "ECD {{value}} ppg excede el límite de {{threshold}} ppg",
-    "alarmTorqueHigh": "Torque {{value}} ft-lb excede el límite de {{threshold}} ft-lb",
-    "pasteXml": "Pegar XML",
-    "connectServer": "Servidor WITSML",
-    "pasteWitsmlXml": "Pegar XML de Log WITSML",
-    "xmlPlaceholder": "Pega XML de log WITSML 1.4.1 aquí...",
-    "parseAndLoad": "Parsear y Cargar Datos",
-    "serverConnection": "Conexión a Servidor WITSML",
-    "serverUrl": "URL del Servidor",
-    "username": "Usuario",
-    "password": "Contraseña",
-    "connecting": "Conectando...",
-    "connect": "Conectar"
   },
   "dataReadiness": {
     "title": "Preparación de Datos",

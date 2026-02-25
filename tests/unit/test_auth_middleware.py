@@ -31,9 +31,9 @@ class TestAuthProtectedMode:
                 pass
 
         app.dependency_overrides[get_db] = override_get_db
-        # Do NOT override verify_api_key — let it run with API_KEY set
+        # Do NOT override verify_auth — let it run with API_KEY set
         app.dependency_overrides.pop(
-            __import__("middleware.auth", fromlist=["verify_api_key"]).verify_api_key,
+            __import__("middleware.auth", fromlist=["verify_auth"]).verify_auth,
             None,
         )
         with TestClient(app) as c:
@@ -56,7 +56,7 @@ class TestAuthProtectedMode:
 
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides.pop(
-            __import__("middleware.auth", fromlist=["verify_api_key"]).verify_api_key,
+            __import__("middleware.auth", fromlist=["verify_auth"]).verify_auth,
             None,
         )
         with TestClient(app) as c:
@@ -79,7 +79,7 @@ class TestAuthProtectedMode:
 
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides.pop(
-            __import__("middleware.auth", fromlist=["verify_api_key"]).verify_api_key,
+            __import__("middleware.auth", fromlist=["verify_auth"]).verify_auth,
             None,
         )
         with TestClient(app) as c:
@@ -102,11 +102,11 @@ class TestAuthProtectedMode:
 
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides.pop(
-            __import__("middleware.auth", fromlist=["verify_api_key"]).verify_api_key,
+            __import__("middleware.auth", fromlist=["verify_auth"]).verify_auth,
             None,
         )
         with TestClient(app) as c:
             resp = c.get("/wells")
         app.dependency_overrides.clear()
         assert resp.status_code == 401
-        assert resp.json()["detail"] == "Invalid or missing API key"
+        assert resp.json()["detail"] == "Authentication required. Provide a Bearer token or X-API-Key."

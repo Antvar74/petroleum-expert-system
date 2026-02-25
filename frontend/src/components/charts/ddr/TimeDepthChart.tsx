@@ -60,7 +60,7 @@ const TimeDepthChart: React.FC<TimeDepthChartProps> = ({
           tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }}
           stroke="rgba(255,255,255,0.1)"
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toLocaleString()} ft`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Number(v).toLocaleString()} ft`} />} />
         <Legend
           verticalAlign="top"
           height={36}

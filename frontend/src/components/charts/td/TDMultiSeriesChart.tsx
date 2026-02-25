@@ -11,7 +11,7 @@ import { ArrowUpDown } from 'lucide-react';
 
 interface TDMultiSeriesChartProps {
   /** Combined data: each row has { md, trip_out, trip_in, rotating, sliding, lowering } */
-  data: any[];
+  data: Array<Record<string, number>>;
   /** Active operations to display */
   operations?: string[];
   /** Casing shoe MD for reference line */

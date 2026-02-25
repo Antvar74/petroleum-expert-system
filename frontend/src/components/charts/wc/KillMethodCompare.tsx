@@ -8,9 +8,9 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { GitCompare } from 'lucide-react';
 
 interface KillMethodCompareProps {
-  killResult: any;
-  volResult: any;
-  bullheadResult: any;
+  killResult: { icp_psi?: number; method_detail?: { method?: string } } | null;
+  volResult: { initial_conditions?: { working_pressure_psi?: number } } | null;
+  bullheadResult: { calculations?: { required_pump_pressure_psi?: number } } | null;
   height?: number;
 }
 
@@ -125,7 +125,7 @@ const KillMethodCompare: React.FC<KillMethodCompareProps> = ({
               {pressureData.map((entry, i) => (
                 <Cell key={i} fill={entry.color} fillOpacity={0.7} />
               ))}
-              <LabelList dataKey="pressure" position="right" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={(v: any) => `${v.toLocaleString()} psi`} />
+              <LabelList dataKey="pressure" position="right" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={(v: number) => `${v.toLocaleString()} psi`} />
             </Bar>
           </BarChart>
         </ChartContainer>

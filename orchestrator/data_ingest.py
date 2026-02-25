@@ -1,6 +1,6 @@
 # orchestrator/data_ingest.py
 """
-DataIngestionService — Unified data pipeline for LAS, DLIS, and WITSML sources.
+DataIngestionService — Unified data pipeline for LAS and DLIS sources.
 
 Normalizes all well log data to a common format: List[Dict[str, float]]
 with standardized mnemonic keys (md, gr, rhob, nphi, rt, etc.).
@@ -16,7 +16,7 @@ except ImportError:
 
 
 class DataIngestionService:
-    """Unified data ingestion for LAS, DLIS, and WITSML sources."""
+    """Unified data ingestion for LAS and DLIS sources."""
 
     # ── Mnemonic normalization map ──────────────────────────────
     MNEMONIC_MAP: Dict[str, str] = {
@@ -184,14 +184,3 @@ class DataIngestionService:
             result.append(normalized)
         return result
 
-    # ── WITSML Conversion ───────────────────────────────────────
-
-    @staticmethod
-    def from_witsml(parsed_log: Dict[str, Any]) -> List[Dict[str, float]]:
-        """
-        Convert WITSMLClient.parse_log_response() output to standard format.
-
-        Uses the same MNEMONIC_MAP as normalize().
-        """
-        raw = parsed_log.get("data", [])
-        return DataIngestionService.normalize(raw)

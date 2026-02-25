@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, ChevronRight, AlertTriangle, Target, ListChecks, BrainCircuit } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import InteractiveRiskMatrix from './charts/sp/InteractiveRiskMatrix';
 import ContributingFactorsRadar from './charts/sp/ContributingFactorsRadar';
 import FreePointIndicator from './charts/sp/FreePointIndicator';
@@ -12,6 +11,14 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
+import type {
+  DiagnosisStep,
+  DiagnosisQuestion,
+  DiagnosisResult,
+  FreePointResult,
+  RiskAssessmentResult,
+} from '../types/modules/stuck-pipe';
 
 interface StuckPipeAnalyzerProps {
   wellId?: number;
@@ -30,29 +37,29 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   const [loading, setLoading] = useState(false);
 
   // Diagnosis wizard state
-  const [diagnosisPath, setDiagnosisPath] = useState<any[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
-  const [diagnosisResult, setDiagnosisResult] = useState<any>(null);
+  const [diagnosisPath, setDiagnosisPath] = useState<DiagnosisStep[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState<DiagnosisQuestion | null>(null);
+  const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
 
   // Free point state
   const [fpParams, setFpParams] = useState({
     pipe_od: 5.0, pipe_id: 4.276, pipe_grade: 'S135',
     stretch_inches: 6.0, pull_force_lbs: 80000,
   });
-  const [fpResult, setFpResult] = useState<any>(null);
+  const [fpResult, setFpResult] = useState<FreePointResult | null>(null);
 
   // Risk state
   const [riskParams, setRiskParams] = useState({
     mechanism: '', mud_weight: 10.0, pore_pressure: 9.0,
     inclination: 45, stationary_hours: 1, torque: 15000, overpull: 20,
   });
-  const [riskResult, setRiskResult] = useState<any>(null);
+  const [riskResult, setRiskResult] = useState<RiskAssessmentResult | null>(null);
 
   // Actions state
-  const [_actionsResult, setActionsResult] = useState<any>(null);
+  const [_actionsResult, setActionsResult] = useState<RiskAssessmentResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
@@ -64,7 +71,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
 
   // Fetch available providers on mount
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`)
+    api.get(`/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
   }, []);
@@ -74,8 +81,8 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/stuck-pipe/analyze`
-        : `${API_BASE_URL}/analyze/module`;
+        ? `/wells/${wellId}/stuck-pipe/analyze`
+        : `/analyze/module`;
       const analyzeBody = {
         ...(wellId ? {} : { module: 'stuck-pipe', well_name: wellName || 'General Analysis' }),
         result_data: {
@@ -87,12 +94,13 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
         language,
         provider,
       };
-      const res = await axios.post(analyzeUrl, analyzeBody);
+      const res = await api.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('AI analysis error:', e);
-      const errMsg = e?.response?.data?.detail || e?.message || 'Connection error. Please try again.';
-      setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
+      const err = e as APIError;
+      const errMsg = err?.response?.data?.detail || err?.message || 'Connection error. Please try again.';
+      setAiAnalysis({ agent: 'Error', role: 'Error', analysis: `Error: ${errMsg}`, confidence: 'LOW' });
     }
     setIsAnalyzing(false);
   };
@@ -110,9 +118,9 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     setDiagnosisResult(null);
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/stuck-pipe/diagnose/start`);
+      const res = await api.post(`/stuck-pipe/diagnose/start`);
       setCurrentQuestion(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -124,7 +132,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
     setDiagnosisPath(newPath);
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/stuck-pipe/diagnose/answer`, {
+      const res = await api.post(`/stuck-pipe/diagnose/answer`, {
         node_id: currentQuestion.node_id,
         answer,
       });
@@ -137,7 +145,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
       } else {
         setCurrentQuestion(res.data);
       }
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -145,9 +153,9 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   const runFreePoint = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/stuck-pipe/free-point`, fpParams);
+      const res = await api.post(`/stuck-pipe/free-point`, fpParams);
       setFpResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -155,7 +163,7 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
   const runRisk = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/stuck-pipe/risk-assessment`, {
+      const res = await api.post(`/stuck-pipe/risk-assessment`, {
         mechanism: riskParams.mechanism,
         params: {
           mud_weight: riskParams.mud_weight,
@@ -169,13 +177,13 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
       setRiskResult(res.data);
 
       // Also fetch actions
-      await axios.post(`${API_BASE_URL}/stuck-pipe/risk-assessment`, {
+      await api.post(`/stuck-pipe/risk-assessment`, {
         mechanism: riskParams.mechanism,
         params: {},
       });
       // Fetch recommended actions using the mechanism
       fetchActions(riskParams.mechanism);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -198,14 +206,14 @@ const StuckPipeAnalyzer: React.FC<StuckPipeAnalyzerProps> = ({ wellId, wellName 
       // Use the stuck-pipe risk-assessment which also returns mechanism info
       // Actually we need a dedicated endpoint — let's use event-level endpoint creatively
       // For now, fetch risk which gives us enough to show actions
-      const res = await axios.post(`${API_BASE_URL}/stuck-pipe/risk-assessment`, {
+      const res = await api.post(`/stuck-pipe/risk-assessment`, {
         mechanism: riskParams.mechanism,
         params: {},
       });
       // The actions are embedded in the engine's get_recommended_actions,
       // which is called via the event endpoint. For standalone, re-fetch.
       setActionsResult(res.data);
-    } catch (e: any) { console.error(e); }
+    } catch (e: unknown) { console.error(e); }
     setLoading(false);
   };
 

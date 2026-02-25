@@ -4,12 +4,20 @@ Authentication middleware for PETROEXPERT.
 Supports two modes (tried in order):
   1. JWT Bearer token  — Authorization: Bearer <token>
   2. Static API Key     — X-API-Key: <key>
-  3. Dev mode           — if neither JWT_SECRET nor API_KEY are set, auth is disabled.
+  3. Dev mode           — if JWT_SECRET is NOT set, auth is disabled for convenience.
+                          A random ephemeral secret is generated (tokens die on restart).
 
 Public routes (e.g. /auth/register, /auth/login) bypass the global dependency
 by being placed on a separate APIRouter that is included *without* the dependency.
+
+Security notes:
+  - NEVER commit a real JWT_SECRET to source control.
+  - In production, set JWT_SECRET to a strong random value:  openssl rand -hex 32
+  - If ENVIRONMENT=production or VERCEL is set, JWT_SECRET is REQUIRED (app fails fast).
 """
+import logging
 import os
+import secrets as _secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -20,13 +28,48 @@ from sqlalchemy.orm import Session
 
 from models.database import get_db
 
+_logger = logging.getLogger("petroexpert.auth")
+
 # Paths that are public (no authentication required)
 PUBLIC_PATHS = ("/auth/register", "/auth/login", "/health", "/docs", "/openapi.json", "/redoc")
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration — JWT_SECRET is NEVER hardcoded
 # ---------------------------------------------------------------------------
-JWT_SECRET = os.environ.get("JWT_SECRET", "petroexpert-dev-secret-change-in-prod")
+_JWT_SECRET_ENV: Optional[str] = os.environ.get("JWT_SECRET")
+_IS_PRODUCTION = bool(os.environ.get("VERCEL") or os.environ.get("ENVIRONMENT", "").lower() == "production")
+
+# Fail fast in production if JWT_SECRET is missing
+if _IS_PRODUCTION and not _JWT_SECRET_ENV:
+    raise RuntimeError(
+        "FATAL: JWT_SECRET environment variable is REQUIRED in production. "
+        "Generate one with:  openssl rand -hex 32"
+    )
+
+if _JWT_SECRET_ENV:
+    # Production / explicit configuration
+    JWT_SECRET: str = _JWT_SECRET_ENV
+    AUTH_MODE: str = "production"
+    if len(_JWT_SECRET_ENV) < 32:
+        _logger.warning(
+            "JWT_SECRET is shorter than 32 characters — this is weak. "
+            "Generate a stronger one with:  openssl rand -hex 32"
+        )
+    _logger.info("Auth mode: PRODUCTION (JWT_SECRET configured)")
+else:
+    # Dev mode — generate random ephemeral secret (tokens die on restart)
+    JWT_SECRET = _secrets.token_hex(32)
+    AUTH_MODE = "dev"
+    _logger.warning(
+        "\n"
+        "╔══════════════════════════════════════════════════════════════╗\n"
+        "║  ⚠️  JWT_SECRET NOT SET — RUNNING IN DEVELOPMENT MODE       ║\n"
+        "║  Auth is DISABLED for unauthenticated requests.             ║\n"
+        "║  Tokens issued this session won't survive restarts.         ║\n"
+        "║  For production set:  export JWT_SECRET=$(openssl rand -hex 32)  ║\n"
+        "╚══════════════════════════════════════════════════════════════╝"
+    )
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "72"))
 
@@ -111,8 +154,8 @@ async def verify_auth(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    # 3. Dev mode — no JWT_SECRET override AND no API_KEY → open access
-    if JWT_SECRET == "petroexpert-dev-secret-change-in-prod" and not expected_key:
+    # 3. Dev mode — JWT_SECRET was NOT configured → open access for development
+    if AUTH_MODE == "dev" and not expected_key:
         return None
 
     # Nothing matched — reject

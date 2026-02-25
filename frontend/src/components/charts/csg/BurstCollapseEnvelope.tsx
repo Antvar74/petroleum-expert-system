@@ -9,8 +9,8 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { Shield } from 'lucide-react';
 
 interface BurstCollapseEnvelopeProps {
-  burstLoad: any;
-  collapseLoad: any;
+  burstLoad: { profile?: Array<{ tvd_ft: number; burst_load_psi: number }> } | null;
+  collapseLoad: { profile?: Array<{ tvd_ft: number; collapse_load_psi: number }> } | null;
   burstRating: number;
   collapseRating: number;
   height?: number;
@@ -23,12 +23,12 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
 
   // Merge burst and collapse profiles by depth
   const depthSet = new Set<number>();
-  (burstLoad?.profile || []).forEach((p: any) => depthSet.add(p.tvd_ft));
-  (collapseLoad?.profile || []).forEach((p: any) => depthSet.add(p.tvd_ft));
+  (burstLoad?.profile || []).forEach((p: { tvd_ft: number }) => depthSet.add(p.tvd_ft));
+  (collapseLoad?.profile || []).forEach((p: { tvd_ft: number }) => depthSet.add(p.tvd_ft));
   const depths = Array.from(depthSet).sort((a, b) => a - b);
 
-  const burstMap = new Map((burstLoad?.profile || []).map((p: any) => [p.tvd_ft, p.burst_load_psi]));
-  const collMap = new Map((collapseLoad?.profile || []).map((p: any) => [p.tvd_ft, p.collapse_load_psi]));
+  const burstMap = new Map((burstLoad?.profile || []).map((p: { tvd_ft: number; burst_load_psi: number }) => [p.tvd_ft, p.burst_load_psi]));
+  const collMap = new Map((collapseLoad?.profile || []).map((p: { tvd_ft: number; collapse_load_psi: number }) => [p.tvd_ft, p.collapse_load_psi]));
 
   const data = depths.map(d => ({
     depth: d,
@@ -56,7 +56,7 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
           label={{ value: 'TVD (ft)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Math.abs(Number(v)).toFixed(0)} psi`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Math.abs(Number(v)).toFixed(0)} psi`} />} />
         <Legend wrapperStyle={{ color: CHART_DEFAULTS.axisColor, fontSize: 11, paddingTop: 12 }} />
         {/* Burst load area (positive) */}
         <Area type="monotone" dataKey="burst" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1}

@@ -7,7 +7,7 @@ import ChartContainer from '../ChartContainer';
 import { List } from 'lucide-react';
 
 interface GradeSelectionTableProps {
-  gradeSelection: any;
+  gradeSelection: { selected_grade: string; selection_reason?: string; all_candidates?: Array<{ grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }>; evaluated_grades?: Array<{ grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }>; selected_details?: { yield_psi: number }; yield_strength_psi?: number };
   height?: number;
 }
 
@@ -58,7 +58,7 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
               </tr>
             </thead>
             <tbody>
-              {evaluated.map((g: any, i: number) => {
+              {evaluated.map((g: { grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }, i: number) => {
                 const isSelected = g.grade === selected;
                 return (
                   <tr key={i} className={`border-b border-white/5 ${isSelected ? 'bg-indigo-500/10' : ''}`}>

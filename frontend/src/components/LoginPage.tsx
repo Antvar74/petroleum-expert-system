@@ -66,8 +66,8 @@ const LoginPage: React.FC = () => {
       } else {
         await login(loginField, password);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || t('auth.genericError'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }; setError(axiosErr?.response?.data?.detail || t('auth.genericError'));
     } finally {
       setLoading(false);
     }

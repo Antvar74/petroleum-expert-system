@@ -58,7 +58,7 @@ const SurgeSwabWindow: React.FC<SurgeSwabWindowProps> = ({
           axisLine={{ stroke: CHART_DEFAULTS.axisColor }}
           label={{ value: 'EMW (ppg)', angle: -90, position: 'insideLeft', offset: -25, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toFixed(2)} ppg`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Number(v).toFixed(2)} ppg`} />} />
         {/* LOT reference */}
         <ReferenceLine y={lotEmw} stroke="#ef4444" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: `LOT ${lotEmw.toFixed(1)}`, fill: '#ef4444', position: 'right', fontSize: 11 }} />
         {/* Pore Pressure reference */}

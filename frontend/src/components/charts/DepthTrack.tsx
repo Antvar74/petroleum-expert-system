@@ -33,7 +33,7 @@ export interface DepthRefLine {
 }
 
 interface DepthTrackProps {
-  data: any[];
+  data: Array<Record<string, number>>;
   series: DepthSeries[];
   depthKey?: string; // defaults to 'md'
   xLabel?: string;
@@ -42,7 +42,7 @@ interface DepthTrackProps {
   xDomain?: [number | string, number | string];
   xTicks?: number[];
   showLegend?: boolean;
-  tooltipFormatter?: (value: any, name: string) => string;
+  tooltipFormatter?: (value: number, name: string) => string;
 }
 
 const DepthTrack: React.FC<DepthTrackProps> = ({

@@ -29,7 +29,7 @@ const PickettPlotChart: React.FC<PickettPlotProps> = ({ points, isoSwLines, regr
   if (!points?.length) return null;
 
   // Build combined data for iso-Sw lines + scatter
-  const allData: any[] = [];
+  const allData: Array<Record<string, number>> = [];
 
   // Add iso-Sw line points
   Object.entries(isoSwLines || {}).forEach(([label, linePoints]) => {

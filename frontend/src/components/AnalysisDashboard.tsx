@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import {
     Check,
     Terminal,
@@ -16,7 +16,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import RCAVisualizer from './RCAVisualizer';
-import { API_BASE_URL } from '../config';
 import { useToast } from './ui/Toast';
 
 // @ts-ignore
@@ -41,16 +40,16 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     const { addToast } = useToast();
 
     // RCA State
-    const [rcaReport, setRcaReport] = useState<any>(null);
+    const [rcaReport, setRcaReport] = useState<Record<string, unknown> | null>(null);
     const [isGeneratingRCA, setIsGeneratingRCA] = useState(false);
 
     // Pipeline State
     const [currentStep, setCurrentStep] = useState(0);
-    const [query, setQuery] = useState<any>(null);
+    const [query, setQuery] = useState<Record<string, unknown> | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [completedAnalyses, setCompletedAnalyses] = useState<CompletedAnalysis[]>([]);
     const [isSynthesisMode, setIsSynthesisMode] = useState(false);
-    const [finalReport, setFinalReport] = useState<any>(null);
+    const [finalReport, setFinalReport] = useState<Record<string, unknown> | null>(null);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [isAutoRunAll, setIsAutoRunAll] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -62,7 +61,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     useEffect(() => {
         const fetchAnalysisDetails = async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/analysis/${analysisId}`);
+                const res = await api.get(`/analysis/${analysisId}`);
                 // Try direct event_id first, fallback to legacy bridge
                 if (res.data?.event_id) {
                     setEventId(res.data.event_id);
@@ -87,7 +86,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
     const fetchQuery = async (agentId: string) => {
         try {
             setErrorMessage(null);
-            const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/query`);
+            const response = await api.get(`/analysis/${analysisId}/agent/${agentId}/query`);
             setQuery(response.data);
         } catch (error) {
             const msg = `${t('analysis.errorLoadingQuery')} ${agentId.replace(/_/g, ' ')}`;
@@ -100,7 +99,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         try {
             setErrorMessage(null);
             setIsSynthesisMode(true);
-            const response = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/synthesis/query`);
+            const response = await api.get(`/analysis/${analysisId}/synthesis/query`);
             setQuery(response.data);
         } catch (error) {
             const msg = t('analysis.errorLoadingSynthesis');
@@ -115,7 +114,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         try {
             if (!isSynthesisMode) {
                 const agentId = workflow[currentStep];
-                const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/auto`);
+                const res = await api.post(`/analysis/${analysisId}/agent/${agentId}/auto`);
                 setCompletedAnalyses(prev => [...prev, {
                     role: query?.role || agentId,
                     confidence: res.data.confidence || 'MEDIUM',
@@ -125,7 +124,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                 addToast(`${(query?.role || agentId).replace(/_/g, ' ')} ${t('analysis.completed')}`, 'success', 3000);
                 setCurrentStep(prev => prev + 1);
             } else {
-                const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
+                const res = await api.post(`/analysis/${analysisId}/synthesis/auto`);
                 setFinalReport(res.data.analysis);
                 addToast(t('analysis.synthesisCompleted'), 'success');
             }
@@ -146,9 +145,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
             try {
                 setIsProcessing(true);
                 const agentId = workflow[i];
-                const queryRes = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/query`);
+                const queryRes = await api.get(`/analysis/${analysisId}/agent/${agentId}/query`);
                 setQuery(queryRes.data);
-                const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/agent/${agentId}/auto`);
+                const res = await api.post(`/analysis/${analysisId}/agent/${agentId}/auto`);
                 setCompletedAnalyses(prev => [...prev, {
                     role: queryRes.data?.role || agentId,
                     confidence: res.data.confidence || 'MEDIUM',
@@ -168,9 +167,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         // Run synthesis
         try {
             setIsSynthesisMode(true);
-            const synthQuery = await axios.get(`${API_BASE_URL}/analysis/${analysisId}/synthesis/query`);
+            const synthQuery = await api.get(`/analysis/${analysisId}/synthesis/query`);
             setQuery(synthQuery.data);
-            const res = await axios.post(`${API_BASE_URL}/analysis/${analysisId}/synthesis/auto`);
+            const res = await api.post(`/analysis/${analysisId}/synthesis/auto`);
             setFinalReport(res.data.analysis);
             addToast(t('analysis.pipelineComplete'), 'success');
         } catch (error) {
@@ -187,7 +186,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         if (!eventId) return;
         setIsGeneratingRCA(true);
         try {
-            const res = await axios.post(`${API_BASE_URL}/events/${eventId}/rca`);
+            const res = await api.post(`/events/${eventId}/rca`);
             setRcaReport(res.data);
             addToast(t('analysis.rcaGenerated'), 'success');
         } catch (error) {
@@ -226,12 +225,6 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
         }
     };
 
-    const confidenceColor = (c: string) => {
-        if (c === 'HIGH') return 'text-green-400 bg-green-500/10 border-green-500/30';
-        if (c === 'LOW') return 'text-red-400 bg-red-500/10 border-red-500/30';
-        return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
-    };
-
     // --- RENDER: Final Report with Synthesis ---
     if (finalReport) {
         return (
@@ -262,8 +255,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                         </h3>
                         <div className="flex flex-wrap gap-2">
                             {completedAnalyses.map((a, i) => (
-                                <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold border ${confidenceColor(a.confidence)}`}>
-                                    {a.role} — {a.confidence}
+                                <span key={i} className="px-3 py-1 rounded-full text-xs font-bold border text-green-400 bg-green-500/10 border-green-500/30">
+                                    {a.role}
                                 </span>
                             ))}
                         </div>
@@ -396,8 +389,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                             )}
                                         </div>
                                         {completed && (
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceColor(completed.confidence)}`}>
-                                                {completed.confidence}
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-green-400 bg-green-500/10 border-green-500/30">
+                                                ✓
                                             </span>
                                         )}
                                     </div>
@@ -454,9 +447,6 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ analysisId, workf
                                             <Check size={12} className="text-green-400" />
                                         </div>
                                         <span className="text-sm font-bold flex-1">{a.role}</span>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceColor(a.confidence)}`}>
-                                            {a.confidence}
-                                        </span>
                                         <ChevronRight size={14} className={`text-white/30 transition-transform ${expandedAgent === a.agent ? 'rotate-90' : ''}`} />
                                     </button>
                                     <AnimatePresence>

@@ -1,5 +1,5 @@
 # tests/unit/test_data_ingest.py
-"""Unit tests for DataIngestionService — unified LAS/DLIS/WITSML data pipeline."""
+"""Unit tests for DataIngestionService — unified LAS/DLIS data pipeline."""
 import pytest
 from orchestrator.data_ingest import DataIngestionService
 
@@ -73,27 +73,6 @@ class TestNormalize:
     def test_normalize_empty_input(self):
         """Empty list returns empty list."""
         result = DataIngestionService.normalize([])
-        assert result == []
-
-
-class TestFromWITSML:
-    def test_from_witsml_converts_parsed_log(self):
-        """Should convert WITSMLClient parsed output to standard format."""
-        parsed_log = {
-            "curves": ["DEPT", "GR", "RHOB"],
-            "data": [
-                {"DEPT": 1000, "GR": 55, "RHOB": 2.35},
-                {"DEPT": 1001, "GR": 60, "RHOB": 2.40},
-            ],
-        }
-        result = DataIngestionService.from_witsml(parsed_log)
-        assert len(result) == 2
-        assert result[0]["md"] == 1000
-        assert result[0]["gr"] == 55
-
-    def test_from_witsml_empty_log(self):
-        """Empty parsed log returns empty list."""
-        result = DataIngestionService.from_witsml({"curves": [], "data": []})
         assert result == []
 
 

@@ -9,20 +9,20 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { TrendingUp } from 'lucide-react';
 
 interface ECDDuringCementChartProps {
-  ecd: any;
+  ecd: { snapshots: Array<{ fill_pct: number; ecd_ppg: number; current_fluid?: string }>; fracture_gradient_ppg: number; pore_pressure_ppg: number };
   height?: number;
 }
 
 const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height = 350 }) => {
   if (!ecd?.snapshots?.length) return null;
 
-  const data = ecd.snapshots.map((snap: any) => ({
+  const data = ecd.snapshots.map((snap: { fill_pct: number; ecd_ppg: number; current_fluid?: string }) => ({
     volume: Math.round(snap.fill_pct * 10) / 10,
     ecd: Math.round(snap.ecd_ppg * 100) / 100,
     stage: snap.current_fluid ?? `${snap.fill_pct}%`,
   }));
 
-  const maxEcd = Math.max(...data.map((d: any) => d.ecd));
+  const maxEcd = Math.max(...data.map((d: { volume: number; ecd: number; stage: string }) => d.ecd));
   const fracGrad = ecd.fracture_gradient_ppg;
   const poreP = ecd.pore_pressure_ppg;
 
@@ -50,7 +50,7 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
           domain={[poreP ? poreP - 1 : 'auto', fracGrad ? fracGrad + 1 : 'auto']}
           label={{ value: 'ECD (ppg)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toFixed(2)} ppg`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Number(v).toFixed(2)} ppg`} />} />
         {fracGrad && poreP && (
           <ReferenceArea y1={poreP} y2={fracGrad} fill="#22c55e" fillOpacity={0.05} />
         )}

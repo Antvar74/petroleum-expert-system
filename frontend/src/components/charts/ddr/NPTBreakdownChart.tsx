@@ -55,7 +55,7 @@ const NPTBreakdownChart: React.FC<NPTBreakdownProps> = ({
           paddingAngle={3}
           dataKey="value"
           nameKey="name"
-          label={({ name, percent }: any) => `${name || ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
+          label={({ name, percent }: { name?: string; percent?: number }) => `${name || ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
           labelLine={false}
         >
           {chartData.map((_, i) => (

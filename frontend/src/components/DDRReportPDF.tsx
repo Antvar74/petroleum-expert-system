@@ -36,28 +36,28 @@ interface DDRReportPDFProps {
   depthStart?: number;
   depthEnd?: number;
   depthTVD?: number;
-  headerData: Record<string, any>;
+  headerData: Record<string, string | number | undefined>;
   operations: Operation[];
-  drillingParams: Record<string, any>;
-  mudProperties: Record<string, any>;
+  drillingParams: Record<string, string | number | undefined>;
+  mudProperties: Record<string, string | number | undefined>;
   bhaData: BHAComponent[];
-  gasMonitoring: Record<string, any>;
-  costSummary: Record<string, any>;
-  hsseData?: Record<string, any>;
-  mudInventory?: Record<string, any>;
-  completionData?: Record<string, any>;
-  terminationData?: Record<string, any>;
+  gasMonitoring: Record<string, string | number | undefined>;
+  costSummary: Record<string, string | number | undefined>;
+  hsseData?: Record<string, string | number | boolean | undefined>;
+  mudInventory?: Record<string, unknown>;
+  completionData?: Record<string, string | number | undefined>;
+  terminationData?: Record<string, string | number | undefined>;
   status: string;
 }
 
 /* ─── helpers ─── */
-const fmtNum = (v: any, dec = 1): string => {
+const fmtNum = (v: unknown, dec = 1): string => {
   if (v === undefined || v === null || v === '') return '—';
   const n = Number(v);
   return isNaN(n) ? String(v) : n.toFixed(dec);
 };
 
-const fmtMoney = (v: any): string => {
+const fmtMoney = (v: unknown): string => {
   if (v === undefined || v === null || v === '') return '—';
   const n = Number(v);
   if (isNaN(n)) return String(v);
@@ -636,7 +636,7 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
                 </tr>
               </thead>
               <tbody>
-                {headerData.surveys.map((s: any, i: number) => (
+                {headerData.surveys.map((s: {md?: number; tvd?: number; inc?: number; azi?: number; dls?: number}, i: number) => (
                   <tr key={i}>
                     <td style={S.td}>{fmtNum(s.md, 0)}</td>
                     <td style={S.td}>{fmtNum(s.tvd, 0)}</td>
@@ -779,7 +779,7 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
                 </tr>
               </thead>
               <tbody>
-                {hsseData.personnel_companies.map((c: any, i: number) => (
+                {hsseData.personnel_companies.map((c: {company?: string; headcount?: number}, i: number) => (
                   <tr key={i}>
                     <td style={S.td}>{i + 1}</td>
                     <td style={S.td}>{c.company || '—'}</td>
@@ -788,7 +788,7 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
                 ))}
                 <tr>
                   <td style={{ ...S.td, fontWeight: 700 }} colSpan={2}>Total</td>
-                  <td style={{ ...S.td, fontWeight: 700 }}>{hsseData.personnel_companies.reduce((s: number, c: any) => s + (c.headcount || 0), 0)}</td>
+                  <td style={{ ...S.td, fontWeight: 700 }}>{hsseData.personnel_companies.reduce((s: number, c: {headcount?: number}) => s + (c.headcount || 0), 0)}</td>
                 </tr>
               </tbody>
             </table>
@@ -810,7 +810,7 @@ const DDRReportPDF = forwardRef<HTMLDivElement, DDRReportPDFProps>((props, ref) 
                 </tr>
               </thead>
               <tbody>
-                {mudInventory.materials.map((m: any, i: number) => (
+                {mudInventory.materials.map((m: {product?: string; inventory?: number; used?: number; unit?: string}, i: number) => (
                   <tr key={i}>
                     <td style={S.td}>{i + 1}</td>
                     <td style={S.td}>{m.product || '—'}</td>

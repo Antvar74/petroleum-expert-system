@@ -7,8 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ClipboardList, Plus, ChevronDown, ChevronUp,
@@ -23,6 +22,7 @@ import DDRReportPDF from './DDRReportPDF';
 // @ts-ignore — html2pdf has no types
 import html2pdf from 'html2pdf.js';
 import type { Provider } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
 import * as XLSX from 'xlsx';
 
 // Charts
@@ -74,7 +74,7 @@ const DailyReportsModule: React.FC = () => {
   useEffect(() => {
     const fetchWells = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/wells`);
+        const res = await api.get(`/wells`);
         setWells(res.data);
       } catch (e) {
         console.error('Error fetching wells:', e);
@@ -88,15 +88,15 @@ const DailyReportsModule: React.FC = () => {
   const handleCreateWell = async () => {
     if (!newWellName.trim()) return;
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells?name=${encodeURIComponent(newWellName.trim())}`);
+      const res = await api.post(`/wells?name=${encodeURIComponent(newWellName.trim())}`);
       const newWell = res.data;
       setWells(prev => [...prev, newWell]);
       setSelectedReportWell({ id: newWell.id, name: newWell.name });
       setNewWellName('');
       setIsCreatingWell(false);
       addToast(t('ddr.wellCreated'), 'success');
-    } catch (e: any) {
-      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message || 'Unknown error'), 'error');
     }
   };
 
@@ -114,31 +114,31 @@ const DailyReportsModule: React.FC = () => {
   const [depthStart, setDepthStart] = useState(0);
   const [depthEnd, setDepthEnd] = useState(0);
   const [depthTvd, setDepthTvd] = useState(0);
-  const [headerData, setHeaderData] = useState<any>({});
+  const [headerData, setHeaderData] = useState<Record<string, unknown>>({});
   const [operations, setOperations] = useState([emptyOperation()]);
-  const [drillingParams, setDrillingParams] = useState<any>({});
-  const [mudProps, setMudProps] = useState<any>({});
-  const [mudInventory, setMudInventory] = useState<any>({});
+  const [drillingParams, setDrillingParams] = useState<Record<string, string | number>>({});
+  const [mudProps, setMudProps] = useState<Record<string, string | number>>({});
+  const [mudInventory, setMudInventory] = useState<Record<string, unknown>>({});
   const [bhaData, setBhaData] = useState([emptyBHA()]);
-  const [gasMonitoring, setGasMonitoring] = useState<any>({});
-  const [nptEvents, setNptEvents] = useState<any[]>([]);
-  const [hsseData, setHsseData] = useState<any>({});
-  const [costSummary, setCostSummary] = useState<any>({});
-  const [completionData, setCompletionData] = useState<any>({});
-  const [terminationData, setTerminationData] = useState<any>({});
+  const [gasMonitoring, setGasMonitoring] = useState<Record<string, string | number>>({});
+  const [nptEvents, setNptEvents] = useState<Record<string, string | number>[]>([]);
+  const [hsseData, setHsseData] = useState<Record<string, unknown>>({});
+  const [costSummary, setCostSummary] = useState<Record<string, string | number>>({});
+  const [completionData, setCompletionData] = useState<Record<string, string | number>>({});
+  const [terminationData, setTerminationData] = useState<Record<string, string | number>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['header', 'operations']));
 
   // KPI data
-  const [timeDepthData, setTimeDepthData] = useState<any[]>([]);
-  const [costData, setCostData] = useState<any[]>([]);
-  const [nptBreakdown, setNptBreakdown] = useState<any>({});
-  const [cumulativeStats, setCumulativeStats] = useState<any>({});
+  const [timeDepthData, setTimeDepthData] = useState<Record<string, number>[]>([]);
+  const [costData, setCostData] = useState<Record<string, number>[]>([]);
+  const [nptBreakdown, setNptBreakdown] = useState<Record<string, number>>({});
+  const [cumulativeStats, setCumulativeStats] = useState<Record<string, number>>({});
 
   // AI Analysis
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [provider, setProvider] = useState<Provider>('auto');
-  const [availableProviders] = useState<any[]>([
+  const [availableProviders] = useState<{id: string; name: string; name_es: string}[]>([
     { value: 'auto', label: t('ai.providerAuto') },
     { value: 'google_gemini', label: t('ai.providerGemini') },
     { value: 'ollama', label: t('ai.providerOllama') },
@@ -171,9 +171,9 @@ const DailyReportsModule: React.FC = () => {
     if (!wellId) return;
     try {
       const url = filterType
-        ? `${API_BASE_URL}/wells/${wellId}/daily-reports?report_type=${filterType}`
-        : `${API_BASE_URL}/wells/${wellId}/daily-reports`;
-      const res = await axios.get(url);
+        ? `/wells/${wellId}/daily-reports?report_type=${filterType}`
+        : `/wells/${wellId}/daily-reports`;
+      const res = await api.get(url);
       setReports(res.data);
     } catch (e) { console.error('Error fetching reports:', e); }
   };
@@ -181,9 +181,9 @@ const DailyReportsModule: React.FC = () => {
   const fetchReferenceData = async () => {
     try {
       const [iadc, npt, cats] = await Promise.all([
-        axios.get(`${API_BASE_URL}/ddr/iadc-codes`),
-        axios.get(`${API_BASE_URL}/ddr/npt-codes`),
-        axios.get(`${API_BASE_URL}/ddr/operation-categories`),
+        api.get(`/ddr/iadc-codes`),
+        api.get(`/ddr/npt-codes`),
+        api.get(`/ddr/operation-categories`),
       ]);
       setIadcCodes(iadc.data);
       setNptCodes(npt.data);
@@ -195,10 +195,10 @@ const DailyReportsModule: React.FC = () => {
     if (!wellId) return;
     try {
       const [td, cost, npt, stats] = await Promise.all([
-        axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/time-depth`),
-        axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/cost-tracking`),
-        axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/npt-breakdown`),
-        axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/stats`),
+        api.get(`/wells/${wellId}/daily-reports/time-depth`),
+        api.get(`/wells/${wellId}/daily-reports/cost-tracking`),
+        api.get(`/wells/${wellId}/daily-reports/npt-breakdown`),
+        api.get(`/wells/${wellId}/daily-reports/stats`),
       ]);
       setTimeDepthData(td.data);
       setCostData(cost.data.daily_costs || []);
@@ -216,7 +216,7 @@ const DailyReportsModule: React.FC = () => {
     setExpandedSections(next);
   };
 
-  const updateOp = (idx: number, field: string, value: any) => {
+  const updateOp = (idx: number, field: string, value: string | number | boolean) => {
     const updated = [...operations];
     updated[idx] = { ...updated[idx], [field]: value };
     // Auto-calc hours
@@ -231,7 +231,7 @@ const DailyReportsModule: React.FC = () => {
   const addOp = () => setOperations([...operations, emptyOperation()]);
   const removeOp = (idx: number) => setOperations(operations.filter((_, i) => i !== idx));
 
-  const updateBHA = (idx: number, field: string, value: any) => {
+  const updateBHA = (idx: number, field: string, value: string | number) => {
     const updated = [...bhaData];
     updated[idx] = { ...updated[idx], [field]: value };
     setBhaData(updated);
@@ -265,7 +265,7 @@ const DailyReportsModule: React.FC = () => {
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         if (!sheet) { addToast(t('ddr.bhaUploadEmpty'), 'error'); return; }
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const rows: Record<string, string | number>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         if (rows.length === 0) { addToast(t('ddr.bhaUploadEmpty'), 'error'); return; }
 
         // Map file columns → BHA fields
@@ -283,8 +283,8 @@ const DailyReportsModule: React.FC = () => {
             const bha = emptyBHA();
             for (const [fc, bf] of Object.entries(hdrMap)) {
               const v = row[fc];
-              if (bf === 'component_type' || bf === 'serial_number') (bha as any)[bf] = String(v || '').trim();
-              else (bha as any)[bf] = parseFloat(v) || 0;
+              if (bf === 'component_type' || bf === 'serial_number') (bha as Record<string, string | number>)[bf] = String(v || '').trim();
+              else (bha as Record<string, string | number>)[bf] = parseFloat(v) || 0;
             }
             return bha;
           })
@@ -303,31 +303,31 @@ const DailyReportsModule: React.FC = () => {
   };
 
   // ── Survey helpers ──
-  const updateSurvey = (idx: number, field: string, value: any) => {
+  const updateSurvey = (idx: number, field: string, value: string | number) => {
     const surveys = [...(headerData.surveys || [])];
     surveys[idx] = { ...surveys[idx], [field]: value };
     setHeaderData({ ...headerData, surveys });
   };
   const addSurvey = () => setHeaderData({ ...headerData, surveys: [...(headerData.surveys || []), { md: 0, tvd: 0, inc: 0, azi: 0, dls: 0 }] });
-  const removeSurvey = (idx: number) => setHeaderData({ ...headerData, surveys: (headerData.surveys || []).filter((_: any, i: number) => i !== idx) });
+  const removeSurvey = (idx: number) => setHeaderData({ ...headerData, surveys: (headerData.surveys || []).filter((_: unknown, i: number) => i !== idx) });
 
   // ── Personnel companies helpers ──
-  const updateCompany = (idx: number, field: string, value: any) => {
+  const updateCompany = (idx: number, field: string, value: string | number) => {
     const companies = [...(hsseData.personnel_companies || [])];
     companies[idx] = { ...companies[idx], [field]: value };
     setHsseData({ ...hsseData, personnel_companies: companies });
   };
   const addCompany = () => setHsseData({ ...hsseData, personnel_companies: [...(hsseData.personnel_companies || []), { company: '', headcount: 0 }] });
-  const removeCompany = (idx: number) => setHsseData({ ...hsseData, personnel_companies: (hsseData.personnel_companies || []).filter((_: any, i: number) => i !== idx) });
+  const removeCompany = (idx: number) => setHsseData({ ...hsseData, personnel_companies: (hsseData.personnel_companies || []).filter((_: unknown, i: number) => i !== idx) });
 
   // ── Materials helpers ──
-  const updateMaterial = (idx: number, field: string, value: any) => {
+  const updateMaterial = (idx: number, field: string, value: string | number) => {
     const materials = [...(mudInventory.materials || [])];
     materials[idx] = { ...materials[idx], [field]: value };
     setMudInventory({ ...mudInventory, materials });
   };
   const addMaterial = () => setMudInventory({ ...mudInventory, materials: [...(mudInventory.materials || []), { product: '', inventory: 0, used: 0, unit: '' }] });
-  const removeMaterial = (idx: number) => setMudInventory({ ...mudInventory, materials: (mudInventory.materials || []).filter((_: any, i: number) => i !== idx) });
+  const removeMaterial = (idx: number) => setMudInventory({ ...mudInventory, materials: (mudInventory.materials || []).filter((_: unknown, i: number) => i !== idx) });
 
   const resetForm = () => {
     setEditingId(null);
@@ -346,7 +346,7 @@ const DailyReportsModule: React.FC = () => {
   const saveReport = async (status: string = 'draft') => {
     if (!wellId) return;
     setLoading(true);
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       report_type: reportType,
       report_date: reportDate,
       depth_md_start: depthStart || null,
@@ -369,14 +369,14 @@ const DailyReportsModule: React.FC = () => {
 
     try {
       if (editingId) {
-        await axios.put(`${API_BASE_URL}/wells/${wellId}/daily-reports/${editingId}`, payload);
+        await api.put(`/wells/${wellId}/daily-reports/${editingId}`, payload);
       } else {
-        await axios.post(`${API_BASE_URL}/wells/${wellId}/daily-reports`, payload);
+        await api.post(`/wells/${wellId}/daily-reports`, payload);
       }
       fetchReports();
       if (status !== 'draft') { resetForm(); setActiveTab('reports'); }
-    } catch (e: any) {
-      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message || 'Unknown error'), 'error');
     }
     setLoading(false);
   };
@@ -385,7 +385,7 @@ const DailyReportsModule: React.FC = () => {
     if (!wellId) return;
     if (!confirm(t('ddr.confirmDelete') || 'Delete this report?')) return;
     try {
-      await axios.delete(`${API_BASE_URL}/wells/${wellId}/daily-reports/${id}`);
+      await api.delete(`/wells/${wellId}/daily-reports/${id}`);
       fetchReports();
     } catch (e) { console.error(e); }
   };
@@ -393,7 +393,7 @@ const DailyReportsModule: React.FC = () => {
   const loadReport = async (id: number) => {
     if (!wellId) return;
     try {
-      const res = await axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/${id}`);
+      const res = await api.get(`/wells/${wellId}/daily-reports/${id}`);
       const r = res.data;
       setEditingId(r.id);
       setReportType(r.report_type);
@@ -452,14 +452,14 @@ const DailyReportsModule: React.FC = () => {
     try {
       // Use the latest report data
       const latest = reports[0];
-      const full = await axios.get(`${API_BASE_URL}/wells/${wellId}/daily-reports/${latest.id}`);
-      const res = await axios.post(
-        `${API_BASE_URL}/wells/${wellId}/daily-reports/analyze?language=${language}&provider=${provider}`,
+      const full = await api.get(`/wells/${wellId}/daily-reports/${latest.id}`);
+      const res = await api.post(
+        `/wells/${wellId}/daily-reports/analyze?language=${language}&provider=${provider}`,
         { result_data: full.data, params: { report_type: latest.report_type } }
       );
       setAiAnalysis(res.data);
-    } catch (e: any) {
-      setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
+    } catch (e: unknown) {
+      setAiAnalysis({ analysis: `Error: ${(e as APIError)?.response?.data?.detail || (e as APIError)?.message || 'Unknown error'}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
     }
     setIsAnalyzing(false);
   };
@@ -477,7 +477,7 @@ const DailyReportsModule: React.FC = () => {
   // ---------------------------------------------------------------
   // Render: Collapsible Section
   // ---------------------------------------------------------------
-  const Section = ({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) => (
+  const Section = ({ id, title, icon: Icon, children }: { id: string; title: string; icon: React.ElementType; children: React.ReactNode }) => (
     <div className="border border-white/5 rounded-xl overflow-hidden mb-4">
       <button
         onClick={() => toggleSection(id)}
@@ -500,7 +500,7 @@ const DailyReportsModule: React.FC = () => {
   );
 
   // Helper: simple input field
-  const Field = ({ label, value, onChange, type = 'number', unit = '' }: any) => (
+  const Field = ({ label, value, onChange, type = 'number', unit = '' }: { label: string; value: string | number; onChange: (v: string | number) => void; type?: string; unit?: string }) => (
     <div>
       <label className="text-xs text-white/40 block mb-1">{label}{unit && ` (${unit})`}</label>
       <input type={type} value={value || ''} onChange={e => onChange(type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)} className="input-field w-full py-2 px-3 text-sm" />
@@ -508,7 +508,7 @@ const DailyReportsModule: React.FC = () => {
   );
 
   // Helper: textarea field
-  const TextArea = ({ label, value, onChange, rows = 3 }: any) => (
+  const TextArea = ({ label, value, onChange, rows = 3 }: { label: string; value: string | number; onChange: (v: string) => void; rows?: number }) => (
     <div>
       <label className="text-xs text-white/40 block mb-1">{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} className="input-field w-full py-2 px-3 text-sm resize-y min-h-[60px]" />
@@ -945,7 +945,7 @@ const DailyReportsModule: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {(headerData.surveys || []).map((s: any, i: number) => (
+                      {(headerData.surveys || []).map((s: Record<string, string | number>, i: number) => (
                         <tr key={i} className="border-b border-white/5">
                           <td className="py-1 px-1"><input type="number" value={s.md || ''} onChange={e => updateSurvey(i, 'md', parseFloat(e.target.value) || 0)} className="input-field w-18 py-1 px-1.5 text-xs" /></td>
                           <td className="py-1 px-1"><input type="number" value={s.tvd || ''} onChange={e => updateSurvey(i, 'tvd', parseFloat(e.target.value) || 0)} className="input-field w-18 py-1 px-1.5 text-xs" /></td>
@@ -1042,7 +1042,7 @@ const DailyReportsModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(hsseData.personnel_companies || []).map((c: any, i: number) => (
+                  {(hsseData.personnel_companies || []).map((c: Record<string, string | number>, i: number) => (
                     <tr key={i} className="border-b border-white/5">
                       <td className="py-1 px-1"><input type="text" value={c.company || ''} onChange={e => updateCompany(i, 'company', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. Halliburton" /></td>
                       <td className="py-1 px-1"><input type="number" value={c.headcount || ''} onChange={e => updateCompany(i, 'headcount', parseInt(e.target.value) || 0)} className="input-field w-20 py-1 px-1.5 text-xs" /></td>
@@ -1071,7 +1071,7 @@ const DailyReportsModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(mudInventory.materials || []).map((m: any, i: number) => (
+                  {(mudInventory.materials || []).map((m: Record<string, string | number>, i: number) => (
                     <tr key={i} className="border-b border-white/5">
                       <td className="py-1 px-1"><input type="text" value={m.product || ''} onChange={e => updateMaterial(i, 'product', e.target.value)} className="input-field w-full py-1 px-1.5 text-xs" placeholder="e.g. Barite" /></td>
                       <td className="py-1 px-1"><input type="number" value={m.inventory || ''} onChange={e => updateMaterial(i, 'inventory', parseFloat(e.target.value) || 0)} className="input-field w-20 py-1 px-1.5 text-xs" /></td>

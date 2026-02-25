@@ -7,7 +7,7 @@ import ChartContainer from '../ChartContainer';
 import { CircleDot } from 'lucide-react';
 
 interface BiaxialEllipseProps {
-  biaxial: any;
+  biaxial: { yield_strength_psi?: number; axial_stress_psi?: number; original_collapse_psi?: number; corrected_collapse_psi?: number; reduction_factor?: number } | null;
   height?: number;
 }
 

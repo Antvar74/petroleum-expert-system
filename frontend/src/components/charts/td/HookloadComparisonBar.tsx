@@ -62,7 +62,7 @@ const HookloadComparisonBar: React.FC<HookloadComparisonBarProps> = ({
           {data.map((entry, i) => (
             <Cell key={i} fill={TD_COLORS[entry.operation] || '#888'} fillOpacity={0.8} />
           ))}
-          <LabelList dataKey="hookload_klb" position="right" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={(v: any) => `${v} klb`} />
+          <LabelList dataKey="hookload_klb" position="right" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={(v: number) => `${v} klb`} />
         </Bar>
       </BarChart>
     </ChartContainer>

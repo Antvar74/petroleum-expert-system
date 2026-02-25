@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Play, RefreshCw } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import CTPressureProfile from './charts/wh/CTPressureProfile';
 import SnubbingForceChart from './charts/wh/SnubbingForceChart';
 import WeightDragOverlay from './charts/wh/WeightDragOverlay';
@@ -12,6 +11,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
 
 interface WorkoverHydraulicsModuleProps {
   wellId?: number;
@@ -39,8 +39,8 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     yield_strength_psi: 80000,
   });
 
-  const [result, setResult] = useState<any>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
   ]);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
+    api.get(`/providers`).then(res => setAvailableProviders(res.data)).catch(() => {});
   }, []);
 
   const updateParam = (key: string, value: string) => {
@@ -62,13 +62,13 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/workover-hydraulics`
-        : `${API_BASE_URL}/calculate/workover-hydraulics`;
-      const res = await axios.post(url, params);
+        ? `/wells/${wellId}/workover-hydraulics`
+        : `/calculate/workover-hydraulics`;
+      const res = await api.post(url, params);
       setResult(res.data);
       setActiveTab('results');
-    } catch (e: any) {
-      addToast('Error: ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast('Error: ' + (e as APIError).response?.data?.detail || (e as APIError).message, 'error');
     }
     setLoading(false);
   };
@@ -78,15 +78,15 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/workover-hydraulics/analyze`
-        : `${API_BASE_URL}/analyze/module`;
+        ? `/wells/${wellId}/workover-hydraulics/analyze`
+        : `/analyze/module`;
       const analyzeBody = wellId
         ? { result_data: result, params, language, provider }
         : { module: 'workover-hydraulics', well_name: wellName || 'General Analysis', result_data: result, params, language, provider };
-      const res = await axios.post(analyzeUrl, analyzeBody);
+      const res = await api.post(analyzeUrl, analyzeBody);
       setAiAnalysis(res.data);
-    } catch (e: any) {
-      setAiAnalysis({ analysis: `Error: ${e?.response?.data?.detail || e?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
+    } catch (e: unknown) {
+      setAiAnalysis({ analysis: `Error: ${(e as APIError)?.response?.data?.detail || (e as APIError)?.message}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
     }
     setIsAnalyzing(false);
   };
@@ -138,7 +138,7 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
                   <div key={key} className="space-y-1">
                     <label className="text-xs text-gray-400">{label}</label>
                     <input type="number" step={step}
-                      value={(params as any)[key]}
+                      value={(params as Record<string, unknown>)[key]}
                       onChange={e => updateParam(key, e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
                     />

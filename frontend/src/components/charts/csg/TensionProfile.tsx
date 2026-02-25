@@ -9,7 +9,7 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { ArrowUp } from 'lucide-react';
 
 interface TensionProfileProps {
-  tensionLoad: any;
+  tensionLoad: { buoyant_weight_lbs?: number; shock_load_lbs?: number; bending_load_lbs?: number; overpull_lbs?: number; total_tension_lbs?: number; pipe_body_yield_lbs?: number } | null;
   height?: number;
 }
 
@@ -49,7 +49,7 @@ const TensionProfile: React.FC<TensionProfileProps> = ({ tensionLoad, height = 3
           tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
           label={{ value: 'Carga (lbs)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => `${Number(v).toLocaleString()} lbs`} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => `${Number(v).toLocaleString()} lbs`} />} />
         <Legend wrapperStyle={{ color: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
         <Bar dataKey="buoyant" stackId="a" fill="#6366f1" fillOpacity={0.7} name="Peso Flotado" radius={[0, 0, 0, 0]} />
         <Bar dataKey="shock" stackId="a" fill="#ef4444" fillOpacity={0.7} name="Shock" />

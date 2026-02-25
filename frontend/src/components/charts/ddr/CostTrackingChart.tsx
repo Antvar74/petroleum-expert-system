@@ -41,7 +41,7 @@ const CostTrackingChart: React.FC<CostTrackingChartProps> = ({
   }
 
   const afeBudget = data.find(d => d.afe_budget)?.afe_budget;
-  const formatter = (v: any) => `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const formatter = (v: number) => `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   return (
     <ChartContainer title={title} icon={DollarSign} height={height}>

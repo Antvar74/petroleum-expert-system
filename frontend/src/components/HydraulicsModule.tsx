@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplets, Plus, Trash2, Play, Waves, BrainCircuit, Upload } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import PressureWaterfallChart from './charts/hyd/PressureWaterfallChart';
 import ECDProfileChart from './charts/hyd/ECDProfileChart';
 import FlowRegimeTrack from './charts/hyd/FlowRegimeTrack';
@@ -13,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { CircuitSection, HydResult, HydSectionResult, SurgeSwabResult } from '../types/modules/hydraulics';
 import * as XLSX from 'xlsx';
 
 interface HydraulicsModuleProps {
@@ -25,7 +26,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
   const [loading, setLoading] = useState(false);
 
   // Circuit sections
-  const [sections, setSections] = useState<any[]>([
+  const [sections, setSections] = useState<CircuitSection[]>([
     { section_type: 'drill_pipe', length: 9500, od: 5.0, id_inner: 4.276 },
     { section_type: 'hwdp', length: 300, od: 5.0, id_inner: 3.0 },
     { section_type: 'collar', length: 200, od: 6.5, id_inner: 2.813 },
@@ -42,7 +43,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     tvd: 10000, rheology_model: 'bingham_plastic',
     n: 0.5, k: 300, surface_equipment_loss: 80,
   });
-  const [hydResult, setHydResult] = useState<any>(null);
+  const [hydResult, setHydResult] = useState<HydResult | null>(null);
 
   // Surge/Swab
   const [surgeParams, setSurgeParams] = useState({
@@ -50,10 +51,10 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     pipe_od: 5.0, pipe_id: 4.276, hole_id: 8.5,
     pipe_velocity_fpm: 90, pipe_open: true,
   });
-  const [surgeResult, setSurgeResult] = useState<any>(null);
+  const [surgeResult, setSurgeResult] = useState<SurgeSwabResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
@@ -66,7 +67,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
 
   // Fetch available providers on mount
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`)
+    api.get(`/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
   }, []);
@@ -76,9 +77,9 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/analyze`
-        : `${API_BASE_URL}/analyze/module`;
-      const res = await axios.post(analyzeUrl, {
+        ? `/wells/${wellId}/hydraulics/analyze`
+        : `/analyze/module`;
+      const res = await api.post(analyzeUrl, {
         ...(wellId ? {} : { module: 'hydraulics', well_name: wellName || 'General Analysis' }),
         result_data: { hydraulics: hydResult || {}, surge: surgeResult || {} },
         params: hydParams,
@@ -86,9 +87,9 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         provider,
       });
       setAiAnalysis(res.data);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('AI analysis error:', e);
-      const errMsg = e?.response?.data?.detail || e?.message || 'Connection error. Please try again.';
+      const err = e as APIError; const errMsg = err.response?.data?.detail || err.message || 'Connection error. Please try again.';
       setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
     }
     setIsAnalyzing(false);
@@ -127,7 +128,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         if (!sheet) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const rows: Record<string, string>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         if (rows.length === 0) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
 
         const hdrMap: Record<string, string> = {};
@@ -141,7 +142,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
 
         const parsed = rows
           .map(row => {
-            const sec: any = { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 };
+            const sec: CircuitSection = { section_type: 'drill_pipe', length: 1000, od: 5.0, id_inner: 4.276 };
             for (const [fc, sf] of Object.entries(hdrMap)) {
               const v = row[fc];
               if (sf === 'section_type') {
@@ -153,7 +154,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
             }
             return sec;
           })
-          .filter((s: any) => String(s.section_type).trim() !== '');
+          .filter((s: CircuitSection) => String(s.section_type).trim() !== '');
 
         if (parsed.length === 0) { addToast(t('hydraulics.circuit.uploadEmpty'), 'error'); return; }
         setSections(parsed);
@@ -171,11 +172,11 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     if (!wellId) return;
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/wells/${wellId}/hydraulic-sections`, sections);
+      await api.post(`/wells/${wellId}/hydraulic-sections`, sections);
       const nozSizes = nozzles.sizes.split(',').map(Number).filter(n => n > 0);
-      await axios.post(`${API_BASE_URL}/wells/${wellId}/bit-nozzles`, { nozzle_sizes: nozSizes, bit_diameter: nozzles.bit_diameter });
+      await api.post(`/wells/${wellId}/bit-nozzles`, { nozzle_sizes: nozSizes, bit_diameter: nozzles.bit_diameter });
       addToast(t('hydraulics.circuit.circuitSaved'), 'success');
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
   };
 
@@ -184,14 +185,14 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     try {
       const nozSizes = nozzles.sizes.split(',').map(Number).filter(n => n > 0);
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/calculate`
-        : `${API_BASE_URL}/calculate/hydraulics`;
+        ? `/wells/${wellId}/hydraulics/calculate`
+        : `/calculate/hydraulics`;
       const body = wellId
         ? { ...hydParams, nozzle_sizes: nozSizes }
         : { ...hydParams, nozzle_sizes: nozSizes, sections };
-      const res = await axios.post(url, body);
+      const res = await api.post(url, body);
       setHydResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
   };
 
@@ -199,11 +200,11 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/hydraulics/surge-swab`
-        : `${API_BASE_URL}/calculate/hydraulics/surge-swab`;
-      const res = await axios.post(url, surgeParams);
+        ? `/wells/${wellId}/hydraulics/surge-swab`
+        : `/calculate/hydraulics/surge-swab`;
+      const res = await api.post(url, surgeParams);
       setSurgeResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message), 'error'); }
     setLoading(false);
   };
 
@@ -367,7 +368,7 @@ const HydraulicsModule: React.FC<HydraulicsModuleProps> = ({ wellId, wellName = 
                       </tr>
                     </thead>
                     <tbody>
-                      {hydResult.section_results?.map((sr: any, i: number) => (
+                      {hydResult.section_results?.map((sr: HydSectionResult, i: number) => (
                         <tr key={i} className="border-b border-white/5 hover:bg-white/5">
                           <td className="py-1 px-2">{sr.section_type}</td>
                           <td className="py-1 px-2 text-right font-mono">{sr.pressure_loss_psi}</td>

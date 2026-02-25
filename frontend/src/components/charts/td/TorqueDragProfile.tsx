@@ -9,7 +9,7 @@ import { Activity } from 'lucide-react';
 
 interface TorqueDragProfileProps {
   /** Station results with md, torque, drag fields */
-  data: any[];
+  data: Array<Record<string, number>>;
   height?: number;
 }
 

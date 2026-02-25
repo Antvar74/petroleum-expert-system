@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models.database import Base, get_db, Well
-from middleware.auth import verify_api_key
+from middleware.auth import verify_auth
 
 
 # ============================================================
@@ -58,7 +58,7 @@ def client(db_session):
         return None
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[verify_api_key] = override_auth
+    app.dependency_overrides[verify_auth] = override_auth
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

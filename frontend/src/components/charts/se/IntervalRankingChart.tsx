@@ -13,7 +13,7 @@ interface IntervalRankingChartProps {
       rank: number; top_md: number; base_md: number;
       score: number; avg_phi: number; avg_sw: number;
     }[];
-    best: any;
+    best: { rank: number; top_md: number; base_md: number; score: number; avg_phi: number; avg_sw: number } | null;
   };
   height?: number;
 }

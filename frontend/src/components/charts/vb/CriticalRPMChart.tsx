@@ -44,7 +44,7 @@ const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, ope
             <Cell key={idx} fill={entry.color} opacity={0.7} />
           ))}
           <LabelList dataKey="rpm" position="top" fill="rgba(255,255,255,0.7)" fontSize={11}
-            formatter={((v: any) => `${Math.round(Number(v))}`) as any} />
+            formatter={((v: number) => `${Math.round(Number(v))}`) as (value: number) => string} />
         </Bar>
       </BarChart>
     </ChartContainer>

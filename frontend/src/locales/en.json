@@ -42,7 +42,7 @@
     "casingDesign": "Casing Design",
     "dailyReports": "Daily Reports / DDR",
     "petrophysics": "Advanced Petrophysics",
-    "realTimeMonitor": "WITSML Real-Time"
+    "petrophysicsAdvanced": "Advanced Petrophysics"
   },
   "app": {
     "creatingEvent": "Creating event record...",
@@ -63,7 +63,7 @@
     "multiAgentPipeline": "Multi-Agent Specialist Pipeline",
     "rootCauseAnalysis": "Root Cause Analysis (RCA)",
     "engineeringDashboard": "Engineering Dashboard",
-    "torqueDragRealTime": "Torque & Drag Real-Time",
+    "torqueDragTitle": "Torque & Drag",
     "hydraulicsECD": "Hydraulics / Dynamic ECD",
     "stuckPipeAnalyzer": "Stuck Pipe Analyzer",
     "wellControlKillSheet": "Well Control / Kill Sheet",
@@ -87,7 +87,7 @@
     "wellRequired": "Well Selection Required",
     "wellRequiredDescription": "This section requires an active well. Select a well to access event analysis and well-specific data.",
     "selectWell": "Select Well",
-    "realTimeMonitor": "WITSML Real-Time Monitor"
+    "petrophysicsAdvanced": "Advanced Petrophysics"
   },
   "sidebar": {
     "engineeringDashboard": "Dashboard",
@@ -117,8 +117,6 @@
     "llmError": "LLM Error",
     "operational": "Operational",
     "agents": "agents",
-    "realTime": "Real-Time",
-    "realTimeMonitor": "WITSML Monitor",
     "reporting": "Reporting"
   },
   "well": {
@@ -151,7 +149,7 @@
     "professionalReports": "Professional reports",
     "rechartsCustomSVG": "Recharts + Custom SVG",
     "yes": "Yes",
-    "moduleDescTD": "Real-time axial force analysis, hookload prediction, and buckling assessment",
+    "moduleDescTD": "Axial force analysis, hookload prediction, and buckling assessment",
     "moduleDescHyd": "Pressure loss distribution, ECD profiling, bit optimization, and surge/swab analysis",
     "moduleDescSP": "Mechanism diagnosis, risk matrix assessment, free point estimation",
     "moduleDescWC": "Kill sheet calculations, pressure schedules, volumetric & bullhead methods",
@@ -165,8 +163,7 @@
     "moduleDescVB": "BHA vibration analysis, critical RPM, lateral & torsional modes",
     "moduleDescCem": "Slurry design, displacement mechanics, centralization, job simulation",
     "moduleDescCsg": "Load cases, burst/collapse/tension design, safety factors, grade selection",
-    "moduleDescPetro": "LAS import, Waxman-Smits & Dual-Water Sw, Pickett plot, crossplots, net pay",
-    "moduleDescRTM": "WITSML 1.4.1 data ingestion, real-time KPI gauges, drilling parameter charts, alarm system"
+    "moduleDescPetro": "LAS import, Waxman-Smits & Dual-Water Sw, Pickett plot, crossplots, net pay"
   },
   "ddr": {
     "title": "Daily Reports / DDR",
@@ -549,7 +546,7 @@
       "survey": "Survey Input",
       "drillstring": "Drillstring",
       "analysis": "T&D Analysis",
-      "compare": "Real-Time Compare"
+      "compare": "Multi-Op Compare"
     },
     "survey": {
       "title": "Survey Stations",
@@ -1352,44 +1349,6 @@
     "preventiveActions": "Preventive Actions",
     "exporting": "Exporting...",
     "exportToPDF": "Export RCA to PDF"
-  },
-  "realtime": {
-    "title": "WITSML Real-Time Monitor",
-    "subtitle": "Real-time drilling data via WITSML 1.4.1",
-    "connected": "Connected",
-    "disconnected": "Disconnected",
-    "loadDemo": "Demo Data",
-    "tabDashboard": "Dashboard",
-    "tabAlarms": "Alarms",
-    "tabXmlInput": "Data Input",
-    "kpiROP": "ROP",
-    "kpiHookload": "Hookload",
-    "kpiECD": "ECD",
-    "kpiRPM": "RPM",
-    "kpiTorque": "Torque",
-    "kpiWOB": "WOB",
-    "kpiSPP": "SPP",
-    "kpiFlowRate": "Flow Rate",
-    "kpiMD": "Depth MD",
-    "noDataYet": "No real-time data loaded",
-    "noDataHint": "Paste WITSML XML, connect to a server, or load demo data",
-    "chartTitle": "Drilling Parameters — Time Series",
-    "alarmHistory": "Alarm History",
-    "clearAlarms": "Clear All",
-    "noAlarms": "No alarms recorded",
-    "alarmECDHigh": "ECD {{value}} ppg exceeds limit of {{threshold}} ppg",
-    "alarmTorqueHigh": "Torque {{value}} ft-lb exceeds limit of {{threshold}} ft-lb",
-    "pasteXml": "Paste XML",
-    "connectServer": "WITSML Server",
-    "pasteWitsmlXml": "Paste WITSML Log XML",
-    "xmlPlaceholder": "Paste WITSML 1.4.1 log XML here...",
-    "parseAndLoad": "Parse & Load Data",
-    "serverConnection": "WITSML Server Connection",
-    "serverUrl": "Server URL",
-    "username": "Username",
-    "password": "Password",
-    "connecting": "Connecting...",
-    "connect": "Connect"
   },
   "dataReadiness": {
     "title": "Data Readiness",

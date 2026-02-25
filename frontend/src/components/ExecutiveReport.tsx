@@ -22,7 +22,7 @@ interface ExecutiveReportProps {
  * White background, professional layout, designed for A4 printing.
  */
 const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
-  ({ moduleName, wellName, agentRole, confidence, keyMetrics, analysisText }, ref) => {
+  ({ moduleName, wellName, agentRole, keyMetrics, analysisText }, ref) => {
     const { t } = useTranslation();
     const { language } = useLanguage();
     const locale = language === 'es' ? 'es-MX' : 'en-US';
@@ -32,8 +32,6 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
 
     // Parse analysis text into sections
     const sections = parseAnalysisSections(analysisText || '');
-
-    const confidenceColor = confidence === 'HIGH' ? '#16a34a' : confidence === 'MEDIUM' ? '#ca8a04' : '#dc2626';
 
     return (
       <div ref={ref} style={{ display: 'none' }} className="executive-report">
@@ -50,10 +48,6 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
               <div style={{ fontWeight: 700, fontSize: '13px', color: '#1e3a5f' }}>{t('ai.well')}: {wellName}</div>
               <div>{t('ai.date')}: {dateStr} | {timeStr}</div>
               <div>{t('ai.analyst')}: {agentRole}</div>
-              <div style={{ marginTop: '4px' }}>
-                {t('ai.confidence')}:{' '}
-                <span style={{ color: confidenceColor, fontWeight: 700 }}>{confidence}</span>
-              </div>
             </div>
           </div>
         </div>

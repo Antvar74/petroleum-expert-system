@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Well } from './types/api';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Activity, GitBranch, Loader2, Database } from 'lucide-react';
 import LanguageSelector from './components/LanguageSelector';
@@ -26,15 +27,14 @@ import CementingModule from './components/CementingModule';
 import CasingDesignModule from './components/CasingDesignModule';
 import DailyReportsModule from './components/DailyReportsModule';
 import PetrophysicsModule from './components/PetrophysicsModule';
-import RealTimeMonitor from './components/RealTimeMonitor';
 import ModuleDashboard from './components/charts/dashboard/ModuleDashboard';
 
 function AppContent() {
   const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState('module-dashboard');
-  const [selectedWell, setSelectedWell] = useState<any>(null);
-  const [activeAnalysis, setActiveAnalysis] = useState<any>(null);
+  const [selectedWell, setSelectedWell] = useState<Well | null>(null);
+  const [activeAnalysis, setActiveAnalysis] = useState<{id: number; analysis_id: number; workflow: string[]} | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStep, setSubmitStep] = useState('');
   const { addToast } = useToast();
@@ -53,12 +53,12 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  const handleWellSelect = (well: any) => {
+  const handleWellSelect = (well: Well) => {
     setSelectedWell(well);
     setCurrentView('dashboard');
   };
 
-  const handleEventSubmit = async (eventData: any) => {
+  const handleEventSubmit = async (eventData: Record<string, unknown>) => {
     setIsSubmitting(true);
     try {
       // 1. Create the Structured Event record
@@ -217,8 +217,6 @@ function AppContent() {
         return <DailyReportsModule />;
       case 'petrophysics':
         return <PetrophysicsModule wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
-      case 'real-time-monitor':
-        return <RealTimeMonitor wellId={selectedWell?.id} wellName={selectedWell?.name || ''} />;
       case 'settings':
         return <div className="p-12 text-center text-white/40 italic">{t('app.settingsComingSoon')}</div>;
       default:
@@ -259,7 +257,7 @@ function AppContent() {
               {currentView === 'analysis' && <span className="font-bold">{t('app.multiAgentPipeline')}</span>}
               {currentView === 'rca' && <span className="font-bold">{t('app.rootCauseAnalysis')}</span>}
               {currentView === 'module-dashboard' && <span className="font-bold">{t('app.engineeringDashboard')}</span>}
-              {currentView === 'torque-drag' && <span className="font-bold">{t('app.torqueDragRealTime')}</span>}
+              {currentView === 'torque-drag' && <span className="font-bold">{t('app.torqueDragTitle')}</span>}
               {currentView === 'hydraulics' && <span className="font-bold">{t('app.hydraulicsECD')}</span>}
               {currentView === 'stuck-pipe' && <span className="font-bold">{t('app.stuckPipeAnalyzer')}</span>}
               {currentView === 'well-control' && <span className="font-bold">{t('app.wellControlKillSheet')}</span>}
@@ -272,7 +270,6 @@ function AppContent() {
               {currentView === 'vibrations' && <span className="font-bold">{t('app.vibrationsDynamics')}</span>}
               {currentView === 'cementing' && <span className="font-bold">{t('app.cementingSimulation')}</span>}
               {currentView === 'casing-design' && <span className="font-bold">{t('app.casingDesignAPI')}</span>}
-              {currentView === 'real-time-monitor' && <span className="font-bold">{t('app.realTimeMonitor')}</span>}
             </div>
           </div>
           <div className="flex items-center gap-6">

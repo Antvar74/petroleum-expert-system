@@ -7,8 +7,8 @@ import ChartContainer from '../ChartContainer';
 import { ArrowDownCircle } from 'lucide-react';
 
 interface FreeFallIndicatorProps {
-  freeFall: any;
-  utube: any;
+  freeFall: { free_fall_occurs?: boolean; free_fall_height_ft?: number; explanation?: string } | null;
+  utube: { utube_occurs?: boolean; pressure_imbalance_psi?: number; explanation?: string; lift_pressure_psi?: number } | null;
   height?: number;
 }
 

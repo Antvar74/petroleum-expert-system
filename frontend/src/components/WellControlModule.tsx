@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Save, AlertTriangle, TrendingDown, BrainCircuit } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import PressureScheduleChart from './charts/wc/PressureScheduleChart';
 import KillMethodCompare from './charts/wc/KillMethodCompare';
 import WellborePressureProfile from './charts/wc/WellborePressureProfile';
@@ -15,6 +14,16 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
+import type {
+  KillSheetPreRecordResult,
+  KillSheetResult,
+  WCVolumetricResult,
+  WCBullheadResult,
+  KickMigrationResult,
+  KillSimulationResult,
+  WCPressureScheduleStep,
+} from '../types/modules/well-control';
 
 interface WellControlModuleProps {
   wellId?: number;
@@ -33,20 +42,20 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     dc_od: 6.5, dc_id: 2.813, dc_length: 500,
     scr_pressure: 800, scr_rate: 30, lot_emw: 14.0, pump_output: 0.1,
   });
-  const [preRecordResult, setPreRecordResult] = useState<any>(null);
+  const [preRecordResult, setPreRecordResult] = useState<KillSheetPreRecordResult | null>(null);
 
   // Active Kill state
   const [kickData, setKickData] = useState({
     sidpp: 350, sicp: 500, pit_gain: 15, kill_method: 'wait_weight',
   });
-  const [killResult, setKillResult] = useState<any>(null);
+  const [killResult, setKillResult] = useState<KillSheetResult | null>(null);
 
   // Volumetric state
   const [volParams, setVolParams] = useState({
     mud_weight: 10.0, sicp: 500, tvd: 9500, annular_capacity: 0.05,
     lot_emw: 14.0, casing_shoe_tvd: 5000, safety_margin_psi: 50, pressure_increment_psi: 100,
   });
-  const [volResult, setVolResult] = useState<any>(null);
+  const [volResult, setVolResult] = useState<WCVolumetricResult | null>(null);
 
   // Bullhead state
   const [bullheadParams, setBullheadParams] = useState({
@@ -54,7 +63,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     casing_shoe_tvd: 5000, lot_emw: 14.0, dp_capacity: 0.018,
     depth_md: 10000, formation_pressure: 5720,
   });
-  const [bullheadResult, setBullheadResult] = useState<any>(null);
+  const [bullheadResult, setBullheadResult] = useState<WCBullheadResult | null>(null);
 
   // Simulation state
   const [simParams, setSimParams] = useState({
@@ -65,11 +74,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     strokes_to_bit: 1000, strokes_bit_to_surface: 2000,
     kill_method: 'drillers',
   });
-  const [kickMigrationResult, setKickMigrationResult] = useState<any>(null);
-  const [killSimResult, setKillSimResult] = useState<any>(null);
+  const [kickMigrationResult, setKickMigrationResult] = useState<KickMigrationResult | null>(null);
+  const [killSimResult, setKillSimResult] = useState<KillSimulationResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
@@ -81,7 +90,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
 
   // Fetch available providers on mount
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`)
+    api.get(`/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
   }, []);
@@ -91,9 +100,9 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/well-control/analyze`
-        : `${API_BASE_URL}/analyze/module`;
-      const res = await axios.post(analyzeUrl, {
+        ? `/wells/${wellId}/well-control/analyze`
+        : `/analyze/module`;
+      const res = await api.post(analyzeUrl, {
         ...(wellId ? {} : { module: 'well-control', well_name: wellName || 'General Analysis' }),
         result_data: {
           kill: killResult || {},
@@ -105,10 +114,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         provider,
       });
       setAiAnalysis(res.data);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('AI analysis error:', e);
-      const errMsg = e?.response?.data?.detail || e?.message || 'Connection error. Please try again.';
-      setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
+      const err = e as APIError;
+      const errMsg = err?.response?.data?.detail || err?.message || 'Connection error. Please try again.';
+      setAiAnalysis({ agent: 'Error', role: 'Error', analysis: `Error: ${errMsg}`, confidence: 'LOW' });
     }
     setIsAnalyzing(false);
   };
@@ -126,11 +136,11 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/kill-sheet/pre-record`
-        : `${API_BASE_URL}/calculate/kill-sheet/pre-record`;
-      const res = await axios.post(url, preRecord);
+        ? `/wells/${wellId}/kill-sheet/pre-record`
+        : `/calculate/kill-sheet/pre-record`;
+      const res = await api.post(url, preRecord);
       setPreRecordResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -138,8 +148,8 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/kill-sheet/calculate`
-        : `${API_BASE_URL}/calculate/kill-sheet/calculate`;
+        ? `/wells/${wellId}/kill-sheet/calculate`
+        : `/calculate/kill-sheet/calculate`;
       // Well-scoped route pulls pre-record from DB; standalone needs it in body
       const body = wellId
         ? kickData
@@ -159,34 +169,34 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
             strokes_bit_to_surface: preRecordResult?.strokes?.strokes_bit_to_surface ?? 0,
             total_strokes: preRecordResult?.strokes?.total_strokes ?? 0,
           };
-      const res = await axios.post(url, body);
+      const res = await api.post(url, body);
       setKillResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
   const runVolumetric = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/kill-sheet/volumetric`, volParams);
+      const res = await api.post(`/kill-sheet/volumetric`, volParams);
       setVolResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
   const runBullhead = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/kill-sheet/bullhead`, bullheadParams);
+      const res = await api.post(`/kill-sheet/bullhead`, bullheadParams);
       setBullheadResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
   const runKickMigration = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/calculate/well-control/kick-migration`, {
+      const res = await api.post(`/calculate/well-control/kick-migration`, {
         well_depth_tvd: simParams.well_depth_tvd, mud_weight: simParams.mud_weight,
         kick_volume_bbl: simParams.kick_volume_bbl, kick_gradient: simParams.kick_gradient,
         sidpp: simParams.sidpp, sicp: simParams.sicp,
@@ -194,14 +204,14 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         time_steps_min: simParams.time_steps_min,
       });
       setKickMigrationResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
   const runKillSimulation = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/calculate/well-control/kill-simulation`, {
+      const res = await api.post(`/calculate/well-control/kill-simulation`, {
         well_depth_tvd: simParams.well_depth_tvd, mud_weight: simParams.mud_weight,
         kill_mud_weight: simParams.kill_mud_weight, sidpp: simParams.sidpp,
         scr: simParams.scr, strokes_to_bit: simParams.strokes_to_bit,
@@ -209,7 +219,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
         method: simParams.kill_method,
       });
       setKillSimResult(res.data);
-    } catch (e: any) { addToast('Error: ' + (e.response?.data?.detail || e.message), 'error'); }
+    } catch (e: unknown) { const err = e as APIError; addToast('Error: ' + (err.response?.data?.detail || err.message || 'Unknown error'), 'error'); }
     setLoading(false);
   };
 
@@ -388,7 +398,7 @@ const WellControlModule: React.FC<WellControlModuleProps> = ({ wellId, wellName 
                       </tr>
                     </thead>
                     <tbody>
-                      {killResult.pressure_schedule.map((s: any, i: number) => (
+                      {killResult.pressure_schedule.map((s: WCPressureScheduleStep, i: number) => (
                         <tr key={i} className="border-b border-white/5 hover:bg-white/5">
                           <td className="py-1 px-2">{s.step}</td>
                           <td className="py-1 px-2 text-right font-mono">{s.strokes}</td>

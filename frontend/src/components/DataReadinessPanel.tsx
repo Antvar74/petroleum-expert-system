@@ -11,7 +11,7 @@ import {
   ClipboardCheck, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, FileUp, Info,
 } from 'lucide-react';
-import { API_BASE_URL } from '../config';
+import api from '../lib/api';
 
 interface DataRequirement {
   key: string;
@@ -66,11 +66,8 @@ const DataReadinessPanel: React.FC<DataReadinessPanelProps> = ({
       try {
         const params = new URLSearchParams({ phase });
         if (event) params.append('event', event);
-        const res = await fetch(`${API_BASE_URL}/modules/${moduleId}/data-requirements?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setRequirements(data);
-        }
+        const res = await api.get(`/modules/${moduleId}/data-requirements?${params}`);
+        setRequirements(res.data);
       } catch {
         // Silently fail -- panel is supplementary
       } finally {

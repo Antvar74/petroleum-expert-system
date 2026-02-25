@@ -9,7 +9,7 @@ import { CHART_DEFAULTS } from '../ChartTheme';
 import { CheckCircle } from 'lucide-react';
 
 interface SafetyFactorTrackProps {
-  safetyFactors: any;
+  safetyFactors: { results: Record<string, { safety_factor: number; minimum_sf: number; passes: boolean }> } | null;
   height?: number;
 }
 
@@ -28,7 +28,7 @@ const SafetyFactorTrack: React.FC<SafetyFactorTrackProps> = ({ safetyFactors, he
     };
   }).filter(Boolean);
 
-  const allPass = data.every((d: any) => d.passes);
+  const allPass = data.every((d: { name: string; sf: number; minSf: number; passes: boolean } | null) => d!.passes);
 
   return (
     <ChartContainer
@@ -52,11 +52,11 @@ const SafetyFactorTrack: React.FC<SafetyFactorTrackProps> = ({ safetyFactors, he
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 12, fontWeight: 600 }}
           width={80}
         />
-        <Tooltip content={<DarkTooltip formatter={(v: any) => Number(v).toFixed(2)} />} />
+        <Tooltip content={<DarkTooltip formatter={(v: number) => Number(v).toFixed(2)} />} />
         <ReferenceLine x={1.0} stroke="rgba(255,255,255,0.3)" strokeDasharray="4 4"
           label={{ value: 'SF = 1.0', fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} />
         <Bar dataKey="sf" name="Safety Factor" radius={[0, 4, 4, 0]} barSize={28}>
-          {(data as any[]).map((entry, idx) => (
+          {((data as Array<{ name: string; sf: number; minSf: number; passes: boolean }>)).map((entry, idx) => (
             <Cell key={idx} fill={entry.passes ? '#22c55e' : '#ef4444'} opacity={0.7} />
           ))}
         </Bar>

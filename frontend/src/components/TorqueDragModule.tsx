@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpDown, Plus, Trash2, Play, RefreshCw, Upload, Layers, BrainCircuit } from 'lucide-react';
-import { API_BASE_URL } from '../config';
 import TDMultiSeriesChart from './charts/td/TDMultiSeriesChart';
 import HookloadComparisonBar from './charts/td/HookloadComparisonBar';
 import BucklingStatusTrack from './charts/td/BucklingStatusTrack';
@@ -13,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
 import { useToast } from './ui/Toast';
 import type { Provider, ProviderOption } from '../types/ai';
+import type { AIAnalysisResponse, APIError } from '../types/api';
+import type { SurveyStation, ComputedSurveyStation, DrillstringComponent, TDResult, TDComparisonResult, TDBackCalcResult, TDStationResult } from '../types/modules/torque-drag';
 import * as XLSX from 'xlsx';
 
 interface TorqueDragModuleProps {
@@ -27,7 +28,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
   const [loading, setLoading] = useState(false);
 
   // Survey state — default: J-type well profile with build & hold sections
-  const [surveyStations, setSurveyStations] = useState<any[]>([
+  const [surveyStations, setSurveyStations] = useState<SurveyStation[]>([
     { md: 0, inclination: 0, azimuth: 135 },
     { md: 1000, inclination: 0, azimuth: 135 },
     { md: 2000, inclination: 0, azimuth: 135 },
@@ -40,10 +41,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     { md: 9000, inclination: 45, azimuth: 135 },
     { md: 10000, inclination: 45, azimuth: 135 },
   ]);
-  const [computedSurvey, setComputedSurvey] = useState<any[]>([]);
+  const [computedSurvey, setComputedSurvey] = useState<ComputedSurveyStation[]>([]);
 
   // Drillstring state
-  const [drillstring, setDrillstring] = useState<any[]>([
+  const [drillstring, setDrillstring] = useState<DrillstringComponent[]>([
     { section_name: 'Drill Pipe', od: 5.0, id_inner: 4.276, weight: 19.5, length: 9500, order_from_bit: 3 },
     { section_name: 'HWDP', od: 5.0, id_inner: 3.0, weight: 49.3, length: 300, order_from_bit: 2 },
     { section_name: 'Drill Collar', od: 6.5, id_inner: 2.813, weight: 83.0, length: 200, order_from_bit: 1 },
@@ -59,10 +60,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     rpm: 0,
     casing_shoe_md: 5000,
   });
-  const [tdResult, setTdResult] = useState<any>(null);
+  const [tdResult, setTdResult] = useState<TDResult | null>(null);
 
   // Multi-operation compare state
-  const [compareResult, setCompareResult] = useState<any>(null);
+  const [compareResult, setCompareResult] = useState<TDComparisonResult | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
 
   // Back-calculate state
@@ -73,10 +74,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     wob: 0,
     casing_shoe_md: 5000,
   });
-  const [backCalcResult, setBackCalcResult] = useState<any>(null);
+  const [backCalcResult, setBackCalcResult] = useState<TDBackCalcResult | null>(null);
 
   // AI Analysis state
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
@@ -90,7 +91,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
   // Fetch available providers on mount
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/providers`)
+    api.get(`/providers`)
       .then(res => setAvailableProviders(res.data))
       .catch(() => { });
   }, []);
@@ -100,9 +101,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setIsAnalyzing(true);
     try {
       const analyzeUrl = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/torque-drag/analyze`
-        : `${API_BASE_URL}/analyze/module`;
-      const res = await axios.post(analyzeUrl, {
+        ? `/wells/${wellId}/torque-drag/analyze`
+        : `/analyze/module`;
+      const res = await api.post(analyzeUrl, {
         ...(wellId ? {} : { module: 'torque-drag', well_name: wellName || 'General Analysis' }),
         result_data: tdResult || {},
         params: tdParams,
@@ -110,9 +111,9 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
         provider,
       });
       setAiAnalysis(res.data);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('AI analysis error:', e);
-      const errMsg = e?.response?.data?.detail || e?.message || 'Connection error. Please try again.';
+      const errMsg = (e as APIError)?.response?.data?.detail || (e as APIError)?.message || 'Connection error. Please try again.';
       setAiAnalysis({ analysis: `Error: ${errMsg}`, confidence: 'LOW', agent_role: 'Error', key_metrics: [] });
     }
     setIsAnalyzing(false);
@@ -161,7 +162,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         if (!sheet) { addToast(t('torqueDrag.survey.uploadEmpty'), 'error'); return; }
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         if (rows.length === 0) { addToast(t('torqueDrag.survey.uploadEmpty'), 'error'); return; }
 
         const hdrMap: Record<string, string> = {};
@@ -177,7 +178,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
           .map(row => {
             const st = { md: 0, inclination: 0, azimuth: 0 };
             for (const [fc, sf] of Object.entries(hdrMap)) {
-              (st as any)[sf] = parseFloat(row[fc]) || 0;
+              (st as Record<string, number>)[sf] = parseFloat(row[fc]) || 0;
             }
             return st;
           })
@@ -200,10 +201,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     if (!wellId) return;
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/wells/${wellId}/survey`, surveyStations);
+      const res = await api.post(`/wells/${wellId}/survey`, surveyStations);
       setComputedSurvey(res.data.stations);
-    } catch (e: any) {
-      addToast(t('torqueDrag.errorUploadSurvey') + ': ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast(t('torqueDrag.errorUploadSurvey') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   };
@@ -254,7 +255,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         if (!sheet) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         if (rows.length === 0) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
 
         const hdrMap: Record<string, string> = {};
@@ -268,7 +269,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
         const parsed = rows
           .map((row, idx) => {
-            const sec: any = { section_name: '', od: 5.0, id_inner: 4.276, weight: 19.5, length: 500, order_from_bit: idx + 1 };
+            const sec: DrillstringComponent = { section_name: '', od: 5.0, id_inner: 4.276, weight: 19.5, length: 500, order_from_bit: idx + 1 };
             for (const [fc, sf] of Object.entries(hdrMap)) {
               const v = row[fc];
               if (sf === 'section_name') sec[sf] = String(v || '').trim();
@@ -276,7 +277,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
             }
             return sec;
           })
-          .filter((s: any) => s.section_name.trim() !== '');
+          .filter((s: DrillstringComponent) => s.section_name.trim() !== '');
 
         if (parsed.length === 0) { addToast(t('torqueDrag.drillstring.uploadEmpty'), 'error'); return; }
         setDrillstring(parsed);
@@ -294,10 +295,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     if (!wellId) return;
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/wells/${wellId}/drillstring`, drillstring);
+      await api.post(`/wells/${wellId}/drillstring`, drillstring);
       addToast(t('torqueDrag.drillstring.savedSuccess'), 'success');
-    } catch (e: any) {
-      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   };
@@ -307,15 +308,15 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/torque-drag`
-        : `${API_BASE_URL}/calculate/torque-drag`;
+        ? `/wells/${wellId}/torque-drag`
+        : `/calculate/torque-drag`;
       const body = wellId
         ? tdParams
         : { ...tdParams, survey: surveyStations, drillstring };
-      const res = await axios.post(url, body);
+      const res = await api.post(url, body);
       setTdResult(res.data);
-    } catch (e: any) {
-      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   };
@@ -325,8 +326,8 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setCompareLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/wells/${wellId}/torque-drag/compare`
-        : `${API_BASE_URL}/calculate/torque-drag/compare`;
+        ? `/wells/${wellId}/torque-drag/compare`
+        : `/calculate/torque-drag/compare`;
       const body = wellId
         ? {
             friction_cased: tdParams.friction_cased,
@@ -348,10 +349,10 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
             casing_shoe_md: tdParams.casing_shoe_md,
             operations: ['trip_out', 'trip_in', 'rotating', 'sliding'],
           };
-      const res = await axios.post(url, body);
+      const res = await api.post(url, body);
       setCompareResult(res.data);
-    } catch (e: any) {
-      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setCompareLoading(false);
   };
@@ -368,15 +369,15 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
     setLoading(true);
     try {
       const url = wellId
-        ? `${API_BASE_URL}/torque-drag/back-calculate`
-        : `${API_BASE_URL}/calculate/torque-drag/back-calculate`;
+        ? `/torque-drag/back-calculate`
+        : `/calculate/torque-drag/back-calculate`;
       const body = wellId
         ? { well_id: wellId, ...backCalcParams }
         : { survey: surveyStations, drillstring, ...backCalcParams };
-      const res = await axios.post(url, body);
+      const res = await api.post(url, body);
       setBackCalcResult(res.data);
-    } catch (e: any) {
-      addToast(t('common.error') + ': ' + (e.response?.data?.detail || e.message), 'error');
+    } catch (e: unknown) {
+      addToast(t('common.error') + ': ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   };
@@ -621,7 +622,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                       <div className="md:col-span-3">
                         <TDMultiSeriesChart
-                          data={tdResult.station_results?.map((sr: any) => ({
+                          data={tdResult.station_results?.map((sr: TDStationResult) => ({
                             md: sr.md,
                             [tdParams.operation]: sr.axial_force,
                           })) || []}
@@ -688,7 +689,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
                           </tr>
                         </thead>
                         <tbody>
-                          {tdResult.station_results?.map((sr: any, i: number) => (
+                          {tdResult.station_results?.map((sr: TDStationResult, i: number) => (
                             <tr key={i} className="border-b border-white/5 hover:bg-white/5">
                               <td className="py-1 px-2">{sr.md}</td>
                               <td className="py-1 px-2">{sr.inclination}°</td>
@@ -709,7 +710,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
           </motion.div>
         )}
 
-        {/* === Real-Time Compare Tab === */}
+        {/* === Multi-Operation Compare Tab === */}
         {activeTab === 'compare' && (
           <motion.div key="compare" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
             {/* Multi-Operation Compare */}
@@ -738,7 +739,7 @@ const TorqueDragModule: React.FC<TorqueDragModuleProps> = ({ wellId, wellName = 
 
                 {/* Hookload comparison bars for all operations */}
                 <HookloadComparisonBar
-                  data={(compareResult.summary_comparison || []).map((sc: any) => ({
+                  data={(compareResult.summary_comparison || []).map((sc: { operation: string; hookload_klb: number; torque_ftlb: number }) => ({
                     operation: sc.operation,
                     hookload_klb: sc.hookload_klb,
                     label: sc.operation.replace(/_/g, ' ').toUpperCase(),
