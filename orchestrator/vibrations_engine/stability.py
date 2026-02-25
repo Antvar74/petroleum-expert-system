@@ -116,6 +116,7 @@ def generate_vibration_map(
     rpm_range: Optional[List[float]] = None,
     torque_base_ftlb: float = 10000,
     rop_base_fph: float = 50,
+    stabilizer_spacing_ft: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Generate RPM vs WOB vibration stability map (heatmap data).
@@ -142,7 +143,8 @@ def generate_vibration_map(
     )
     lateral = calculate_critical_rpm_lateral(
         bha_length_ft, bha_od_in, bha_id_in, bha_weight_lbft,
-        hole_diameter_in, mud_weight_ppg
+        hole_diameter_in, mud_weight_ppg,
+        stabilizer_spacing_ft=stabilizer_spacing_ft,
     )
 
     map_data = []

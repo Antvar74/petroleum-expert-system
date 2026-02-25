@@ -417,6 +417,21 @@ class TestVibrationMap:
         max_in_data = max(pt["stability_index"] for pt in result["map_data"])
         assert result["optimal_point"]["score"] == pytest.approx(max_in_data, abs=0.1)
 
+    def test_map_has_meaningful_range(self, engine, typical_bha):
+        """Stability index must vary by > 5 points across the map (was 2.7 with L=300 bug)."""
+        result = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=typical_bha["bha_od_in"],
+            bha_id_in=typical_bha["bha_id_in"],
+            bha_weight_lbft=typical_bha["bha_weight_lbft"],
+            bha_length_ft=typical_bha["bha_length_ft"],
+            hole_diameter_in=8.5,
+            mud_weight_ppg=typical_bha["mud_weight_ppg"],
+        )
+        scores = [pt["stability_index"] for pt in result["map_data"]]
+        score_range = max(scores) - min(scores)
+        assert score_range > 5, f"Map range too flat: {score_range:.1f} (min={min(scores):.1f}, max={max(scores):.1f})"
+
     def test_custom_ranges_respected(self, engine, typical_bha):
         """Custom WOB and RPM ranges produce correct grid size."""
         wob_list = [10, 20, 30]

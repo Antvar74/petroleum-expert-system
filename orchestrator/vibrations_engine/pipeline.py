@@ -1,5 +1,5 @@
 """Full vibration analysis pipeline -- orchestrates all sub-modules."""
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from .critical_speeds import (
     calculate_critical_rpm_axial,
@@ -26,7 +26,8 @@ def calculate_full_vibration_analysis(
     mud_weight_ppg: float = 10.0,
     hole_diameter_in: float = 8.5,
     inclination_deg: float = 0.0,
-    friction_factor: float = 0.25
+    friction_factor: float = 0.25,
+    stabilizer_spacing_ft: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Complete vibration analysis combining all modes.
@@ -52,6 +53,7 @@ def calculate_full_vibration_analysis(
         hole_diameter_in=hole_diameter_in,
         mud_weight_ppg=mud_weight_ppg,
         inclination_deg=inclination_deg,
+        stabilizer_spacing_ft=stabilizer_spacing_ft,
     )
 
     # 3. Stick-slip
@@ -96,6 +98,7 @@ def calculate_full_vibration_analysis(
         mud_weight_ppg=mud_weight_ppg,
         torque_base_ftlb=torque_ftlb,
         rop_base_fph=rop_fph,
+        stabilizer_spacing_ft=stabilizer_spacing_ft,
     )
 
     # Alerts
