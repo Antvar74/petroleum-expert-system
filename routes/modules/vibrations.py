@@ -44,6 +44,9 @@ def calculate_vibrations(well_id: int, data: VibrationsCalcRequest, db: Session 
         mud_weight_ppg=data.mud_weight_ppg,
         hole_diameter_in=data.hole_diameter_in,
         inclination_deg=data.inclination_deg,
+        friction_factor=data.friction_factor,
+        stabilizer_spacing_ft=data.stabilizer_spacing_ft,
+        ucs_psi=data.ucs_psi,
     )
 
     vib_result = VibrationsResult(

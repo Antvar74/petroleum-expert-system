@@ -28,6 +28,9 @@ class VibrationsCalcRequest(BaseModel):
     hole_diameter_in: float = Field(default=8.5, description="Hole diameter (in)")
     inclination_deg: float = Field(default=30, description="Inclination (deg)")
     friction_factor: float = Field(default=0.25, description="Friction factor")
+    stabilizer_spacing_ft: Optional[float] = Field(default=None, description="Span between stabilizers (ft). If not provided, estimated as min(bha_length, 90).")
+    ucs_psi: Optional[float] = Field(default=None, description="Formation unconfined compressive strength (psi). Required for MSE efficiency calculation.")
+    n_blades: Optional[int] = Field(default=None, description="Number of PDC blades/cutters. Affects bit excitation frequency.")
 
 
 class Vibrations3DMapRequest(BaseModel):
