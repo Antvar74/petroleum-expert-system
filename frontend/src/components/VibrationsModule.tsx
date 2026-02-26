@@ -138,7 +138,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
       addToast('FEA Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setFeaLoading(false);
-  }, [bhaComponents, params, addToast]);
+    // Also recalculate main vibrations so stick-slip updates with BHA data
+    calculate();
+  }, [bhaComponents, params, addToast, calculate]);
 
   const handleRunAnalysis = () => {
     runAnalysis(result || {}, params);

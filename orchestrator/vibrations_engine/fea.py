@@ -83,11 +83,6 @@ def beam_element_matrices(
 
 MAX_ELEMENT_LENGTH_FT = 100.0  # Max element length before auto-meshing (ft)
 
-# Component types that form the BHA (analyzed for lateral vibrations).
-# Drill pipe is excluded — it's too flexible for lateral FEA and is only
-# relevant for torsional (stick-slip) analysis.
-_BHA_TYPES = {"collar", "hwdp", "stabilizer", "motor", "mwd"}
-
 
 def _auto_mesh(
     bha_components: List[Dict[str, Any]],
@@ -120,33 +115,6 @@ def _auto_mesh(
     return meshed
 
 
-_DP_FEA_MAX_LENGTH_FT = 500.0  # DP sections longer than this are excluded from lateral FEA
-
-
-def _filter_bha_for_fea(
-    bha_components: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    """Filter components for lateral FEA — exclude long drill pipe sections.
-
-    Short DP (< 500 ft, typical BHA tail section) is kept in the model.
-    Long DP (> 500 ft, e.g. 14,665 ft) is excluded because:
-    - Lateral FEA of a 15,000 ft beam produces ill-conditioned matrices
-      (condition number > 1e15) and eigenvalues near machine precision.
-    - Physically, lateral vibration analysis targets the BHA — the DP section
-      above is relevant only for torsional (stick-slip) analysis.
-
-    If filtering removes all components, returns original list unchanged.
-    """
-    filtered = [
-        c for c in bha_components
-        if c.get("type", "").lower() in _BHA_TYPES
-        or c.get("length_ft", 0) <= _DP_FEA_MAX_LENGTH_FT
-    ]
-    if not filtered:
-        return bha_components  # fallback: use all if nothing passes filter
-    return filtered
-
-
 def assemble_global_matrices(
     bha_components: List[Dict[str, Any]],
     mud_weight_ppg: float = 10.0,
@@ -154,13 +122,20 @@ def assemble_global_matrices(
     stabilizer_nodes: Optional[List[int]] = None,
     stabilizer_stiffness: float = 1e8,
 ) -> Tuple[NDArray, NDArray, NDArray, List[float]]:
-    """Assemble global [K], [Kg], [M] from BHA component list.
+    """Assemble global [K], [Kg], [M] from full drillstring component list.
 
     Components are automatically meshed (subdivided) before assembly.
-    Any component longer than MAX_ELEMENT_LENGTH_FT (30 ft) is split into
+    Any component longer than MAX_ELEMENT_LENGTH_FT is split into
     smaller equal-length sub-elements to prevent numerical instability.
 
-    Nodes numbered 0..N where node 0 = bit end, node N = top of BHA.
+    Axial force is distributed realistically along the string:
+      - At the bit (node 0): P = WOB (compression)
+      - Going upward: P decreases by the buoyant weight of each element
+      - Above the neutral point: P < 0 (tension — string hangs from rig)
+    This prevents the ill-conditioned matrices that occur when uniform
+    WOB is applied to a 15,000 ft string.
+
+    Nodes numbered 0..N where node 0 = bit end, node N = top of string.
 
     Args:
         bha_components: List of dicts with keys:
@@ -191,8 +166,10 @@ def assemble_global_matrices(
     # Buoyancy factor
     bf = max(0.01, 1.0 - mud_weight_ppg / 65.5)
 
-    # WOB in lbs (axial compression)
-    P_lbs = wob_klb * 1000.0
+    # Distributed axial force — compression at bit, tension at surface.
+    # P > 0 = compression (reduces stiffness), P < 0 = tension (adds stiffness).
+    P_wob_lbs = wob_klb * 1000.0
+    cumulative_weight_lbs = 0.0  # buoyant weight accumulated from bit upward
 
     # Track node positions for mode shape plotting
     node_positions_ft: List[float] = [0.0]
@@ -217,8 +194,13 @@ def assemble_global_matrices(
         mass_per_ft = weight_ppf * bf / GRAVITY  # slug/ft
         rhoA = mass_per_ft / 12.0  # slug/in
 
-        # Element matrices
-        Ke, Kge, Me = beam_element_matrices(length_in, EI, rhoA, P_lbs)
+        # Axial force at midpoint of this element
+        element_weight = weight_ppf * bf * length_ft  # buoyant weight (lbs)
+        P_element = P_wob_lbs - cumulative_weight_lbs - element_weight / 2.0
+        cumulative_weight_lbs += element_weight
+
+        # Element matrices with per-element axial force
+        Ke, Kge, Me = beam_element_matrices(length_in, EI, rhoA, P_element)
 
         # Assemble into global (standard FEM overlap at shared node)
         dof_start = i * 2  # each element starts 2 DOF after previous
@@ -569,12 +551,10 @@ def run_fea_analysis(
     Returns:
         Dict with eigenvalue, forced_response, campbell, node_positions_ft, summary.
     """
-    # 0. Filter: only BHA components for lateral FEA (exclude DP)
-    fea_components = _filter_bha_for_fea(bha_components)
-
-    # 1. Assemble
+    # 1. Assemble (full string — auto-mesh handles long elements,
+    #    distributed axial force ensures numerical stability)
     K, Kg, M, node_positions = assemble_global_matrices(
-        fea_components, mud_weight_ppg, wob_klb,
+        bha_components, mud_weight_ppg, wob_klb,
     )
 
     # 2. Eigenvalue analysis
@@ -598,7 +578,7 @@ def run_fea_analysis(
     campbell = None
     if include_campbell:
         campbell = generate_campbell_diagram(
-            bha_components=fea_components,
+            bha_components=bha_components,
             wob_klb=wob_klb,
             mud_weight_ppg=mud_weight_ppg,
             hole_diameter_in=hole_diameter_in,
@@ -626,9 +606,8 @@ def run_fea_analysis(
 
     # 6. Summary
     summary: Dict[str, Any] = {
-        "fea_method": "Euler-Bernoulli FEM (auto-meshed)",
-        "n_components_input": len(bha_components),
-        "n_components_fea": len(fea_components),
+        "fea_method": "Euler-Bernoulli FEM (auto-meshed, distributed axial force)",
+        "n_components": len(bha_components),
         "n_elements": len(node_positions) - 1,
         "n_nodes": len(node_positions),
         "n_dof": len(node_positions) * 2,

@@ -899,3 +899,33 @@ class TestStickSlipWithBHAComponents:
         )
         assert result_long["severity_index"] > result_short["severity_index"]
         assert result_long["torsional_stiffness_inlb_rad"] < result_short["torsional_stiffness_inlb_rad"]
+
+    def test_stick_slip_15000ft_vs_no_bha_components(self, engine):
+        """Proves stick-slip function DOES use bha_components when passed.
+
+        Without bha_components: falls to BHA-only fallback → Mild (~0.05-0.1)
+        With bha_components (15,000 ft): K_eq drops drastically → Critical (>>1.0)
+        """
+        common = dict(
+            surface_rpm=60, wob_klb=25, torque_ftlb=16000,
+            bit_diameter_in=8.5, bha_length_ft=300,
+            bha_od_in=6.75, bha_id_in=2.813, friction_factor=0.25,
+        )
+        # Without bha_components — BHA-only fallback
+        result_no_bha = engine.calculate_stick_slip_severity(**common)
+        assert result_no_bha["classification"] == "Mild"
+
+        # With bha_components including 14,670 ft of DP
+        bha = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 120, "weight_ppf": 83},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14670, "weight_ppf": 19.5},
+        ]
+        result_with_bha = engine.calculate_stick_slip_severity(
+            **common, bha_components=bha,
+        )
+        assert result_with_bha["severity_index"] > 1.0, (
+            f"With 15,000 ft string, severity should be Critical, got {result_with_bha['severity_index']}"
+        )
+        assert result_with_bha["classification"] in ("Severe", "Critical")
