@@ -91,7 +91,13 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
       const url = wellId
         ? `/wells/${wellId}/vibrations`
         : `/calculate/vibrations`;
-      const cleanParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+      const cleanParams: Record<string, unknown> = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
+      // Derive total depth from wellbore sections (max bottom_md_ft)
+      if (wellboreSections.length > 0) {
+        const totalDepth = Math.max(...wellboreSections.map(s => s.bottom_md_ft));
+        if (totalDepth > 0) cleanParams.total_depth_ft = totalDepth;
+        cleanParams.wellbore_sections = wellboreSections;
+      }
       const res = await api.post(url, cleanParams);
       setResult(res.data);
       setActiveTab('results');
