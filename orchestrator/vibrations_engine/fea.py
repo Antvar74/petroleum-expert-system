@@ -164,3 +164,101 @@ def assemble_global_matrices(
                 K_global[dof_y, dof_y] += stabilizer_stiffness
 
     return K_global, Kg_global, M_global, node_positions_ft
+
+
+def solve_eigenvalue(
+    K: NDArray,
+    Kg: NDArray,
+    M: NDArray,
+    bc: str = "pinned-pinned",
+    n_modes: int = 5,
+) -> Dict[str, Any]:
+    """Solve generalized eigenvalue problem for natural frequencies and mode shapes.
+
+    Solves: (K - Kg) * phi = omega^2 * M * phi
+
+    Boundary conditions are applied by eliminating constrained DOFs.
+
+    Args:
+        K: Global stiffness matrix.
+        Kg: Global geometric stiffness (already P-scaled).
+        M: Global mass matrix.
+        bc: Boundary conditions — 'pinned-pinned', 'fixed-pinned', 'fixed-free'.
+        n_modes: Number of modes to return.
+
+    Returns:
+        Dict with frequencies_hz, critical_rpms, mode_shapes (deflection-only at nodes).
+    """
+    from scipy.linalg import eigh
+
+    n_dof = K.shape[0]
+    n_nodes = n_dof // 2
+
+    # Identify constrained DOFs based on boundary conditions
+    # Node 0 = bit end, Node N-1 = top end
+    constrained_dofs: List[int] = []
+    if bc == "pinned-pinned":
+        constrained_dofs = [0, (n_nodes - 1) * 2]  # y=0 at both ends
+    elif bc == "fixed-pinned":
+        constrained_dofs = [0, 1, (n_nodes - 1) * 2]  # y=0, theta=0 at bit; y=0 at top
+    elif bc == "fixed-free":
+        constrained_dofs = [0, 1]  # y=0, theta=0 at bit; top is free
+    else:
+        constrained_dofs = [0, (n_nodes - 1) * 2]  # default pinned-pinned
+
+    # Free DOFs (not constrained)
+    all_dofs = list(range(n_dof))
+    free_dofs = [d for d in all_dofs if d not in constrained_dofs]
+    n_free = len(free_dofs)
+
+    if n_free < 1:
+        return {"frequencies_hz": [], "critical_rpms": [], "mode_shapes": [], "error": "No free DOFs"}
+
+    # Extract sub-matrices for free DOFs
+    ix = np.ix_(free_dofs, free_dofs)
+    K_eff = K[ix] - Kg[ix]  # Effective stiffness including geometric effects
+    M_free = M[ix]
+
+    # Solve generalized eigenvalue problem: K_eff * phi = lambda * M_free * phi
+    # eigh returns eigenvalues in ascending order
+    n_solve = min(n_modes, n_free)
+    eigenvalues, eigenvectors = eigh(K_eff, M_free, subset_by_index=[0, n_solve - 1])
+
+    # Convert eigenvalues to frequencies
+    frequencies_hz: List[float] = []
+    critical_rpms: List[float] = []
+    mode_shapes_raw: List[NDArray] = []
+
+    for i in range(n_solve):
+        lam = eigenvalues[i]
+        if lam > 0:
+            omega = math.sqrt(lam)
+            freq_hz = omega / (2.0 * math.pi)
+            frequencies_hz.append(round(freq_hz, 4))
+            critical_rpms.append(round(freq_hz * 60.0, 1))
+        else:
+            frequencies_hz.append(0.0)
+            critical_rpms.append(0.0)
+
+        # Reconstruct full mode shape from free DOFs
+        phi_full = np.zeros(n_dof, dtype=np.float64)
+        phi_full[free_dofs] = eigenvectors[:, i]
+        mode_shapes_raw.append(phi_full)
+
+    # Extract deflection-only (y at each node) and normalize
+    mode_shapes: List[List[float]] = []
+    for phi in mode_shapes_raw:
+        deflections = [phi[node * 2] for node in range(n_nodes)]
+        max_abs = max(abs(d) for d in deflections) if deflections else 1.0
+        if max_abs > 1e-15:
+            deflections = [d / max_abs for d in deflections]
+        mode_shapes.append(deflections)
+
+    return {
+        "frequencies_hz": frequencies_hz,
+        "critical_rpms": critical_rpms,
+        "mode_shapes": mode_shapes,
+        "n_nodes": n_nodes,
+        "n_free_dofs": n_free,
+        "boundary_conditions": bc,
+    }
