@@ -811,3 +811,91 @@ class TestOptimalPointConstraint:
         )
         assert "wob_min_klb" in vib_map["optimal_point"]
         assert vib_map["optimal_point"]["wob_min_klb"] > 0
+
+
+# ===========================================================================
+# 12. STICK-SLIP WITH BHA COMPONENTS TABLE
+# ===========================================================================
+class TestStickSlipWithBHAComponents:
+    """Tests for stick-slip using detailed bha_components from BHA Editor."""
+
+    def test_long_dp_from_bha_table_is_critical(self, engine):
+        """14,665 ft DP in BHA table must produce Critical stick-slip (>1.5)."""
+        components = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=components,
+        )
+        assert result["severity_index"] > 1.5, (
+            f"Expected Critical (>1.5), got {result['severity_index']}"
+        )
+        assert result["classification"] == "Critical"
+
+    def test_bha_components_overrides_total_depth(self, engine):
+        """bha_components takes priority over total_depth_ft."""
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        # Pass both: bha_components (15k ft) and total_depth_ft (1000 ft)
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=1000,  # Short depth — should be overridden
+            bha_components=components,
+        )
+        # Should be Critical (using 15k ft from components, not 1000 ft)
+        assert result["severity_index"] > 1.5
+
+    def test_short_bha_only_is_mild(self, engine):
+        """BHA-only (no DP) at 120 RPM should be Mild."""
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 150, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 150, "weight_ppf": 83},
+        ]
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=components,
+        )
+        assert result["classification"] == "Mild"
+
+    def test_more_components_lower_stiffness(self, engine):
+        """Adding DP to BHA must reduce K_eq (lower stiffness → higher severity)."""
+        bha_only = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+        ]
+        bha_plus_dp = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 9700, "weight_ppf": 19.5},
+        ]
+        result_short = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=bha_only,
+        )
+        result_long = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=bha_plus_dp,
+        )
+        assert result_long["severity_index"] > result_short["severity_index"]
+        assert result_long["torsional_stiffness_inlb_rad"] < result_short["torsional_stiffness_inlb_rad"]

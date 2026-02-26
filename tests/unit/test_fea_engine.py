@@ -362,7 +362,7 @@ class TestRunFEAAnalysis:
         assert "mode_1_critical_rpm" in summary
         assert "resonance_warnings" in summary
         assert "fea_method" in summary
-        assert summary["fea_method"] == "Euler-Bernoulli FEM"
+        assert "Euler-Bernoulli FEM" in summary["fea_method"]
 
     def test_mixed_bha_works(self, standard_bha):
         """Mixed component BHA (collars + HWDP + DP) should compute without error."""
@@ -402,3 +402,120 @@ class TestDampingWithRheology:
         alpha = _compute_damping_alpha(mud_weight_ppg=10.0, pv_cp=None, yp_lbf_100ft2=None)
         expected = 0.01 + 10.0 * 0.002
         assert abs(alpha - expected) < 1e-10
+
+
+# ===========================================================================
+# Auto-Meshing Tests
+# ===========================================================================
+class TestAutoMeshing:
+    """Tests for FEA auto-meshing preprocessor."""
+
+    def test_short_elements_unchanged(self):
+        """Elements <= 100 ft should pass through unchanged."""
+        from orchestrator.vibrations_engine.fea import _auto_mesh
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 90, "weight_ppf": 83},
+        ]
+        meshed = _auto_mesh(components)
+        assert len(meshed) == 2
+        assert meshed[0]["length_ft"] == 30
+        assert meshed[1]["length_ft"] == 90
+
+    def test_long_element_subdivided(self):
+        """A 300 ft collar should be split into 3 x 100 ft elements."""
+        from orchestrator.vibrations_engine.fea import _auto_mesh
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+        ]
+        meshed = _auto_mesh(components)
+        assert len(meshed) == 3
+        for elem in meshed:
+            assert abs(elem["length_ft"] - 100.0) < 0.01
+            assert elem["od"] == 6.75
+            assert elem["weight_ppf"] == 83
+
+    def test_very_long_dp_subdivided(self):
+        """14,665 ft DP should be split into ~147 elements of ~100 ft each."""
+        from orchestrator.vibrations_engine.fea import _auto_mesh
+        components = [
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        meshed = _auto_mesh(components)
+        # 14665 / 100 = 146.65 → ceil = 147 elements
+        assert len(meshed) == 147
+        # Total length preserved
+        total = sum(e["length_ft"] for e in meshed)
+        assert abs(total - 14665) < 0.01
+        # All elements <= 100 ft
+        for elem in meshed:
+            assert elem["length_ft"] <= 100.01
+            assert elem["od"] == 5.0
+
+    def test_mixed_components_meshed_correctly(self):
+        """Mix of short and long components should mesh only the long ones."""
+        from orchestrator.vibrations_engine.fea import _auto_mesh
+        components = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        meshed = _auto_mesh(components)
+        # 30 ft collar: 1 element (unchanged)
+        # 60 ft collar: 1 element (unchanged, <=100)
+        # 14,665 ft DP: 147 elements
+        assert len(meshed) == 1 + 1 + 147
+        # Total length preserved
+        original_total = sum(c["length_ft"] for c in components)
+        meshed_total = sum(e["length_ft"] for e in meshed)
+        assert abs(meshed_total - original_total) < 0.01
+
+    def test_fea_nonzero_frequencies_with_long_dp(self):
+        """FEA with 14,665 ft DP must NOT collapse to all 0.00 Hz.
+
+        The DP is filtered out for lateral FEA (too long/flexible). The BHA
+        components are analyzed. At least one mode must be non-zero — the
+        original bug was ALL modes returning 0.00 Hz due to L^3 singularity.
+        """
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        components = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        result = run_fea_analysis(
+            bha_components=components,
+            wob_klb=20, rpm=60,
+            mud_weight_ppg=10.0,
+            include_campbell=False,  # Skip Campbell for speed
+        )
+        freqs = result["eigenvalue"]["frequencies_hz"]
+        assert len(freqs) > 0, "No frequencies returned"
+        # Must NOT be all zeros (the original bug)
+        assert any(f > 0 for f in freqs), (
+            f"At least one frequency must be > 0, got {freqs}"
+        )
+        # DP should be filtered out; FEA should have fewer components than input
+        assert result["summary"]["n_components_input"] == 6
+        assert result["summary"]["n_components_fea"] == 5  # DP excluded
+
+    def test_fea_summary_reports_auto_mesh(self):
+        """FEA summary should report 'auto-meshed' in method and correct counts."""
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 90, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 300, "weight_ppf": 19.5},
+        ]
+        result = run_fea_analysis(
+            bha_components=components,
+            wob_klb=20, rpm=120,
+            include_campbell=False,
+        )
+        assert "auto-meshed" in result["summary"]["fea_method"]
+        assert result["summary"]["n_components_input"] == 2
+        # Both components are <=500 ft DP, so both pass the filter
+        # 90 ft collar: 1 element (<=100), 300 ft DP: 3 elements (300/100=3)
+        assert result["summary"]["n_elements"] == 4

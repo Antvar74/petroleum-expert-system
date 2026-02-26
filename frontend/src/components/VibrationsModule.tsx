@@ -98,6 +98,10 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
         if (totalDepth > 0) cleanParams.total_depth_ft = totalDepth;
         cleanParams.wellbore_sections = wellboreSections;
       }
+      // Pass BHA components for multi-component stick-slip calculation
+      if (bhaComponents.length > 0) {
+        cleanParams.bha_components = bhaComponents;
+      }
       const res = await api.post(url, cleanParams);
       setResult(res.data);
       setActiveTab('results');
@@ -105,7 +109,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
       addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
-  }, [wellId, params, addToast]);
+  }, [wellId, params, wellboreSections, bhaComponents, addToast]);
 
   const calculateFEA = useCallback(async () => {
     if (bhaComponents.length < 2) {

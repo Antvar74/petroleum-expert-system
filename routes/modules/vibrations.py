@@ -50,6 +50,7 @@ def calculate_vibrations(well_id: int, data: VibrationsCalcRequest, db: Session 
         ucs_psi=data.ucs_psi,
         total_depth_ft=data.total_depth_ft,
         n_blades=data.n_blades,
+        bha_components=data.bha_components,
     )
 
     vib_result = VibrationsResult(

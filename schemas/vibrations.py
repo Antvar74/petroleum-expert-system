@@ -36,6 +36,7 @@ class VibrationsCalcRequest(BaseModel):
     n_blades: Optional[int] = Field(default=None, description="Number of PDC blades/cutters. Affects bit excitation frequency.")
     wellbore_sections: Optional[List[Dict[str, Any]]] = Field(default=None, description="Wellbore sections: casing, liner, open hole. Each dict has section_type, top_md_ft, bottom_md_ft, id_in.")
     total_depth_ft: Optional[float] = Field(default=None, description="Total measured depth (ft). Derived from wellbore sections max Bottom MD. Required for accurate stick-slip calculation.")
+    bha_components: Optional[List[Dict[str, Any]]] = Field(default=None, description="Detailed drillstring component list from BHA Editor. Each dict: {type, od, id_inner, length_ft, weight_ppf}. When provided, used for multi-component stick-slip torsional stiffness.")
 
 
 class Vibrations3DMapRequest(BaseModel):

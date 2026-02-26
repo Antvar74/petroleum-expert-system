@@ -87,6 +87,7 @@ def calculate_full_vibration_analysis(
         total_depth_ft=total_depth_ft,
         dp_od_in=dp_od_in,
         dp_id_in=dp_id_in,
+        bha_components=bha_components,
     )
 
     # 4. MSE
