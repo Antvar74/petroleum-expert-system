@@ -66,3 +66,60 @@ class TestBeamElementMatrices:
         _, _, Me = beam_element_matrices(length_in=L, EI=2e9, rhoA=rhoA, P=0.0)
         expected_m11 = 156.0 * rhoA * L / 420.0
         assert abs(Me[0, 0] - expected_m11) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Global assembly
+# ---------------------------------------------------------------------------
+class TestGlobalAssembly:
+    """Verify global matrix assembly from BHA component list."""
+
+    @pytest.fixture
+    def two_collar_bha(self):
+        """Simple BHA: two 30-ft drill collars."""
+        return [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 83.0},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 83.0},
+        ]
+
+    def test_assembly_matrix_sizes(self, two_collar_bha):
+        """Two 30-ft elements → 3 nodes → 6x6 global matrices."""
+        from orchestrator.vibrations_engine.fea import assemble_global_matrices
+        K, Kg, M, node_positions = assemble_global_matrices(
+            bha_components=two_collar_bha,
+            mud_weight_ppg=10.0,
+            wob_klb=20.0,
+        )
+        # 2 elements → 3 nodes → 6 DOF
+        assert K.shape == (6, 6)
+        assert Kg.shape == (6, 6)
+        assert M.shape == (6, 6)
+        assert len(node_positions) == 3
+
+    def test_assembly_symmetry(self, two_collar_bha):
+        """Global K, M must remain symmetric after assembly."""
+        from orchestrator.vibrations_engine.fea import assemble_global_matrices
+        K, Kg, M, _ = assemble_global_matrices(
+            bha_components=two_collar_bha,
+            mud_weight_ppg=10.0,
+            wob_klb=20.0,
+        )
+        np.testing.assert_allclose(K, K.T, atol=1e-8)
+        np.testing.assert_allclose(M, M.T, atol=1e-8)
+
+    def test_node_positions_cumulative(self, two_collar_bha):
+        """Node positions must accumulate element lengths (in feet)."""
+        from orchestrator.vibrations_engine.fea import assemble_global_matrices
+        _, _, _, node_positions = assemble_global_matrices(
+            bha_components=two_collar_bha,
+            mud_weight_ppg=10.0,
+            wob_klb=20.0,
+        )
+        np.testing.assert_allclose(node_positions, [0.0, 30.0, 60.0], atol=1e-6)
+
+    def test_assembly_single_element(self):
+        """Single component → 2 nodes → 4x4 matrices (same as element)."""
+        from orchestrator.vibrations_engine.fea import assemble_global_matrices
+        bha = [{"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 83.0}]
+        K, Kg, M, _ = assemble_global_matrices(bha, mud_weight_ppg=10.0, wob_klb=0.0)
+        assert K.shape == (4, 4)
