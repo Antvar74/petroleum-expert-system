@@ -2,8 +2,10 @@
  * BHAEditor.tsx — Interactive multi-component BHA editor for FEA analysis.
  * Allows adding, removing, reordering BHA components (collar, dp, hwdp, etc.)
  */
-import React from 'react';
-import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useRef } from 'react';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
+import { Plus, Trash2, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 
 export interface BHAComponent {
   type: string;
@@ -95,6 +97,46 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
     onChange(updated);
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+
+    const parseRows = (rows: Record<string, string>[]) => {
+      const mapped: BHAComponent[] = rows
+        .filter(r => r.type || r.Type || r.component)
+        .map(r => ({
+          type: (r.type || r.Type || r.component || 'collar').toLowerCase(),
+          od: parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75,
+          id_inner: parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813,
+          length_ft: parseFloat(r.length_ft || r.length || r.Length || '30') || 30,
+          weight_ppf: parseFloat(r.weight_ppf || r.weight || r.Weight || r.weight_lbft || '83') || 83,
+        }));
+      if (mapped.length > 0) onChange(mapped);
+    };
+
+    if (ext === 'csv') {
+      Papa.parse<Record<string, string>>(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (result) => parseRows(result.data),
+      });
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const wb = XLSX.read(e.target?.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+        parseRows(rows);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    // Reset input so same file can be re-imported
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const totalLength = components.reduce((sum, c) => sum + c.length_ft, 0);
 
   return (
@@ -164,10 +206,17 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
 
       {/* Footer */}
       <div className="flex justify-between items-center">
-        <button onClick={addComponent} type="button"
-          className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-rose-500/40 hover:text-rose-300 transition-colors">
-          <Plus size={14} /> Add Component
-        </button>
+        <div className="flex gap-2">
+          <button onClick={addComponent} type="button"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-rose-500/40 hover:text-rose-300 transition-colors">
+            <Plus size={14} /> Add Component
+          </button>
+          <button onClick={() => fileInputRef.current?.click()} type="button"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-cyan-500/40 hover:text-cyan-300 transition-colors">
+            <Upload size={14} /> Import CSV/Excel
+          </button>
+          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileImport} className="hidden" />
+        </div>
         <span className="text-xs text-gray-500">
           {components.length} components &middot; Total: {totalLength.toFixed(0)} ft
         </span>
