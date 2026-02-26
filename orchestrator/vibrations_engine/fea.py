@@ -427,3 +427,117 @@ def generate_campbell_diagram(
         "mode_shapes": eigen_result["mode_shapes"],
         "frequencies_hz": base_freqs,
     }
+
+
+def run_fea_analysis(
+    bha_components: List[Dict[str, Any]],
+    wob_klb: float = 20.0,
+    rpm: float = 120.0,
+    mud_weight_ppg: float = 10.0,
+    hole_diameter_in: float = 8.5,
+    bc: str = "pinned-pinned",
+    n_modes: int = 5,
+    include_forced_response: bool = True,
+    include_campbell: bool = True,
+    n_blades: Optional[int] = None,
+    rpm_min: float = 20.0,
+    rpm_max: float = 300.0,
+    rpm_step: float = 5.0,
+) -> Dict[str, Any]:
+    """Run complete FEA analysis on BHA: eigenvalue + forced response + Campbell.
+
+    This is the main entry point for the FEA module.
+
+    Args:
+        bha_components: BHA component list (see assemble_global_matrices).
+        wob_klb: Weight on bit (klbs).
+        rpm: Operating RPM.
+        mud_weight_ppg: Mud weight (ppg).
+        hole_diameter_in: Hole diameter (in).
+        bc: Boundary conditions.
+        n_modes: Number of modes.
+        include_forced_response: Calculate forced response amplitudes.
+        include_campbell: Generate Campbell diagram.
+        n_blades: PDC blade count for blade-pass excitation.
+        rpm_min, rpm_max, rpm_step: Campbell diagram RPM sweep range.
+
+    Returns:
+        Dict with eigenvalue, forced_response, campbell, node_positions_ft, summary.
+    """
+    # 1. Assemble
+    K, Kg, M, node_positions = assemble_global_matrices(
+        bha_components, mud_weight_ppg, wob_klb,
+    )
+
+    # 2. Eigenvalue analysis
+    eigen = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
+
+    # 3. Forced response (at 1x RPM excitation)
+    forced = None
+    if include_forced_response and eigen["frequencies_hz"]:
+        excitation_freq = rpm / 60.0  # 1x RPM in Hz
+        forced = solve_forced_response(
+            K=K, Kg=Kg, M=M, bc=bc,
+            excitation_freq_hz=excitation_freq,
+            excitation_node=0,  # bit node
+            force_lbs=wob_klb * 50.0,  # rough imbalance force estimate
+            mud_weight_ppg=mud_weight_ppg,
+        )
+
+    # 4. Campbell diagram
+    campbell = None
+    if include_campbell:
+        campbell = generate_campbell_diagram(
+            bha_components=bha_components,
+            wob_klb=wob_klb,
+            mud_weight_ppg=mud_weight_ppg,
+            hole_diameter_in=hole_diameter_in,
+            bc=bc,
+            rpm_min=rpm_min, rpm_max=rpm_max, rpm_step=rpm_step,
+            n_modes=n_modes,
+            n_blades=n_blades,
+        )
+
+    # 5. Resonance warnings
+    warnings: List[str] = []
+    operating_freq = rpm / 60.0
+    for i, freq in enumerate(eigen["frequencies_hz"]):
+        if freq <= 0:
+            continue
+        ratio = operating_freq / freq
+        if 0.85 < ratio < 1.15:
+            warnings.append(
+                f"1x RPM ({rpm}) near Mode {i+1} ({freq:.2f} Hz / {freq*60:.0f} RPM) — resonance risk"
+            )
+        if freq > 0 and 0.85 < 2 * operating_freq / freq < 1.15:
+            warnings.append(
+                f"2x RPM near Mode {i+1} ({freq:.2f} Hz) — secondary resonance"
+            )
+
+    # 6. Summary
+    summary: Dict[str, Any] = {
+        "fea_method": "Euler-Bernoulli FEM",
+        "n_elements": len(bha_components),
+        "n_nodes": len(node_positions),
+        "n_dof": len(node_positions) * 2,
+        "boundary_conditions": bc,
+        "wob_klb": wob_klb,
+        "operating_rpm": rpm,
+        "resonance_warnings": warnings,
+    }
+    for i, (freq, crit_rpm) in enumerate(
+        zip(eigen["frequencies_hz"], eigen["critical_rpms"])
+    ):
+        summary[f"mode_{i+1}_freq_hz"] = freq
+        summary[f"mode_{i+1}_critical_rpm"] = crit_rpm
+
+    if forced:
+        summary["max_vibration_amplitude_in"] = forced["max_amplitude_in"]
+
+    return {
+        "eigenvalue": eigen,
+        "forced_response": forced,
+        "campbell": campbell,
+        "node_positions_ft": node_positions,
+        "summary": summary,
+    }

@@ -317,3 +317,60 @@ class TestCampbellDiagram:
         assert "3x" in lines
         # 1x at 120 RPM = 2 Hz
         assert abs(lines["1x"][2] - 120.0 / 60.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Task 5: run_fea_analysis orchestrator
+# ---------------------------------------------------------------------------
+class TestRunFEAAnalysis:
+    """Verify the high-level FEA analysis function."""
+
+    @pytest.fixture
+    def standard_bha(self):
+        return [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 147.0},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60.0, "weight_ppf": 83.0},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60.0, "weight_ppf": 83.0},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90.0, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 60.0, "weight_ppf": 19.5},
+        ]
+
+    def test_returns_all_expected_keys(self, standard_bha):
+        """run_fea_analysis must return frequencies, mode_shapes, campbell, forced_response."""
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=standard_bha,
+            wob_klb=25.0, rpm=120.0, mud_weight_ppg=10.0,
+            hole_diameter_in=8.5, bc="pinned-pinned", n_modes=3,
+        )
+        assert "eigenvalue" in result
+        assert "campbell" in result
+        assert "forced_response" in result
+        assert "node_positions_ft" in result
+        assert "summary" in result
+
+    def test_summary_has_critical_rpms(self, standard_bha):
+        """Summary must include critical RPMs and stability assessment."""
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=standard_bha,
+            wob_klb=25.0, rpm=120.0, mud_weight_ppg=10.0,
+            hole_diameter_in=8.5, bc="pinned-pinned", n_modes=3,
+        )
+        summary = result["summary"]
+        assert "mode_1_freq_hz" in summary
+        assert "mode_1_critical_rpm" in summary
+        assert "resonance_warnings" in summary
+        assert "fea_method" in summary
+        assert summary["fea_method"] == "Euler-Bernoulli FEM"
+
+    def test_mixed_bha_works(self, standard_bha):
+        """Mixed component BHA (collars + HWDP + DP) should compute without error."""
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=standard_bha,
+            wob_klb=20.0, rpm=100.0, mud_weight_ppg=12.0,
+            hole_diameter_in=8.5, bc="pinned-pinned", n_modes=5,
+        )
+        assert len(result["eigenvalue"]["frequencies_hz"]) == 5
+        assert len(result["eigenvalue"]["mode_shapes"]) == 5
