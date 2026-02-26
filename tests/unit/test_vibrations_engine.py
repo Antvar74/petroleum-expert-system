@@ -753,3 +753,61 @@ class TestHeatmapWithMSE:
         stab_high = engine.calculate_stability_index(axial, lateral, stick_slip, mse_high_eff, 120)
 
         assert stab_high["stability_index"] > stab_low["stability_index"]
+
+
+# ===========================================================================
+# 11. OPTIMAL POINT WOB CONSTRAINT TESTS
+# ===========================================================================
+class TestOptimalPointConstraint:
+    """Tests that optimal WOB respects UCS-based minimum constraint."""
+
+    def test_hard_rock_wob_not_too_low(self, engine):
+        """For 28,000 psi limestone, optimal WOB must be >= 15 klb."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=16000, rop_base_fph=18,
+            ucs_psi=28000,
+        )
+        assert vib_map["optimal_point"]["wob"] >= 15, (
+            f"Optimal WOB {vib_map['optimal_point']['wob']} klb is too low for 28,000 psi rock"
+        )
+
+    def test_soft_rock_allows_low_wob(self, engine):
+        """For soft shale (5,000 psi), low WOB should be acceptable."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=8000, rop_base_fph=80,
+            ucs_psi=5000,
+        )
+        # Soft rock: WOB_min ≈ 5000 * 72.25 / 1,300,000 ≈ 2.8 klb
+        # So WOB=5 is physically fine
+        assert vib_map["optimal_point"]["wob"] >= 5
+
+    def test_no_ucs_no_constraint(self, engine):
+        """Without UCS, the optimizer should work as before (no constraint)."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+        )
+        assert vib_map["optimal_point"]["wob"] > 0
+        assert vib_map["optimal_point"]["rpm"] > 0
+
+    def test_optimal_includes_wob_min(self, engine):
+        """Result should report the minimum WOB constraint when UCS is provided."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            ucs_psi=28000,
+        )
+        assert "wob_min_klb" in vib_map["optimal_point"]
+        assert vib_map["optimal_point"]["wob_min_klb"] > 0

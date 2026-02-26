@@ -154,6 +154,14 @@ def generate_vibration_map(
     if rpm_range is None:
         rpm_range = [40, 60, 80, 100, 120, 140, 160, 180, 200]
 
+    # Minimum WOB constraint from UCS (rock hardness)
+    # Simplified PDC cutter engagement model (Dupriest 2005):
+    # WOB_min = UCS * d^2 / (1000 * 130)
+    # For 28,000 psi limestone with 8.5" bit: WOB_min ≈ 15.6 klb
+    wob_min_klb = 0.0
+    if ucs_psi is not None and ucs_psi > 0:
+        wob_min_klb = ucs_psi * bit_diameter_in ** 2 / (1000.0 * 130.0)
+
     # Pre-calculate critical RPMs (independent of WOB/RPM operating point)
     axial = calculate_critical_rpm_axial(
         bha_length_ft, bha_od_in, bha_id_in, bha_weight_lbft, mud_weight_ppg
@@ -165,7 +173,7 @@ def generate_vibration_map(
     )
 
     map_data = []
-    optimal_point = {"wob": 0, "rpm": 0, "score": 0}
+    optimal_point = {"wob": 0, "rpm": 0, "score": 0, "wob_min_klb": round(wob_min_klb, 1)}
 
     for wob in wob_range:
         for rpm in rpm_range:
@@ -202,8 +210,18 @@ def generate_vibration_map(
             }
             map_data.append(point)
 
-            if score > optimal_point["score"]:
-                optimal_point = {"wob": wob, "rpm": rpm, "score": score}
+            if score > optimal_point["score"] and wob >= wob_min_klb:
+                optimal_point = {"wob": wob, "rpm": rpm, "score": score, "wob_min_klb": round(wob_min_klb, 1)}
+
+    # Fallback: if no cell met the WOB constraint, pick best at lowest acceptable WOB
+    if optimal_point["wob"] == 0 and wob_min_klb > 0:
+        acceptable = [p for p in map_data if p["wob_klb"] >= wob_min_klb]
+        if acceptable:
+            best = max(acceptable, key=lambda p: p["stability_index"])
+            optimal_point = {
+                "wob": best["wob_klb"], "rpm": best["rpm"],
+                "score": best["stability_index"], "wob_min_klb": round(wob_min_klb, 1),
+            }
 
     return {
         "map_data": map_data,
