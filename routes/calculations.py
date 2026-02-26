@@ -197,7 +197,12 @@ def standalone_vibrations(data: VibrationsCalcRequest):
         mud_weight_ppg=data.mud_weight_ppg,
         hole_diameter_in=data.hole_diameter_in,
         inclination_deg=data.inclination_deg,
-        friction_factor=data.friction_factor
+        friction_factor=data.friction_factor,
+        stabilizer_spacing_ft=data.stabilizer_spacing_ft,
+        ucs_psi=data.ucs_psi,
+        total_depth_ft=data.total_depth_ft,
+        n_blades=data.n_blades,
+        bha_components=data.bha_components,
     )
     return result
 

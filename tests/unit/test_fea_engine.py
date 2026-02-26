@@ -482,12 +482,12 @@ class TestAutoMeshing:
         assert abs(meshed_total - original_total) < 0.01
 
     def test_fea_nonzero_frequencies_with_long_dp(self):
-        """FEA with 14,665 ft DP: full string with distributed axial force.
+        """FEA with 14,665 ft DP: full string with wellbore-constrained model.
 
-        With distributed axial force, the full drillstring is included.
-        DP above the neutral point is under tension (stabilizing), so the
-        matrix is well-conditioned. All 5 modes must have positive frequencies.
-        The mode shape Y-axis must span the full ~15,000 ft string.
+        Post-buckled elements (P > P_cr) have their geometric stiffness zeroed
+        and get wellbore contact springs. Tension spans get periodic contacts
+        every ~500 ft.  Result: all 5 modes must have positive frequencies and
+        mode shapes span the full ~15,000 ft.
         """
         from orchestrator.vibrations_engine.fea import run_fea_analysis
         components = [
@@ -502,13 +502,13 @@ class TestAutoMeshing:
             bha_components=components,
             wob_klb=20, rpm=60,
             mud_weight_ppg=10.0,
-            include_campbell=False,  # Skip Campbell for speed
+            include_campbell=False,
         )
         freqs = result["eigenvalue"]["frequencies_hz"]
         assert len(freqs) == 5, f"Expected 5 modes, got {len(freqs)}"
-        # At least 2 modes must have positive frequencies. The lowest global modes
-        # of a 15,000 ft beam are at ~1e-5 Hz (near machine precision) and may
-        # appear as 0.0 — this is physically correct, not a solver failure.
+        # With wellbore contacts and buckled-element zeroing, most modes
+        # should be positive.  Modes near the buckled/tension boundary may
+        # still have eigenvalues near zero (≈ 0.0 Hz) — this is physical.
         positive_modes = sum(1 for f in freqs if f > 0)
         assert positive_modes >= 2, (
             f"Expected at least 2 positive modes, got {positive_modes}: {freqs}"

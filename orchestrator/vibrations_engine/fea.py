@@ -83,6 +83,12 @@ def beam_element_matrices(
 
 MAX_ELEMENT_LENGTH_FT = 100.0  # Max element length before auto-meshing (ft)
 
+# Wellbore contact supports — for long strings the DP contacts the casing/hole
+# wall at regular intervals due to gravity and buckling.
+_WELLBORE_CONTACT_THRESHOLD_FT = 1000.0   # Only add contacts for strings > 1000 ft
+_WELLBORE_CONTACT_INTERVAL_FT = 500.0     # Spring support every ~500 ft (tension zone)
+_WELLBORE_CONTACT_STIFFNESS = 1e8         # lb/in (stiff wall contact)
+
 
 def _auto_mesh(
     bha_components: List[Dict[str, Any]],
@@ -174,6 +180,7 @@ def assemble_global_matrices(
     # Track node positions for mode shape plotting
     node_positions_ft: List[float] = [0.0]
     cumulative_ft = 0.0
+    buckled_nodes: set = set()  # nodes of post-buckled elements (wall contact)
 
     for i, comp in enumerate(elements):
         od = comp.get("od", 6.75)
@@ -199,6 +206,18 @@ def assemble_global_matrices(
         P_element = P_wob_lbs - cumulative_weight_lbs - element_weight / 2.0
         cumulative_weight_lbs += element_weight
 
+        # Post-buckled elements: zero out geometric stiffness.
+        # When P > P_cr (Euler critical load), the element is in helical
+        # buckling and rests against the wellbore wall.  Its lateral behavior
+        # is governed by wall contact, not free-beam mechanics, so we drop
+        # the geometric stiffness contribution and add wall springs below.
+        if P_element > 0 and length_in > 0:
+            P_cr = math.pi ** 2 * EI / (length_in ** 2)
+            if P_element > P_cr:
+                P_element = 0.0
+                buckled_nodes.add(i)
+                buckled_nodes.add(i + 1)
+
         # Element matrices with per-element axial force
         Ke, Kge, Me = beam_element_matrices(length_in, EI, rhoA, P_element)
 
@@ -216,6 +235,28 @@ def assemble_global_matrices(
             dof_y = node_idx * 2  # y-DOF for this node
             if 0 <= dof_y < n_dof:
                 K_global[dof_y, dof_y] += stabilizer_stiffness
+
+    # Wellbore contact springs at buckled nodes.
+    # Post-buckled elements are in helical contact with the wellbore wall;
+    # add stiff lateral springs to represent that constraint.
+    for node_idx in buckled_nodes:
+        if 0 < node_idx < n_nodes - 1:  # skip end nodes (BCs)
+            K_global[node_idx * 2, node_idx * 2] += _WELLBORE_CONTACT_STIFFNESS
+
+    # Periodic wellbore contact supports for long tension spans.
+    # In inclined wells the DP rests on the low side of the hole at regular
+    # intervals.  Adding spring supports every ~500 ft breaks the free span
+    # into realistic lengths and produces meaningful natural frequencies.
+    total_length_ft = node_positions_ft[-1] if node_positions_ft else 0.0
+    if total_length_ft > _WELLBORE_CONTACT_THRESHOLD_FT:
+        interval = _WELLBORE_CONTACT_INTERVAL_FT
+        last_contact = 0.0
+        for idx in range(1, n_nodes - 1):
+            if idx not in buckled_nodes and \
+               node_positions_ft[idx] - last_contact >= interval:
+                dof_y = idx * 2
+                K_global[dof_y, dof_y] += _WELLBORE_CONTACT_STIFFNESS
+                last_contact = node_positions_ft[idx]
 
     return K_global, Kg_global, M_global, node_positions_ft
 
