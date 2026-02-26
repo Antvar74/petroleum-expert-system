@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Vibrate, Play, RefreshCw, Wrench } from 'lucide-react';
+import { Vibrate, Play, RefreshCw, Wrench, Layers } from 'lucide-react';
 import StabilityGauge from './charts/vb/StabilityGauge';
 import VibrationMapHeatmap from './charts/vb/VibrationMapHeatmap';
 import CriticalRPMChart from './charts/vb/CriticalRPMChart';
 import MSEBreakdownChart from './charts/vb/MSEBreakdownChart';
 import StickSlipIndicator from './charts/vb/StickSlipIndicator';
 import BHAEditor, { type BHAComponent } from './charts/vb/BHAEditor';
+import WellboreSectionEditor, { type WellboreSection } from './charts/vb/WellboreSectionEditor';
 import ModeShapePlot from './charts/vb/ModeShapePlot';
 import CampbellDiagram from './charts/vb/CampbellDiagram';
 import AIAnalysisPanel from './AIAnalysisPanel';
@@ -56,6 +57,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   const [feaResult, setFeaResult] = useState<Record<string, any> | null>(null);
   const [feaLoading, setFeaLoading] = useState(false);
   const [showBhaEditor, setShowBhaEditor] = useState(false);
+  const [wellboreSections, setWellboreSections] = useState<WellboreSection[]>([]);
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
@@ -182,6 +184,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                     { key: 'hole_diameter_in', label: t('vibrations.holeDiameter'), step: '0.125' },
                     { key: 'inclination_deg', label: t('vibrations.inclination'), step: '5' },
                     { key: 'friction_factor', label: t('vibrations.frictionCoeff'), step: '0.05' },
+                    { key: 'dp_od_in', label: t('vibrations.dpOD'), step: '0.125' },
+                    { key: 'dp_id_in', label: t('vibrations.dpID'), step: '0.125' },
+                    { key: 'dp_weight_lbft', label: t('vibrations.dpWeight'), step: '1' },
                     { key: 'stabilizer_spacing_ft', label: 'Estabilizador (ft)', step: '5', placeholder: 'Auto (max 90 ft)' },
                     { key: 'n_blades', label: 'Blades PDC', step: '1', placeholder: 'Opcional' },
                   ].map(({ key, label, step, placeholder }) => (
@@ -225,28 +230,14 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                 </div>
               </div>
 
-              {/* BHA Configuration */}
+              {/* Wellbore Configuration */}
               <div>
-                <h3 className="text-lg font-bold mb-3">{t('vibrations.sections.bha')}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { key: 'bha_length_ft', label: t('vibrations.bhaLength'), step: '50' },
-                    { key: 'bha_od_in', label: t('vibrations.bhaOD'), step: '0.25' },
-                    { key: 'bha_id_in', label: t('vibrations.bhaID'), step: '0.125' },
-                    { key: 'bha_weight_lbft', label: t('vibrations.bhaWeight'), step: '5' },
-                    { key: 'dp_od_in', label: t('vibrations.dpOD'), step: '0.125' },
-                    { key: 'dp_id_in', label: t('vibrations.dpID'), step: '0.125' },
-                    { key: 'dp_weight_lbft', label: t('vibrations.dpWeight'), step: '1' },
-                  ].map(({ key, label, step }) => (
-                    <div key={key} className="space-y-1">
-                      <label className="text-xs text-gray-400">{label}</label>
-                      <input type="number" step={step}
-                        value={(params as Record<string, number>)[key]}
-                        onChange={e => updateParam(key, e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-rose-500 focus:outline-none"
-                      />
-                    </div>
-                  ))}
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  <Layers size={18} />
+                  {t('vibrations.sections.wellbore')}
+                </h3>
+                <div className="glass-panel p-4 rounded-xl border border-white/5">
+                  <WellboreSectionEditor sections={wellboreSections} onChange={setWellboreSections} />
                 </div>
               </div>
 

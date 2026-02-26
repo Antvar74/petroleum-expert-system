@@ -1013,7 +1013,7 @@
     "subtitle": "Drillstring Dynamics & MSE",
     "sections": {
       "operating": "Operating Parameters",
-      "bha": "BHA Configuration"
+      "wellbore": "Wellbore Configuration"
     },
     "wob": "WOB (klb)",
     "rpm": "RPM",

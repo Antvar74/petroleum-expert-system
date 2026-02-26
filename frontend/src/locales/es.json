@@ -1013,7 +1013,7 @@
     "subtitle": "Dinámica de Sarta y MSE",
     "sections": {
       "operating": "Parámetros Operativos",
-      "bha": "Configuración BHA"
+      "wellbore": "Configuración del Agujero"
     },
     "wob": "WOB (klb)",
     "rpm": "RPM",
