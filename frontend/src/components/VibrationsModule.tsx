@@ -435,8 +435,8 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                   )}
                 </div>
 
-                {/* FEA Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* FEA Charts — full width for complex visualizations */}
+                <div className="grid grid-cols-1 gap-6">
                   <ModeShapePlot
                     nodePositions={feaResult.node_positions_ft || []}
                     modeShapes={feaResult.eigenvalue?.mode_shapes || []}
@@ -449,6 +449,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                       excitationLines={feaResult.campbell.excitation_lines || {}}
                       crossings={feaResult.campbell.crossings || []}
                       operatingRpm={params.rpm as number}
+                      yDomainHz={feaResult.campbell.y_domain_hz}
                     />
                   )}
                 </div>

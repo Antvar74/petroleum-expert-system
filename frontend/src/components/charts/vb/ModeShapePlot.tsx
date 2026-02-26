@@ -58,6 +58,7 @@ const ModeShapePlot: React.FC<ModeShapePlotProps> = ({
           reversed
           domain={['dataMin', 'dataMax']}
           tick={{ fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          tickFormatter={(v: number) => Math.round(v).toLocaleString()}
           label={{ value: 'MD (ft)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 12 }}
         />
         <XAxis

@@ -1,6 +1,9 @@
 /**
  * CampbellDiagram.tsx — Natural frequency vs RPM with excitation lines.
  * Crossings indicate resonance hazards.
+ *
+ * Y-axis is clamped to mode frequency range (via yDomainHz) so that
+ * excitation lines going to 30+ Hz don't make the modes invisible.
  */
 import React from 'react';
 import {
@@ -23,6 +26,7 @@ interface CampbellDiagramProps {
     risk: string;
   }>;
   operatingRpm?: number;
+  yDomainHz?: [number, number];
   height?: number;
 }
 
@@ -39,29 +43,38 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
   excitationLines,
   crossings,
   operatingRpm,
+  yDomainHz,
   height = 450,
 }) => {
   if (!rpmValues?.length) return null;
 
-  // Build merged data array: { rpm, mode_1, mode_2, ..., exc_1x, exc_2x, ... }
+  // Compute Y domain: use backend hint or auto-compute from mode frequencies
+  const allModeFreqs = Object.values(naturalFreqCurves).flatMap(v => v).filter(f => f > 0);
+  const maxModeFreq = allModeFreqs.length > 0 ? Math.max(...allModeFreqs) : 1;
+  const yMax = yDomainHz ? yDomainHz[1] : maxModeFreq * 1.3;
+
+  // Build merged data array
   const data = rpmValues.map((rpm, i) => {
     const row: Record<string, number> = { rpm };
     Object.entries(naturalFreqCurves).forEach(([key, vals]) => {
       row[key] = vals[i];
     });
     Object.entries(excitationLines).forEach(([key, vals]) => {
-      row[`exc_${key}`] = vals[i];
+      // Clamp excitation values to Y domain for proper rendering
+      row[`exc_${key}`] = Math.min(vals[i], yMax);
     });
     return row;
   });
 
-  // Crossing scatter data
-  const crossingData = crossings.map(c => ({
-    rpm: c.rpm,
-    frequency_hz: c.frequency_hz,
-    label: `${c.mode} x ${c.excitation}`,
-    risk: c.risk,
-  }));
+  // Crossing scatter data (only those within Y domain)
+  const crossingData = crossings
+    .filter(c => c.frequency_hz <= yMax)
+    .map(c => ({
+      rpm: c.rpm,
+      frequency_hz: c.frequency_hz,
+      label: `${c.mode} x ${c.excitation}`,
+      risk: c.risk,
+    }));
 
   const modeKeys = Object.keys(naturalFreqCurves);
   const excKeys = Object.keys(excitationLines);
@@ -73,12 +86,15 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
         <XAxis
           dataKey="rpm"
           type="number"
+          domain={['dataMin', 'dataMax']}
           tick={{ fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
           label={{ value: 'RPM', position: 'insideBottom', fill: CHART_DEFAULTS.labelColor, fontSize: 12, offset: -5 }}
         />
         <YAxis
           type="number"
+          domain={[0, yMax]}
           tick={{ fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          tickFormatter={(v: number) => v.toFixed(2)}
           label={{ value: 'Frequency (Hz)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 12 }}
         />
         <Tooltip content={<DarkTooltip />} />
