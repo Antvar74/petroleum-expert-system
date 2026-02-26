@@ -262,3 +262,168 @@ def solve_eigenvalue(
         "n_free_dofs": n_free,
         "boundary_conditions": bc,
     }
+
+
+def _get_constrained_dofs(bc: str, n_nodes: int) -> List[int]:
+    """Return list of constrained DOF indices for given boundary conditions."""
+    if bc == "pinned-pinned":
+        return [0, (n_nodes - 1) * 2]
+    elif bc == "fixed-pinned":
+        return [0, 1, (n_nodes - 1) * 2]
+    elif bc == "fixed-free":
+        return [0, 1]
+    return [0, (n_nodes - 1) * 2]
+
+
+def solve_forced_response(
+    K: NDArray,
+    Kg: NDArray,
+    M: NDArray,
+    bc: str = "pinned-pinned",
+    excitation_freq_hz: float = 2.0,
+    excitation_node: int = 0,
+    force_lbs: float = 100.0,
+    mud_weight_ppg: float = 10.0,
+    alpha: Optional[float] = None,
+    beta: float = 0.01,
+) -> Dict[str, Any]:
+    """Solve forced harmonic response at a given frequency.
+
+    Equation: (K_eff + i*omega*C - omega^2*M) * U = F
+    With Rayleigh damping: C = alpha*M + beta*K
+
+    Args:
+        K, Kg, M: Global matrices.
+        bc: Boundary conditions.
+        excitation_freq_hz: Forcing frequency (Hz).
+        excitation_node: Node where force is applied (0 = bit).
+        force_lbs: Force magnitude (lbs).
+        mud_weight_ppg: For damping estimation.
+        alpha: Mass-proportional damping. If None, estimated from mud weight.
+        beta: Stiffness-proportional damping (default 0.01).
+
+    Returns:
+        Dict with amplitudes (per node), max_amplitude_in, phase angles.
+    """
+    n_dof = K.shape[0]
+    n_nodes = n_dof // 2
+
+    if alpha is None:
+        # Light damping: ~2-5% critical for drilling systems
+        alpha = 0.01 + mud_weight_ppg * 0.002
+
+    C = alpha * M + beta * K
+
+    constrained_dofs = _get_constrained_dofs(bc, n_nodes)
+    free_dofs = [d for d in range(n_dof) if d not in constrained_dofs]
+    ix = np.ix_(free_dofs, free_dofs)
+
+    K_eff_free = K[ix] - Kg[ix]
+    M_free = M[ix]
+    C_free = C[ix]
+
+    omega = 2.0 * math.pi * excitation_freq_hz
+
+    Z = K_eff_free + 1j * omega * C_free - omega**2 * M_free
+
+    F_full = np.zeros(n_dof, dtype=np.complex128)
+    force_dof = excitation_node * 2
+    # If requested DOF is constrained, apply at nearest free y-DOF
+    if force_dof in constrained_dofs:
+        for node in range(n_nodes):
+            candidate = node * 2
+            if candidate not in constrained_dofs:
+                force_dof = candidate
+                break
+    F_full[force_dof] = force_lbs
+    F_free = F_full[free_dofs]
+
+    try:
+        U_free = np.linalg.solve(Z, F_free)
+    except np.linalg.LinAlgError:
+        return {"amplitudes": [0.0] * n_nodes, "max_amplitude_in": 0.0, "error": "Singular matrix"}
+
+    U_full = np.zeros(n_dof, dtype=np.complex128)
+    U_full[free_dofs] = U_free
+
+    amplitudes = [float(abs(U_full[node * 2])) for node in range(n_nodes)]
+    max_amp = max(amplitudes) if amplitudes else 0.0
+
+    return {
+        "amplitudes": amplitudes,
+        "max_amplitude_in": round(max_amp, 6),
+        "excitation_freq_hz": excitation_freq_hz,
+    }
+
+
+def generate_campbell_diagram(
+    bha_components: List[Dict[str, Any]],
+    wob_klb: float = 20.0,
+    mud_weight_ppg: float = 10.0,
+    hole_diameter_in: float = 8.5,
+    bc: str = "pinned-pinned",
+    rpm_min: float = 20.0,
+    rpm_max: float = 300.0,
+    rpm_step: float = 5.0,
+    n_modes: int = 5,
+    n_blades: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Generate Campbell diagram data: natural frequencies vs RPM.
+
+    At each RPM point the eigenvalue problem is solved (WOB effect constant).
+    Excitation lines: 1x, 2x, 3x RPM. Crossings flag resonance hazards.
+
+    Returns:
+        Dict with rpm_values, natural_freq_curves, excitation_lines, crossings.
+    """
+    rpm_values: List[float] = []
+    rpm = rpm_min
+    while rpm <= rpm_max + 0.001:
+        rpm_values.append(round(rpm, 1))
+        rpm += rpm_step
+
+    K, Kg, M, node_positions = assemble_global_matrices(
+        bha_components, mud_weight_ppg, wob_klb,
+    )
+
+    eigen_result = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
+    base_freqs = eigen_result["frequencies_hz"]
+
+    natural_freq_curves: Dict[str, List[float]] = {}
+    for mode_idx in range(len(base_freqs)):
+        key = f"mode_{mode_idx + 1}"
+        natural_freq_curves[key] = [base_freqs[mode_idx]] * len(rpm_values)
+
+    excitation_lines: Dict[str, List[float]] = {
+        "1x": [r / 60.0 for r in rpm_values],
+        "2x": [2.0 * r / 60.0 for r in rpm_values],
+        "3x": [3.0 * r / 60.0 for r in rpm_values],
+    }
+
+    if n_blades and n_blades > 0:
+        excitation_lines[f"{n_blades}x_blade"] = [n_blades * r / 60.0 for r in rpm_values]
+
+    crossings: List[Dict[str, Any]] = []
+    threshold_hz = 0.3
+
+    for exc_name, exc_freqs in excitation_lines.items():
+        for mode_name, mode_freqs in natural_freq_curves.items():
+            for i, rpm_val in enumerate(rpm_values):
+                if abs(exc_freqs[i] - mode_freqs[i]) < threshold_hz:
+                    crossings.append({
+                        "rpm": rpm_val,
+                        "frequency_hz": round(mode_freqs[i], 2),
+                        "excitation": exc_name,
+                        "mode": mode_name,
+                        "risk": "critical" if exc_name == "1x" else "high",
+                    })
+
+    return {
+        "rpm_values": rpm_values,
+        "natural_freq_curves": natural_freq_curves,
+        "excitation_lines": excitation_lines,
+        "crossings": crossings,
+        "node_positions_ft": node_positions,
+        "mode_shapes": eigen_result["mode_shapes"],
+        "frequencies_hz": base_freqs,
+    }

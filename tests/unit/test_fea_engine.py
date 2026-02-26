@@ -209,3 +209,111 @@ class TestEigenvalueSolver:
         # FEA should be within 5% of analytical for 10 elements
         error_pct = abs(result["frequencies_hz"][0] - f_analytical) / f_analytical * 100
         assert error_pct < 5.0, f"FEA f1={result['frequencies_hz'][0]:.4f}, analytical={f_analytical:.4f}, error={error_pct:.1f}%"
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Forced response and Campbell diagram
+# ---------------------------------------------------------------------------
+class TestForcedResponse:
+    """Verify forced response amplitude calculation."""
+
+    @pytest.fixture
+    def uniform_bha(self):
+        return [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 83.0}
+            for _ in range(10)
+        ]
+
+    def test_forced_response_returns_amplitudes(self, uniform_bha):
+        """Forced response should return amplitude array."""
+        from orchestrator.vibrations_engine.fea import (
+            assemble_global_matrices, solve_eigenvalue, solve_forced_response,
+        )
+        # WOB=0 to avoid near-buckling on 300ft uniform BHA
+        K, Kg, M, _ = assemble_global_matrices(uniform_bha, mud_weight_ppg=10.0, wob_klb=0.0)
+        eigen = solve_eigenvalue(K, Kg, M, bc="pinned-pinned", n_modes=3)
+        result = solve_forced_response(
+            K=K, Kg=Kg, M=M, bc="pinned-pinned",
+            excitation_freq_hz=eigen["frequencies_hz"][0] * 0.5,
+            excitation_node=5,  # mid-BHA node (interior, not constrained)
+            force_lbs=100.0,
+            mud_weight_ppg=10.0,
+        )
+        assert "amplitudes" in result
+        assert "max_amplitude_in" in result
+        assert result["max_amplitude_in"] > 0
+
+    def test_amplitude_peaks_near_resonance(self, uniform_bha):
+        """Amplitude should be much larger near a natural frequency."""
+        from orchestrator.vibrations_engine.fea import (
+            assemble_global_matrices, solve_eigenvalue, solve_forced_response,
+        )
+        K, Kg, M, _ = assemble_global_matrices(uniform_bha, mud_weight_ppg=10.0, wob_klb=0.0)
+        eigen = solve_eigenvalue(K, Kg, M, bc="pinned-pinned", n_modes=3)
+        f1 = eigen["frequencies_hz"][0]
+
+        off_res = solve_forced_response(
+            K=K, Kg=Kg, M=M, bc="pinned-pinned",
+            excitation_freq_hz=f1 * 0.3, excitation_node=5, force_lbs=100.0,
+            mud_weight_ppg=10.0,
+        )
+        near_res = solve_forced_response(
+            K=K, Kg=Kg, M=M, bc="pinned-pinned",
+            excitation_freq_hz=f1 * 0.95, excitation_node=5, force_lbs=100.0,
+            mud_weight_ppg=10.0,
+        )
+        assert near_res["max_amplitude_in"] > off_res["max_amplitude_in"] * 2
+
+
+class TestCampbellDiagram:
+    """Verify Campbell diagram data generation."""
+
+    @pytest.fixture
+    def uniform_bha(self):
+        return [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30.0, "weight_ppf": 83.0}
+            for _ in range(10)
+        ]
+
+    def test_campbell_returns_expected_keys(self, uniform_bha):
+        """Campbell must return rpm_values, natural_freq_curves, excitation_lines, crossings."""
+        from orchestrator.vibrations_engine.fea import generate_campbell_diagram
+        result = generate_campbell_diagram(
+            bha_components=uniform_bha,
+            wob_klb=20.0, mud_weight_ppg=10.0,
+            hole_diameter_in=8.5, bc="pinned-pinned",
+            rpm_min=40, rpm_max=200, rpm_step=20, n_modes=3,
+        )
+        assert "rpm_values" in result
+        assert "natural_freq_curves" in result
+        assert "excitation_lines" in result
+        assert "crossings" in result
+
+    def test_campbell_rpm_range(self, uniform_bha):
+        """RPM values should match requested range."""
+        from orchestrator.vibrations_engine.fea import generate_campbell_diagram
+        result = generate_campbell_diagram(
+            bha_components=uniform_bha,
+            wob_klb=20.0, mud_weight_ppg=10.0,
+            hole_diameter_in=8.5, bc="pinned-pinned",
+            rpm_min=60, rpm_max=180, rpm_step=30, n_modes=2,
+        )
+        rpms = result["rpm_values"]
+        assert rpms[0] == 60
+        assert rpms[-1] == 180
+
+    def test_campbell_excitation_lines(self, uniform_bha):
+        """Should have 1x, 2x, 3x excitation lines."""
+        from orchestrator.vibrations_engine.fea import generate_campbell_diagram
+        result = generate_campbell_diagram(
+            bha_components=uniform_bha,
+            wob_klb=20.0, mud_weight_ppg=10.0,
+            hole_diameter_in=8.5, bc="pinned-pinned",
+            rpm_min=60, rpm_max=180, rpm_step=30, n_modes=2,
+        )
+        lines = result["excitation_lines"]
+        assert "1x" in lines
+        assert "2x" in lines
+        assert "3x" in lines
+        # 1x at 120 RPM = 2 Hz
+        assert abs(lines["1x"][2] - 120.0 / 60.0) < 0.01
