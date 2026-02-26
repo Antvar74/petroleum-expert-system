@@ -261,7 +261,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                   <Wrench size={18} />
                   BHA Detallado (FEA)
                   <span className="text-xs font-normal text-gray-500 ml-2">
-                    {showBhaEditor ? '▼' : '▶'} {bhaComponents.length > 0 ? `${bhaComponents.length} components` : 'Click to expand'}
+                    {showBhaEditor ? '▼' : '▶'} {bhaComponents.length > 0 ? `${bhaComponents.reduce((s, c) => s + (c.quantity ?? 1), 0)} joints · ${bhaComponents.reduce((s, c) => s + c.length_ft, 0).toFixed(0)} ft` : 'Click to expand'}
                   </span>
                 </button>
                 {showBhaEditor && (

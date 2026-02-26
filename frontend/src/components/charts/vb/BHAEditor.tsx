@@ -1,6 +1,7 @@
 /**
  * BHAEditor.tsx — Interactive multi-component BHA editor for FEA analysis.
  * Allows adding, removing, reordering BHA components (collar, dp, hwdp, etc.)
+ * Tubulars (collar, dp, hwdp) support quantity × joint length.
  */
 import React, { useRef } from 'react';
 import Papa from 'papaparse';
@@ -11,8 +12,10 @@ export interface BHAComponent {
   type: string;
   od: number;
   id_inner: number;
-  length_ft: number;
+  length_ft: number;         // Total length (unit_length_ft × quantity) — sent to backend
   weight_ppf: number;
+  unit_length_ft?: number;   // Per-joint length
+  quantity?: number;          // Number of joints (default 1)
 }
 
 interface BHAEditorProps {
@@ -22,38 +25,43 @@ interface BHAEditorProps {
 
 const COMPONENT_TYPES = ['collar', 'dp', 'hwdp', 'stabilizer', 'motor', 'MWD'];
 
+/** Tubular types that can have quantity > 1 */
+const TUBULAR_TYPES = new Set(['collar', 'dp', 'hwdp']);
+
+const getQty = (c: BHAComponent) => c.quantity ?? 1;
+const getUnitLen = (c: BHAComponent) => c.unit_length_ft ?? c.length_ft;
+
 const DEFAULT_BY_TYPE: Record<string, Partial<BHAComponent>> = {
-  collar:     { od: 6.75, id_inner: 2.813, weight_ppf: 83.0, length_ft: 30 },
-  dp:         { od: 5.0,  id_inner: 4.276, weight_ppf: 19.5, length_ft: 30 },
-  hwdp:       { od: 5.0,  id_inner: 3.0,   weight_ppf: 49.3, length_ft: 30 },
-  stabilizer: { od: 8.25, id_inner: 2.813, weight_ppf: 95.0, length_ft: 5 },
-  motor:      { od: 6.75, id_inner: 3.5,   weight_ppf: 90.0, length_ft: 25 },
-  MWD:        { od: 6.75, id_inner: 3.25,  weight_ppf: 85.0, length_ft: 10 },
+  collar:     { od: 6.75, id_inner: 2.813, weight_ppf: 83.0, unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  dp:         { od: 5.0,  id_inner: 4.276, weight_ppf: 19.5, unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  hwdp:       { od: 5.0,  id_inner: 3.0,   weight_ppf: 49.3, unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  stabilizer: { od: 8.25, id_inner: 2.813, weight_ppf: 95.0, unit_length_ft: 5,  quantity: 1, length_ft: 5 },
+  motor:      { od: 6.75, id_inner: 3.5,   weight_ppf: 90.0, unit_length_ft: 25, quantity: 1, length_ft: 25 },
+  MWD:        { od: 6.75, id_inner: 3.25,  weight_ppf: 85.0, unit_length_ft: 10, quantity: 1, length_ft: 10 },
 };
 
 const BHA_PRESETS: Record<string, BHAComponent[]> = {
   'Standard Rotary': [
-    { type: 'collar', od: 8.0, id_inner: 2.813, length_ft: 30, weight_ppf: 147 },
-    { type: 'collar', od: 6.75, id_inner: 2.813, length_ft: 60, weight_ppf: 83 },
-    { type: 'collar', od: 6.75, id_inner: 2.813, length_ft: 60, weight_ppf: 83 },
-    { type: 'hwdp', od: 5.0, id_inner: 3.0, length_ft: 90, weight_ppf: 49.3 },
-    { type: 'dp', od: 5.0, id_inner: 4.276, length_ft: 60, weight_ppf: 19.5 },
+    { type: 'collar', od: 8.0, id_inner: 2.813, unit_length_ft: 30, quantity: 1, length_ft: 30, weight_ppf: 147 },
+    { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 30, quantity: 4, length_ft: 120, weight_ppf: 83 },
+    { type: 'hwdp', od: 5.0, id_inner: 3.0, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 49.3 },
+    { type: 'dp', od: 5.0, id_inner: 4.276, unit_length_ft: 30, quantity: 2, length_ft: 60, weight_ppf: 19.5 },
   ],
   'Motor BHA': [
-    { type: 'stabilizer', od: 8.25, id_inner: 2.813, length_ft: 5, weight_ppf: 95 },
-    { type: 'motor', od: 6.75, id_inner: 3.5, length_ft: 25, weight_ppf: 90 },
-    { type: 'MWD', od: 6.75, id_inner: 3.25, length_ft: 10, weight_ppf: 85 },
-    { type: 'collar', od: 6.75, id_inner: 2.813, length_ft: 90, weight_ppf: 83 },
-    { type: 'hwdp', od: 5.0, id_inner: 3.0, length_ft: 90, weight_ppf: 49.3 },
-    { type: 'dp', od: 5.0, id_inner: 4.276, length_ft: 60, weight_ppf: 19.5 },
+    { type: 'stabilizer', od: 8.25, id_inner: 2.813, unit_length_ft: 5, quantity: 1, length_ft: 5, weight_ppf: 95 },
+    { type: 'motor', od: 6.75, id_inner: 3.5, unit_length_ft: 25, quantity: 1, length_ft: 25, weight_ppf: 90 },
+    { type: 'MWD', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
+    { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 83 },
+    { type: 'hwdp', od: 5.0, id_inner: 3.0, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 49.3 },
+    { type: 'dp', od: 5.0, id_inner: 4.276, unit_length_ft: 30, quantity: 2, length_ft: 60, weight_ppf: 19.5 },
   ],
   'RSS BHA': [
-    { type: 'stabilizer', od: 8.25, id_inner: 2.813, length_ft: 3, weight_ppf: 95 },
-    { type: 'collar', od: 6.75, id_inner: 2.813, length_ft: 15, weight_ppf: 83 },
-    { type: 'MWD', od: 6.75, id_inner: 3.25, length_ft: 10, weight_ppf: 85 },
-    { type: 'collar', od: 6.75, id_inner: 2.813, length_ft: 120, weight_ppf: 83 },
-    { type: 'hwdp', od: 5.0, id_inner: 3.0, length_ft: 90, weight_ppf: 49.3 },
-    { type: 'dp', od: 5.0, id_inner: 4.276, length_ft: 60, weight_ppf: 19.5 },
+    { type: 'stabilizer', od: 8.25, id_inner: 2.813, unit_length_ft: 3, quantity: 1, length_ft: 3, weight_ppf: 95 },
+    { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 15, quantity: 1, length_ft: 15, weight_ppf: 83 },
+    { type: 'MWD', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
+    { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 30, quantity: 4, length_ft: 120, weight_ppf: 83 },
+    { type: 'hwdp', od: 5.0, id_inner: 3.0, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 49.3 },
+    { type: 'dp', od: 5.0, id_inner: 4.276, unit_length_ft: 30, quantity: 2, length_ft: 60, weight_ppf: 19.5 },
   ],
 };
 
@@ -65,6 +73,8 @@ const TYPE_COLORS: Record<string, string> = {
   motor: 'bg-purple-500/20 text-purple-300',
   MWD: 'bg-cyan-500/20 text-cyan-300',
 };
+
+const INPUT_CLASS = 'w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none';
 
 const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
 
@@ -83,6 +93,14 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
       const newType = value as string;
       const defaults = DEFAULT_BY_TYPE[newType] || {};
       updated[index] = { ...updated[index], ...defaults, type: newType };
+    } else if (field === 'unit_length_ft') {
+      const unitLen = typeof value === 'string' ? parseFloat(value) || 0 : value;
+      const qty = getQty(updated[index]);
+      updated[index] = { ...updated[index], unit_length_ft: unitLen, length_ft: unitLen * qty };
+    } else if (field === 'quantity') {
+      const qty = Math.max(1, Math.round(typeof value === 'string' ? parseFloat(value) || 1 : value));
+      const unitLen = getUnitLen(updated[index]);
+      updated[index] = { ...updated[index], quantity: qty, length_ft: unitLen * qty };
     } else {
       updated[index] = { ...updated[index], [field]: typeof value === 'string' ? parseFloat(value) || 0 : value };
     }
@@ -107,13 +125,21 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
     const parseRows = (rows: Record<string, string>[]) => {
       const mapped: BHAComponent[] = rows
         .filter(r => r.type || r.Type || r.component)
-        .map(r => ({
-          type: (r.type || r.Type || r.component || 'collar').toLowerCase(),
-          od: parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75,
-          id_inner: parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813,
-          length_ft: parseFloat(r.length_ft || r.length || r.Length || '30') || 30,
-          weight_ppf: parseFloat(r.weight_ppf || r.weight || r.Weight || r.weight_lbft || '83') || 83,
-        }));
+        .map(r => {
+          const qty = Math.max(1, parseInt(r.quantity || r.qty || r.Qty || '1') || 1);
+          const unitLen = parseFloat(r.unit_length_ft || r.joint_length || r.jt_len || '0');
+          const totalLen = parseFloat(r.length_ft || r.length || r.Length || '30') || 30;
+          const resolvedUnitLen = unitLen > 0 ? unitLen : (qty > 1 ? totalLen / qty : totalLen);
+          return {
+            type: (r.type || r.Type || r.component || 'collar').toLowerCase(),
+            od: parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75,
+            id_inner: parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813,
+            unit_length_ft: resolvedUnitLen,
+            quantity: qty,
+            length_ft: resolvedUnitLen * qty,
+            weight_ppf: parseFloat(r.weight_ppf || r.weight || r.Weight || r.weight_lbft || '83') || 83,
+          };
+        });
       if (mapped.length > 0) onChange(mapped);
     };
 
@@ -138,6 +164,8 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
   };
 
   const totalLength = components.reduce((sum, c) => sum + c.length_ft, 0);
+  const totalJoints = components.reduce((sum, c) => sum + getQty(c), 0);
+  const totalConnections = totalJoints > 0 ? totalJoints - 1 : 0;
 
   return (
     <div className="space-y-3">
@@ -163,43 +191,77 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
               <th className="text-right py-2 px-1">OD (in)</th>
               <th className="text-right py-2 px-1">ID (in)</th>
               <th className="text-right py-2 px-1">Length (ft)</th>
-              <th className="text-right py-2 px-1">Weight (lb/ft)</th>
+              <th className="text-right py-2 px-1 w-16">Qty</th>
+              <th className="text-right py-2 px-1 w-20">Total (ft)</th>
+              <th className="text-right py-2 px-1">Wt (lb/ft)</th>
               <th className="py-2 px-1 w-24"></th>
             </tr>
           </thead>
           <tbody>
-            {components.map((comp, i) => (
-              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
-                <td className="py-1 px-1 text-gray-600">{i + 1}</td>
-                <td className="py-1 px-1">
-                  <select value={comp.type}
-                    onChange={e => updateComponent(i, 'type', e.target.value)}
-                    className={`bg-transparent border border-white/10 rounded px-2 py-1 text-xs ${TYPE_COLORS[comp.type] || 'text-gray-300'}`}>
-                    {COMPONENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </td>
-                {(['od', 'id_inner', 'length_ft', 'weight_ppf'] as const).map(field => (
-                  <td key={field} className="py-1 px-1">
-                    <input type="number"
-                      value={comp[field]}
-                      step={field === 'length_ft' ? '5' : '0.125'}
-                      onChange={e => updateComponent(i, field, e.target.value)}
-                      className="w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none"
-                    />
+            {components.map((comp, i) => {
+              const isTubular = TUBULAR_TYPES.has(comp.type);
+              return (
+                <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                  <td className="py-1 px-1 text-gray-600">{i + 1}</td>
+                  <td className="py-1 px-1">
+                    <select value={comp.type}
+                      onChange={e => updateComponent(i, 'type', e.target.value)}
+                      className={`bg-transparent border border-white/10 rounded px-2 py-1 text-xs ${TYPE_COLORS[comp.type] || 'text-gray-300'}`}>
+                      {COMPONENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </td>
-                ))}
-                <td className="py-1 px-1">
-                  <div className="flex gap-1 justify-end">
-                    <button onClick={() => moveComponent(i, 'up')} disabled={i === 0}
-                      className="p-1 text-gray-500 hover:text-gray-300 disabled:opacity-20"><ChevronUp size={14} /></button>
-                    <button onClick={() => moveComponent(i, 'down')} disabled={i === components.length - 1}
-                      className="p-1 text-gray-500 hover:text-gray-300 disabled:opacity-20"><ChevronDown size={14} /></button>
-                    <button onClick={() => removeComponent(i)}
-                      className="p-1 text-gray-500 hover:text-red-400"><Trash2 size={14} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  {/* OD */}
+                  <td className="py-1 px-1">
+                    <input type="number" value={comp.od} step="0.125"
+                      onChange={e => updateComponent(i, 'od', e.target.value)}
+                      className={INPUT_CLASS} />
+                  </td>
+                  {/* ID */}
+                  <td className="py-1 px-1">
+                    <input type="number" value={comp.id_inner} step="0.125"
+                      onChange={e => updateComponent(i, 'id_inner', e.target.value)}
+                      className={INPUT_CLASS} />
+                  </td>
+                  {/* Per-joint length */}
+                  <td className="py-1 px-1">
+                    <input type="number" value={getUnitLen(comp)} step="5"
+                      onChange={e => updateComponent(i, 'unit_length_ft', e.target.value)}
+                      className={INPUT_CLASS} />
+                  </td>
+                  {/* Quantity */}
+                  <td className="py-1 px-1">
+                    {isTubular ? (
+                      <input type="number" value={getQty(comp)} min={1} step={1}
+                        onChange={e => updateComponent(i, 'quantity', e.target.value)}
+                        className={INPUT_CLASS} />
+                    ) : (
+                      <span className="block text-right text-xs text-gray-600 px-2 py-1">1</span>
+                    )}
+                  </td>
+                  {/* Total length (computed) */}
+                  <td className="py-1 px-1 text-right text-xs text-gray-400 tabular-nums">
+                    {comp.length_ft.toFixed(0)}
+                  </td>
+                  {/* Weight */}
+                  <td className="py-1 px-1">
+                    <input type="number" value={comp.weight_ppf} step="0.1"
+                      onChange={e => updateComponent(i, 'weight_ppf', e.target.value)}
+                      className={INPUT_CLASS} />
+                  </td>
+                  {/* Actions */}
+                  <td className="py-1 px-1">
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => moveComponent(i, 'up')} disabled={i === 0}
+                        className="p-1 text-gray-500 hover:text-gray-300 disabled:opacity-20"><ChevronUp size={14} /></button>
+                      <button onClick={() => moveComponent(i, 'down')} disabled={i === components.length - 1}
+                        className="p-1 text-gray-500 hover:text-gray-300 disabled:opacity-20"><ChevronDown size={14} /></button>
+                      <button onClick={() => removeComponent(i)}
+                        className="p-1 text-gray-500 hover:text-red-400"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -218,7 +280,7 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileImport} className="hidden" />
         </div>
         <span className="text-xs text-gray-500">
-          {components.length} components &middot; Total: {totalLength.toFixed(0)} ft
+          {totalJoints} joints &middot; {totalConnections} connections &middot; Total: {totalLength.toFixed(0)} ft
         </span>
       </div>
     </div>
