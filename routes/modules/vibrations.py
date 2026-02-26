@@ -157,6 +157,8 @@ def calculate_fea(data: FEARequest):
         include_forced_response=data.include_forced_response,
         include_campbell=data.include_campbell,
         n_blades=data.n_blades,
+        pv_cp=data.pv_cp,
+        yp_lbf_100ft2=data.yp_lbf_100ft2,
     )
 
 
