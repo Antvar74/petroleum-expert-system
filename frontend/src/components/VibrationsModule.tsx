@@ -40,6 +40,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     bha_id_in: 2.813,
     bha_weight_lbft: 83.0,
     mud_weight_ppg: 10.0,
+    pv_cp: undefined,
+    yp_lbf_100ft2: undefined,
+    flow_rate_gpm: undefined,
     hole_diameter_in: 8.5,
     inclination_deg: 15,
     friction_factor: 0.25,
@@ -63,7 +66,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     wellName,
   });
 
-  const optionalFields = new Set(['stabilizer_spacing_ft', 'ucs_psi', 'n_blades']);
+  const optionalFields = new Set(['stabilizer_spacing_ft', 'ucs_psi', 'n_blades', 'pv_cp', 'yp_lbf_100ft2', 'flow_rate_gpm']);
 
   const lithologyPresets = [
     { label: 'Shale', value: 8000 },
@@ -108,6 +111,8 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
         wob_klb: params.wob_klb || 20,
         rpm: params.rpm || 120,
         mud_weight_ppg: params.mud_weight_ppg || 10,
+        pv_cp: params.pv_cp || undefined,
+        yp_lbf_100ft2: params.yp_lbf_100ft2 || undefined,
         hole_diameter_in: params.hole_diameter_in || 8.5,
         boundary_conditions: 'pinned-pinned',
         n_modes: 5,
@@ -171,6 +176,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                     { key: 'torque_ftlb', label: t('vibrations.torque'), step: '500' },
                     { key: 'bit_diameter_in', label: t('vibrations.bitDiameter'), step: '0.125' },
                     { key: 'mud_weight_ppg', label: t('vibrations.mudWeight'), step: '0.5' },
+                    { key: 'pv_cp', label: t('vibrations.pvCp'), step: '1', placeholder: 'Opcional' },
+                    { key: 'yp_lbf_100ft2', label: t('vibrations.ypLbf'), step: '1', placeholder: 'Opcional' },
+                    { key: 'flow_rate_gpm', label: t('vibrations.flowRate'), step: '50', placeholder: 'Opcional' },
                     { key: 'hole_diameter_in', label: t('vibrations.holeDiameter'), step: '0.125' },
                     { key: 'inclination_deg', label: t('vibrations.inclination'), step: '5' },
                     { key: 'friction_factor', label: t('vibrations.frictionCoeff'), step: '0.05' },
