@@ -23,6 +23,7 @@ from .bit_excitation import calculate_bit_excitation, check_resonance
 from .stabilizers import optimize_stabilizer_placement
 from .fatigue import calculate_fatigue_damage
 from .pipeline import calculate_full_vibration_analysis
+from .fea import run_fea_analysis, generate_campbell_diagram
 
 
 class VibrationsEngine:
@@ -61,3 +62,7 @@ class VibrationsEngine:
 
     # pipeline
     calculate_full_vibration_analysis = staticmethod(calculate_full_vibration_analysis)
+
+    # fea
+    run_fea_analysis = staticmethod(run_fea_analysis)
+    generate_campbell_diagram = staticmethod(generate_campbell_diagram)

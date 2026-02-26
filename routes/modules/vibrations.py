@@ -15,6 +15,7 @@ from orchestrator.module_analysis_engine import ModuleAnalysisEngine
 from schemas.common import AIAnalysisRequest
 from schemas.vibrations import (
     VibrationsCalcRequest, Vibrations3DMapRequest, BHAModalRequest, FatigueRequest,
+    FEARequest, CampbellRequest,
 )
 
 router = APIRouter(tags=["vibrations"])
@@ -47,6 +48,7 @@ def calculate_vibrations(well_id: int, data: VibrationsCalcRequest, db: Session 
         friction_factor=data.friction_factor,
         stabilizer_spacing_ft=data.stabilizer_spacing_ft,
         ucs_psi=data.ucs_psi,
+        n_blades=data.n_blades,
     )
 
     vib_result = VibrationsResult(
@@ -138,4 +140,38 @@ def calculate_vibrations_fatigue(data: FatigueRequest):
         hours_per_stand=data.hours_per_stand,
         vibration_severity=data.vibration_severity,
         total_rotating_hours=data.total_rotating_hours,
+    )
+
+
+@router.post("/vibrations/fea")
+def calculate_fea(data: FEARequest):
+    """Finite Element Analysis of BHA lateral vibrations."""
+    return VibrationsEngine.run_fea_analysis(
+        bha_components=data.bha_components,
+        wob_klb=data.wob_klb,
+        rpm=data.rpm,
+        mud_weight_ppg=data.mud_weight_ppg,
+        hole_diameter_in=data.hole_diameter_in,
+        bc=data.boundary_conditions,
+        n_modes=data.n_modes,
+        include_forced_response=data.include_forced_response,
+        include_campbell=data.include_campbell,
+        n_blades=data.n_blades,
+    )
+
+
+@router.post("/vibrations/campbell")
+def calculate_campbell(data: CampbellRequest):
+    """Generate Campbell diagram data for BHA."""
+    return VibrationsEngine.generate_campbell_diagram(
+        bha_components=data.bha_components,
+        wob_klb=data.wob_klb,
+        mud_weight_ppg=data.mud_weight_ppg,
+        hole_diameter_in=data.hole_diameter_in,
+        bc=data.boundary_conditions,
+        rpm_min=data.rpm_min,
+        rpm_max=data.rpm_max,
+        rpm_step=data.rpm_step,
+        n_modes=data.n_modes,
+        n_blades=data.n_blades,
     )

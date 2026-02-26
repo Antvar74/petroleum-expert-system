@@ -67,3 +67,33 @@ class FatigueRequest(BaseModel):
     hours_per_stand: float = Field(default=0.5)
     vibration_severity: float = Field(default=0.3)
     total_rotating_hours: float = Field(default=100)
+
+
+class FEARequest(BaseModel):
+    """Body for ``POST /vibrations/fea``."""
+
+    bha_components: List[Dict[str, Any]] = Field(..., description="BHA component list")
+    wob_klb: float = Field(default=20, description="Weight on bit (klbs)")
+    rpm: float = Field(default=120, description="Operating RPM")
+    mud_weight_ppg: float = Field(default=10, description="Mud weight (ppg)")
+    hole_diameter_in: float = Field(default=8.5, description="Hole diameter (in)")
+    boundary_conditions: str = Field(default="pinned-pinned", description="BC: pinned-pinned, fixed-pinned, fixed-free")
+    n_modes: int = Field(default=5, description="Number of modes to compute")
+    include_forced_response: bool = Field(default=True, description="Include forced response analysis")
+    include_campbell: bool = Field(default=True, description="Include Campbell diagram")
+    n_blades: Optional[int] = Field(default=None, description="PDC blade count for blade-pass excitation")
+
+
+class CampbellRequest(BaseModel):
+    """Body for ``POST /vibrations/campbell``."""
+
+    bha_components: List[Dict[str, Any]] = Field(..., description="BHA component list")
+    wob_klb: float = Field(default=20, description="Weight on bit (klbs)")
+    mud_weight_ppg: float = Field(default=10, description="Mud weight (ppg)")
+    hole_diameter_in: float = Field(default=8.5, description="Hole diameter (in)")
+    boundary_conditions: str = Field(default="pinned-pinned", description="Boundary conditions")
+    rpm_min: float = Field(default=20, description="Campbell RPM sweep start")
+    rpm_max: float = Field(default=300, description="Campbell RPM sweep end")
+    rpm_step: float = Field(default=5, description="Campbell RPM step")
+    n_modes: int = Field(default=5, description="Number of modes")
+    n_blades: Optional[int] = Field(default=None, description="PDC blade count")
