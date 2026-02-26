@@ -627,3 +627,70 @@ class TestRegressionAuditFixes:
         )
         # R/3 gives ~590, 2R/3 gives ~1181
         assert result["friction_torque_ftlb"] > 900
+
+
+# ===========================================================================
+# 9. STICK-SLIP WITH DRILL PIPE (COMPOSITE SPRING MODEL)
+# ===========================================================================
+class TestStickSlipWithDrillPipe:
+    """Tests for stick-slip with total drillstring depth (DP + BHA)."""
+
+    def test_deep_well_high_severity(self, engine):
+        """10,000 ft well at 60 RPM with 16,000 ft-lb torque must be Critical."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            mud_weight_ppg=10.0, friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert result["severity_index"] > 1.5, (
+            f"Expected Critical (>1.5), got {result['severity_index']}"
+        )
+        assert result["classification"] == "Critical"
+
+    def test_shallow_well_lower_severity(self, engine):
+        """Same params but at 1,000 ft should be less severe than 10,000 ft."""
+        shallow = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=1000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        deep = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert deep["severity_index"] > shallow["severity_index"]
+
+    def test_backward_compat_no_depth(self, engine):
+        """Without total_depth_ft, behavior should be the same as before (BHA-only)."""
+        old_result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+        )
+        assert "severity_index" in old_result
+        assert old_result["severity_index"] >= 0
+
+    def test_bit_stall_rpm_zero_at_critical(self, engine):
+        """At Critical severity, bit minimum RPM should be 0 (full stall)."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert result["rpm_min_at_bit"] == 0, (
+            f"Bit should stall (0 RPM), got {result['rpm_min_at_bit']}"
+        )

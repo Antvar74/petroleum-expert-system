@@ -117,6 +117,10 @@ def generate_vibration_map(
     torque_base_ftlb: float = 10000,
     rop_base_fph: float = 50,
     stabilizer_spacing_ft: Optional[float] = None,
+    ucs_psi: Optional[float] = None,
+    total_depth_ft: Optional[float] = None,
+    dp_od_in: float = 5.0,
+    dp_id_in: float = 4.276,
 ) -> Dict[str, Any]:
     """
     Generate RPM vs WOB vibration stability map (heatmap data).
@@ -163,6 +167,8 @@ def generate_vibration_map(
                 surface_rpm=rpm, wob_klb=wob, torque_ftlb=torque_est,
                 bit_diameter_in=bit_diameter_in, bha_length_ft=bha_length_ft,
                 bha_od_in=bha_od_in, bha_id_in=bha_id_in, mud_weight_ppg=mud_weight_ppg,
+                total_depth_ft=total_depth_ft,
+                dp_od_in=dp_od_in, dp_id_in=dp_id_in,
             )
             mse = calculate_mse(
                 wob_klb=wob, torque_ftlb=torque_est, rpm=rpm,

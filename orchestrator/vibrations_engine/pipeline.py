@@ -31,6 +31,7 @@ def calculate_full_vibration_analysis(
     friction_factor: float = 0.25,
     stabilizer_spacing_ft: Optional[float] = None,
     ucs_psi: Optional[float] = None,
+    total_depth_ft: Optional[float] = None,
     n_blades: Optional[int] = None,
     bha_components: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
@@ -83,6 +84,9 @@ def calculate_full_vibration_analysis(
         bha_id_in=bha_id_in,
         mud_weight_ppg=mud_weight_ppg,
         friction_factor=friction_factor,
+        total_depth_ft=total_depth_ft,
+        dp_od_in=dp_od_in,
+        dp_id_in=dp_id_in,
     )
 
     # 4. MSE
@@ -143,6 +147,10 @@ def calculate_full_vibration_analysis(
         torque_base_ftlb=torque_ftlb,
         rop_base_fph=rop_fph,
         stabilizer_spacing_ft=stabilizer_spacing_ft,
+        total_depth_ft=total_depth_ft,
+        dp_od_in=dp_od_in,
+        dp_id_in=dp_id_in,
+        ucs_psi=ucs_psi,
     )
 
     # Alerts

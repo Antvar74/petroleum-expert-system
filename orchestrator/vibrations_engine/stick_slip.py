@@ -4,7 +4,7 @@ References:
 - Jansen & van den Steen (1995): Active damping of stick-slip vibrations
 """
 import math
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def calculate_stick_slip_severity(
@@ -16,19 +16,27 @@ def calculate_stick_slip_severity(
     bha_od_in: float,
     bha_id_in: float,
     mud_weight_ppg: float = 10.0,
-    friction_factor: float = 0.25
+    friction_factor: float = 0.25,
+    total_depth_ft: Optional[float] = None,
+    dp_od_in: float = 5.0,
+    dp_id_in: float = 4.276,
 ) -> Dict[str, Any]:
     """
     Calculate stick-slip severity index.
 
-    Severity = (omega_max - omega_min) / omega_avg
+    Uses a composite torsional spring model (BHA + Drill Pipe in series)
+    when total_depth_ft is provided. Falls back to BHA-only stiffness
+    when total_depth_ft is None (backward compatibility).
 
-    Estimated from torque fluctuation model:
-    - Friction torque at bit: T_friction = mu * WOB * 2*R_bit / 3
-    - Torsional spring constant: k_t = G * J / L
-    - Angular displacement: delta_theta = T_friction / k_t
+    Torsional stiffness model:
+    - K_bha = G * J_bha / L_bha
+    - K_dp  = G * J_dp  / L_dp   (where L_dp = total_depth - bha_length)
+    - K_eq  = (K_bha * K_dp) / (K_bha + K_dp)   [springs in series]
 
-    Severity classification:
+    Severity = delta_omega / omega_surface
+    Where delta_omega = 2 * (T_friction / K_eq) * omega_surface
+
+    Classification:
     - < 0.5: Mild (normal drilling)
     - 0.5-1.0: Moderate (monitoring needed)
     - 1.0-1.5: Severe (adjust parameters)
@@ -44,6 +52,10 @@ def calculate_stick_slip_severity(
         bha_id_in: BHA ID (inches)
         mud_weight_ppg: mud weight (ppg)
         friction_factor: bit-formation friction coefficient
+        total_depth_ft: total measured depth (ft). When provided, DP section
+            is modeled as a torsional spring in series with BHA.
+        dp_od_in: drill pipe OD (inches), used when total_depth_ft provided
+        dp_id_in: drill pipe ID (inches), used when total_depth_ft provided
 
     Returns:
         Dict with severity index, classification, recommendations
@@ -56,13 +68,24 @@ def calculate_stick_slip_severity(
     wob_lbs = wob_klb * 1000.0
     t_friction = friction_factor * wob_lbs * r_bit_ft * 2.0 / 3.0
 
-    # Torsional stiffness of BHA
+    # Torsional stiffness
     # G = E / (2(1+nu)) ~ 11.5e6 psi for steel
     g_shear = 11.5e6  # psi
-    j_polar = math.pi * (bha_od_in ** 4 - bha_id_in ** 4) / 32.0  # in^4
+    j_bha = math.pi * (bha_od_in ** 4 - bha_id_in ** 4) / 32.0  # in^4
     bha_length_in = bha_length_ft * 12.0
 
-    k_torsion = g_shear * j_polar / bha_length_in if bha_length_in > 0 else 1e6  # in-lb/rad
+    k_bha = g_shear * j_bha / bha_length_in if bha_length_in > 0 else 1e6  # in-lb/rad
+
+    # Composite stiffness: BHA + DP in series
+    if total_depth_ft is not None and total_depth_ft > bha_length_ft:
+        dp_length_ft = total_depth_ft - bha_length_ft
+        dp_length_in = dp_length_ft * 12.0
+        j_dp = math.pi * (dp_od_in ** 4 - dp_id_in ** 4) / 32.0  # in^4
+        k_dp = g_shear * j_dp / dp_length_in if dp_length_in > 0 else 1e6
+        # Springs in series: 1/K_eq = 1/K_bha + 1/K_dp
+        k_torsion = (k_bha * k_dp) / (k_bha + k_dp)
+    else:
+        k_torsion = k_bha
 
     # Angular displacement (radians)
     t_friction_inlb = t_friction * 12.0  # convert to in-lb

@@ -48,6 +48,7 @@ def calculate_vibrations(well_id: int, data: VibrationsCalcRequest, db: Session 
         friction_factor=data.friction_factor,
         stabilizer_spacing_ft=data.stabilizer_spacing_ft,
         ucs_psi=data.ucs_psi,
+        total_depth_ft=data.total_depth_ft,
         n_blades=data.n_blades,
     )
 

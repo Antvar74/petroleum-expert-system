@@ -35,6 +35,7 @@ class VibrationsCalcRequest(BaseModel):
     ucs_psi: Optional[float] = Field(default=None, description="Formation unconfined compressive strength (psi). Required for MSE efficiency calculation.")
     n_blades: Optional[int] = Field(default=None, description="Number of PDC blades/cutters. Affects bit excitation frequency.")
     wellbore_sections: Optional[List[Dict[str, Any]]] = Field(default=None, description="Wellbore sections: casing, liner, open hole. Each dict has section_type, top_md_ft, bottom_md_ft, id_in.")
+    total_depth_ft: Optional[float] = Field(default=None, description="Total measured depth (ft). Derived from wellbore sections max Bottom MD. Required for accurate stick-slip calculation.")
 
 
 class Vibrations3DMapRequest(BaseModel):
