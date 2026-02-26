@@ -34,6 +34,7 @@ class VibrationsCalcRequest(BaseModel):
     stabilizer_spacing_ft: Optional[float] = Field(default=None, description="Span between stabilizers (ft). If not provided, estimated as min(bha_length, 90).")
     ucs_psi: Optional[float] = Field(default=None, description="Formation unconfined compressive strength (psi). Required for MSE efficiency calculation.")
     n_blades: Optional[int] = Field(default=None, description="Number of PDC blades/cutters. Affects bit excitation frequency.")
+    wellbore_sections: Optional[List[Dict[str, Any]]] = Field(default=None, description="Wellbore sections: casing, liner, open hole. Each dict has section_type, top_md_ft, bottom_md_ft, id_in.")
 
 
 class Vibrations3DMapRequest(BaseModel):
@@ -102,3 +103,13 @@ class CampbellRequest(BaseModel):
     rpm_step: float = Field(default=5, description="Campbell RPM step")
     n_modes: int = Field(default=5, description="Number of modes")
     n_blades: Optional[int] = Field(default=None, description="PDC blade count")
+
+
+class WellboreSection(BaseModel):
+    """A single wellbore section (casing, liner, or open hole)."""
+
+    section_type: str = Field(..., description="Type: surface_casing, intermediate_casing, production_casing, liner, open_hole")
+    top_md_ft: float = Field(..., description="Top measured depth (ft)")
+    bottom_md_ft: float = Field(..., description="Bottom measured depth (ft)")
+    id_in: float = Field(..., description="Inner diameter (in)")
+    shoe_depth_ft: Optional[float] = Field(default=None, description="Shoe depth (ft), typically = bottom_md_ft")
