@@ -121,6 +121,92 @@ def _auto_mesh(
     return meshed
 
 
+# Component types that are part of the BHA (not drill pipe)
+_BHA_TYPES = frozenset({
+    "motor", "stabilizer", "mwd", "collar", "hwdp",
+    "bit_sub", "reamer", "jar", "crossover", "sub",
+    "near_bit_stabilizer", "string_stabilizer",
+})
+
+
+def _filter_bha_components(
+    bha_components: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Remove DP components — only BHA participates in lateral FEA.
+
+    Drill pipe is wall-constrained in the wellbore and does not contribute
+    to BHA lateral vibration modes.  Industry practice (DrillBench, WellPlan)
+    is to model only the BHA section for lateral analysis.
+    """
+    return [
+        c for c in bha_components
+        if c.get("type", "").lower() in _BHA_TYPES
+    ]
+
+
+def _find_stabilizer_positions(
+    bha_components: List[Dict[str, Any]],
+) -> List[float]:
+    """Find cumulative depths (ft) where stabilizers end.
+
+    Stabilizers act as lateral support points (pinned constraints).
+    Returns the depth at the BOTTOM of each stabilizer component.
+    """
+    positions: List[float] = []
+    cumulative = 0.0
+    for comp in bha_components:
+        cumulative += comp.get("length_ft", 0.0)
+        comp_type = comp.get("type", "").lower()
+        if "stabilizer" in comp_type:
+            positions.append(cumulative)
+    return sorted(positions)
+
+
+def _split_into_spans(
+    bha_components: List[Dict[str, Any]],
+    stabilizer_depths_ft: List[float],
+) -> List[List[Dict[str, Any]]]:
+    """Split BHA into spans between support points.
+
+    Support points: bit (0 ft), each stabilizer depth, top of BHA.
+    A component that straddles a split point is divided proportionally.
+    """
+    if not stabilizer_depths_ft:
+        return [list(bha_components)]
+
+    split_depths = sorted(stabilizer_depths_ft)
+    spans: List[List[Dict[str, Any]]] = []
+    current_span: List[Dict[str, Any]] = []
+    cumulative = 0.0
+    split_idx = 0
+
+    for comp in bha_components:
+        length = comp.get("length_ft", 0.0)
+        comp_end = cumulative + length
+
+        if split_idx < len(split_depths) and comp_end >= split_depths[split_idx] - 0.001:
+            split_point = split_depths[split_idx]
+            before = split_point - cumulative
+            after = comp_end - split_point
+
+            if before > 0.01:
+                current_span.append({**comp, "length_ft": before})
+            spans.append(current_span)
+            current_span = []
+            if after > 0.01:
+                current_span.append({**comp, "length_ft": after})
+            split_idx += 1
+        else:
+            current_span.append(comp)
+
+        cumulative = comp_end
+
+    if current_span:
+        spans.append(current_span)
+
+    return spans
+
+
 def assemble_global_matrices(
     bha_components: List[Dict[str, Any]],
     mud_weight_ppg: float = 10.0,

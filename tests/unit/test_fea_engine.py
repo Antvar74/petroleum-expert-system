@@ -534,3 +534,78 @@ class TestAutoMeshing:
         assert result["summary"]["n_components"] == 2
         # 90 ft collar: 1 element (<=100), 300 ft DP: 3 elements (300/100=3)
         assert result["summary"]["n_elements"] == 4
+
+
+# ---------------------------------------------------------------------------
+# Span-based BHA model helpers
+# ---------------------------------------------------------------------------
+class TestSpanBasedHelpers:
+    """Test DP filtering, stabilizer detection, and span splitting."""
+
+    @pytest.fixture
+    def full_bha_with_dp(self):
+        """Realistic BHA: motor + stab + MWD + collar + hwdp + DP."""
+        return [
+            {"type": "motor",      "od": 6.75, "id_inner": 2.5,   "length_ft": 30,    "weight_ppf": 95},
+            {"type": "stabilizer", "od": 8.25, "id_inner": 2.813, "length_ft": 5,     "weight_ppf": 120},
+            {"type": "MWD",        "od": 6.75, "id_inner": 2.813, "length_ft": 60,    "weight_ppf": 83},
+            {"type": "collar",     "od": 6.5,  "id_inner": 2.813, "length_ft": 90,    "weight_ppf": 78},
+            {"type": "hwdp",       "od": 5,    "id_inner": 3,     "length_ft": 150,   "weight_ppf": 50},
+            {"type": "dp",         "od": 5,    "id_inner": 4.276, "length_ft": 14670, "weight_ppf": 19.5},
+        ]
+
+    def test_filter_dp_removes_dp_components(self, full_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import _filter_bha_components
+        bha_only = _filter_bha_components(full_bha_with_dp)
+        types = [c["type"] for c in bha_only]
+        assert "dp" not in types
+        assert len(bha_only) == 5
+        assert sum(c["length_ft"] for c in bha_only) == 335
+
+    def test_filter_dp_returns_all_when_no_dp(self):
+        from orchestrator.vibrations_engine.fea import _filter_bha_components
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83},
+        ]
+        result = _filter_bha_components(bha)
+        assert len(result) == 2
+
+    def test_detect_stabilizer_positions(self, full_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import _filter_bha_components, _find_stabilizer_positions
+        bha_only = _filter_bha_components(full_bha_with_dp)
+        stab_depths = _find_stabilizer_positions(bha_only)
+        assert len(stab_depths) == 1
+        assert abs(stab_depths[0] - 35.0) < 0.01
+
+    def test_detect_no_stabilizers(self):
+        from orchestrator.vibrations_engine.fea import _find_stabilizer_positions
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp",   "od": 5,    "id_inner": 3,     "length_ft": 90, "weight_ppf": 50},
+        ]
+        assert _find_stabilizer_positions(bha) == []
+
+    def test_split_into_spans(self, full_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import (
+            _filter_bha_components, _find_stabilizer_positions, _split_into_spans,
+        )
+        bha_only = _filter_bha_components(full_bha_with_dp)
+        stab_depths = _find_stabilizer_positions(bha_only)
+        spans = _split_into_spans(bha_only, stab_depths)
+        assert len(spans) == 2
+        span1_len = sum(c["length_ft"] for c in spans[0])
+        assert abs(span1_len - 35.0) < 0.01
+        span2_len = sum(c["length_ft"] for c in spans[1])
+        assert abs(span2_len - 300.0) < 0.01
+
+    def test_split_no_stabilizers(self):
+        from orchestrator.vibrations_engine.fea import _split_into_spans
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp",   "od": 5,    "id_inner": 3,     "length_ft": 90, "weight_ppf": 50},
+        ]
+        spans = _split_into_spans(bha, [])
+        assert len(spans) == 1
+        total = sum(c["length_ft"] for c in spans[0])
+        assert abs(total - 150.0) < 0.01
