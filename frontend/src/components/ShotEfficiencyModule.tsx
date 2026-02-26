@@ -54,6 +54,9 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
     phi_min: 0.08, sw_max: 0.60, vsh_max: 0.40, min_thickness_ft: 2.0,
     spf: 4, phasing_deg: 90, perf_length_in: 12.0, tunnel_radius_in: 0.20,
     kv_kh: 0.5, wellbore_radius_ft: 0.354,
+    w_phi: 0.35, w_sw: 0.25, w_thick: 0.25, w_skin: 0.15,
+    sw_model: 'auto' as string,
+    estimate_permeability: false as boolean,
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -69,6 +72,10 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+  };
+
+  const updateParamRaw = (key: string, value: unknown) => {
+    setParams(prev => ({ ...prev, [key]: value }));
   };
 
   const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +114,9 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
         cutoffs: { phi_min: params.phi_min, sw_max: params.sw_max, vsh_max: params.vsh_max, min_thickness_ft: params.min_thickness_ft },
         perf_params: { spf: params.spf, phasing_deg: params.phasing_deg, perf_length_in: params.perf_length_in, tunnel_radius_in: params.tunnel_radius_in },
         reservoir_params: { kv_kh: params.kv_kh, wellbore_radius_ft: params.wellbore_radius_ft },
+        ranking_weights: { phi: params.w_phi, sw: params.w_sw, thickness: params.w_thick, skin: params.w_skin },
+        sw_model: params.sw_model,
+        estimate_permeability: params.estimate_permeability,
       };
       const url = wellId
         ? `/wells/${wellId}/shot-efficiency`
@@ -193,6 +203,34 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                     </div>
                   ))}
                 </div>
+
+                {/* Sw Model & Permeability */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-xs text-gray-400">Modelo Sw</label>
+                    <select
+                      value={params.sw_model}
+                      onChange={e => updateParamRaw('sw_model', e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none appearance-none"
+                    >
+                      <option value="auto">Auto (Archie/Simandoux/Indonesia)</option>
+                      <option value="archie">Archie</option>
+                      <option value="simandoux">Simandoux (1963)</option>
+                      <option value="indonesia">Indonesia / Poupon-Leveaux</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 col-span-2 flex items-end">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300 py-2">
+                      <input
+                        type="checkbox"
+                        checked={params.estimate_permeability}
+                        onChange={e => updateParamRaw('estimate_permeability', e.target.checked)}
+                        className="w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 accent-emerald-500 focus:ring-emerald-500"
+                      />
+                      Estimar Permeabilidad (Timur/Coates)
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Cutoffs & Perforation */}
@@ -221,6 +259,29 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Pesos del Score Compuesto */}
+              <div>
+                <h3 className="text-lg font-bold mb-3">Pesos del Score Compuesto</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { key: 'w_phi', label: 'w_phi (Porosidad)' },
+                    { key: 'w_sw', label: 'w_sw (1 - Sw)' },
+                    { key: 'w_thick', label: 'w_thick (Espesor)' },
+                    { key: 'w_skin', label: 'w_skin (Skin)' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="space-y-1">
+                      <label className="text-xs text-gray-400">{label}</label>
+                      <input type="number" step="0.05"
+                        value={(params as Record<string, unknown>)[key]}
+                        onChange={e => updateParam(key, e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">La suma debe ser 1.0</p>
               </div>
 
               <button onClick={calculate} disabled={loading}
@@ -262,6 +323,9 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                   <div><span className="text-gray-400">Score:</span> <span className="font-bold text-emerald-400">{result.summary.best_interval.score?.toFixed(3)}</span></div>
                   <div><span className="text-gray-400">Skin:</span> <span className="font-mono">{result.summary.best_interval.skin_total?.toFixed(2)}</span></div>
                 </div>
+                <p className="text-xs text-gray-500 mt-3 font-mono">
+                  Score = {params.w_phi}&middot;&phi; + {params.w_sw}&middot;(1-Sw) + {params.w_thick}&middot;h + {params.w_skin}&middot;Skin
+                </p>
               </div>
             )}
 
