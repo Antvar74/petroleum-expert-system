@@ -275,6 +275,32 @@ def _get_constrained_dofs(bc: str, n_nodes: int) -> List[int]:
     return [0, (n_nodes - 1) * 2]
 
 
+def _compute_damping_alpha(
+    mud_weight_ppg: float = 10.0,
+    pv_cp: Optional[float] = None,
+    yp_lbf_100ft2: Optional[float] = None,
+) -> float:
+    """Compute mass-proportional Rayleigh damping coefficient.
+
+    When PV and YP are available, uses a rheology-based model:
+        alpha = 0.005 + MW * 0.001 + PV * 0.0008 + YP * 0.0003
+
+    When only MW is available, uses the legacy empirical formula:
+        alpha = 0.01 + MW * 0.002
+
+    The rheology-based model accounts for:
+    - Mud weight: buoyant mass effect on damping
+    - Plastic viscosity: viscous shear dissipation around BHA
+    - Yield point: gel structure dissipation at low shear rates
+
+    Returns:
+        alpha: Mass-proportional damping coefficient (dimensionless).
+    """
+    if pv_cp is not None and yp_lbf_100ft2 is not None:
+        return 0.005 + mud_weight_ppg * 0.001 + pv_cp * 0.0008 + yp_lbf_100ft2 * 0.0003
+    return 0.01 + mud_weight_ppg * 0.002
+
+
 def solve_forced_response(
     K: NDArray,
     Kg: NDArray,
@@ -284,6 +310,8 @@ def solve_forced_response(
     excitation_node: int = 0,
     force_lbs: float = 100.0,
     mud_weight_ppg: float = 10.0,
+    pv_cp: Optional[float] = None,
+    yp_lbf_100ft2: Optional[float] = None,
     alpha: Optional[float] = None,
     beta: float = 0.01,
 ) -> Dict[str, Any]:
@@ -299,7 +327,9 @@ def solve_forced_response(
         excitation_node: Node where force is applied (0 = bit).
         force_lbs: Force magnitude (lbs).
         mud_weight_ppg: For damping estimation.
-        alpha: Mass-proportional damping. If None, estimated from mud weight.
+        pv_cp: Plastic viscosity (cP). Improves damping model when available.
+        yp_lbf_100ft2: Yield point (lbf/100ft2). Improves damping model when available.
+        alpha: Mass-proportional damping. If None, estimated from mud weight and rheology.
         beta: Stiffness-proportional damping (default 0.01).
 
     Returns:
@@ -309,8 +339,7 @@ def solve_forced_response(
     n_nodes = n_dof // 2
 
     if alpha is None:
-        # Light damping: ~2-5% critical for drilling systems
-        alpha = 0.01 + mud_weight_ppg * 0.002
+        alpha = _compute_damping_alpha(mud_weight_ppg, pv_cp, yp_lbf_100ft2)
 
     C = alpha * M + beta * K
 
@@ -434,6 +463,8 @@ def run_fea_analysis(
     wob_klb: float = 20.0,
     rpm: float = 120.0,
     mud_weight_ppg: float = 10.0,
+    pv_cp: Optional[float] = None,
+    yp_lbf_100ft2: Optional[float] = None,
     hole_diameter_in: float = 8.5,
     bc: str = "pinned-pinned",
     n_modes: int = 5,
@@ -453,6 +484,8 @@ def run_fea_analysis(
         wob_klb: Weight on bit (klbs).
         rpm: Operating RPM.
         mud_weight_ppg: Mud weight (ppg).
+        pv_cp: Plastic viscosity (cP). Improves damping model when available.
+        yp_lbf_100ft2: Yield point (lbf/100ft2). Improves damping model when available.
         hole_diameter_in: Hole diameter (in).
         bc: Boundary conditions.
         n_modes: Number of modes.
@@ -482,6 +515,8 @@ def run_fea_analysis(
             excitation_node=0,  # bit node
             force_lbs=wob_klb * 50.0,  # rough imbalance force estimate
             mud_weight_ppg=mud_weight_ppg,
+            pv_cp=pv_cp,
+            yp_lbf_100ft2=yp_lbf_100ft2,
         )
 
     # 4. Campbell diagram

@@ -374,3 +374,31 @@ class TestRunFEAAnalysis:
         )
         assert len(result["eigenvalue"]["frequencies_hz"]) == 5
         assert len(result["eigenvalue"]["mode_shapes"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# Task 3: Damping with rheology (PV/YP)
+# ---------------------------------------------------------------------------
+class TestDampingWithRheology:
+    """Test that PV/YP improve the damping model."""
+
+    def test_pv_increases_damping_alpha(self):
+        """Higher PV should produce higher alpha (more viscous damping)."""
+        from orchestrator.vibrations_engine.fea import _compute_damping_alpha
+        alpha_no_pv = _compute_damping_alpha(mud_weight_ppg=10.0, pv_cp=None, yp_lbf_100ft2=None)
+        alpha_with_pv = _compute_damping_alpha(mud_weight_ppg=10.0, pv_cp=25.0, yp_lbf_100ft2=15.0)
+        assert alpha_with_pv > alpha_no_pv
+
+    def test_heavier_mud_increases_damping(self):
+        """Heavier mud should produce higher alpha regardless of PV availability."""
+        from orchestrator.vibrations_engine.fea import _compute_damping_alpha
+        alpha_light = _compute_damping_alpha(mud_weight_ppg=8.0)
+        alpha_heavy = _compute_damping_alpha(mud_weight_ppg=14.0)
+        assert alpha_heavy > alpha_light
+
+    def test_damping_without_pv_matches_legacy(self):
+        """When PV is None, should match the legacy formula: 0.01 + MW * 0.002."""
+        from orchestrator.vibrations_engine.fea import _compute_damping_alpha
+        alpha = _compute_damping_alpha(mud_weight_ppg=10.0, pv_cp=None, yp_lbf_100ft2=None)
+        expected = 0.01 + 10.0 * 0.002
+        assert abs(alpha - expected) < 1e-10
