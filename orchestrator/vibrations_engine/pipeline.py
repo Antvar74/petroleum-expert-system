@@ -9,6 +9,7 @@ from .critical_speeds import (
 from .stick_slip import calculate_stick_slip_severity
 from .mse import calculate_mse
 from .stability import calculate_stability_index, generate_vibration_map
+from .bit_excitation import calculate_bit_excitation, check_resonance
 
 
 def calculate_full_vibration_analysis(
@@ -30,6 +31,7 @@ def calculate_full_vibration_analysis(
     friction_factor: float = 0.25,
     stabilizer_spacing_ft: Optional[float] = None,
     ucs_psi: Optional[float] = None,
+    n_blades: Optional[int] = None,
     bha_components: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
     """
@@ -93,7 +95,34 @@ def calculate_full_vibration_analysis(
         ucs_psi=ucs_psi,
     )
 
-    # 5. Combined stability
+    # 5. Bit excitation & resonance (when n_blades provided)
+    bit_excite = None
+    resonance = None
+    if n_blades and n_blades > 0:
+        bit_excite = calculate_bit_excitation(
+            bit_type="pdc",
+            num_blades_or_cones=n_blades,
+            rpm=rpm,
+            wob_klb=wob_klb,
+            rock_ucs_psi=ucs_psi or 15000.0,
+            bit_diameter_in=bit_diameter_in,
+            rop_fph=rop_fph,
+        )
+        # Collect BHA natural frequencies for resonance check
+        natural_freqs = []
+        axial_freq = axial.get("critical_rpm_1st", 0)
+        if axial_freq > 0:
+            natural_freqs.append(axial_freq / 60.0)  # RPM → Hz
+        lateral_freq = lateral.get("critical_rpm", 0)
+        if lateral_freq > 0:
+            natural_freqs.append(lateral_freq / 60.0)
+        if natural_freqs:
+            resonance = check_resonance(
+                excitation_freq_hz=bit_excite["excitation_freq_hz"],
+                natural_freqs_hz=natural_freqs,
+            )
+
+    # 6. Combined stability  (renumbered from 5)
     stability = calculate_stability_index(
         axial_result=axial,
         lateral_result=lateral,
@@ -131,6 +160,8 @@ def calculate_full_vibration_analysis(
         alerts.append("Excessive MSE detected — check bit condition and drilling parameters")
     if stability["stability_index"] < 40:
         alerts.append(f"Critical stability index {stability['stability_index']:.0f} — modify drilling parameters")
+    if resonance and resonance.get("resonance_risk") in ("critical", "high"):
+        alerts.append(f"Bit excitation near BHA resonance (mode {resonance['nearest_mode']}, risk: {resonance['resonance_risk']}) — adjust RPM")
 
     # Summary
     summary = {
@@ -147,7 +178,7 @@ def calculate_full_vibration_analysis(
         "alerts": alerts,
     }
 
-    return {
+    result = {
         "summary": summary,
         "axial_vibrations": axial,
         "lateral_vibrations": lateral,
@@ -157,3 +188,8 @@ def calculate_full_vibration_analysis(
         "vibration_map": vib_map,
         "alerts": alerts,
     }
+    if bit_excite:
+        result["bit_excitation"] = bit_excite
+    if resonance:
+        result["resonance_check"] = resonance
+    return result
