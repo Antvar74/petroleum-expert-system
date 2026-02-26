@@ -694,3 +694,62 @@ class TestStickSlipWithDrillPipe:
         assert result["rpm_min_at_bit"] == 0, (
             f"Bit should stall (0 RPM), got {result['rpm_min_at_bit']}"
         )
+
+
+# ===========================================================================
+# 10. HEATMAP MSE INTEGRATION TESTS
+# ===========================================================================
+class TestHeatmapWithMSE:
+    """Tests that heatmap correctly penalizes inefficient MSE zones."""
+
+    def test_hard_rock_high_mse_not_green(self, engine):
+        """With 28,000 psi limestone, high MSE zones must NOT be Stable/green."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=16000, rop_base_fph=18,
+            ucs_psi=28000,
+        )
+        # Find cells with high MSE (>200,000 psi)
+        high_mse_cells = [
+            p for p in vib_map["map_data"]
+            if p["mse_psi"] > 200000
+        ]
+        # None of them should be "Stable"
+        stable_high_mse = [p for p in high_mse_cells if p["status"] == "Stable"]
+        assert len(stable_high_mse) == 0, (
+            f"{len(stable_high_mse)} cells are 'Stable' despite MSE>{200000} psi"
+        )
+
+    def test_mse_weight_is_significant(self, engine):
+        """MSE weight should be at least 0.25 in the stability formula."""
+        axial = {"critical_rpm_1st": 500}
+        lateral = {"critical_rpm": 400}
+        stick_slip = {"severity_index": 0.1}  # Mild
+        # Very high MSE
+        mse_bad = {"mse_total_psi": 400000, "efficiency_pct": 5.0, "classification": "Highly Inefficient"}
+        mse_good = {"mse_total_psi": 15000, "efficiency_pct": 90.0, "classification": "Efficient"}
+
+        stab_bad = engine.calculate_stability_index(axial, lateral, stick_slip, mse_bad, 120)
+        stab_good = engine.calculate_stability_index(axial, lateral, stick_slip, mse_good, 120)
+
+        # Bad MSE should significantly reduce stability (at least 15 points)
+        diff = stab_good["stability_index"] - stab_bad["stability_index"]
+        assert diff >= 15, f"MSE impact too small: only {diff:.1f} points difference"
+
+    def test_ucs_affects_mse_scoring(self, engine):
+        """When UCS is provided, MSE score should use efficiency, not absolute thresholds."""
+        axial = {"critical_rpm_1st": 500}
+        lateral = {"critical_rpm": 400}
+        stick_slip = {"severity_index": 0.1}
+        # MSE = 50,000 psi with UCS = 5,000 (10% efficiency = terrible)
+        mse_low_eff = {"mse_total_psi": 50000, "efficiency_pct": 10.0, "classification": "Highly Inefficient"}
+        # MSE = 50,000 psi with UCS = 45,000 (90% efficiency = great)
+        mse_high_eff = {"mse_total_psi": 50000, "efficiency_pct": 90.0, "classification": "Efficient"}
+
+        stab_low = engine.calculate_stability_index(axial, lateral, stick_slip, mse_low_eff, 120)
+        stab_high = engine.calculate_stability_index(axial, lateral, stick_slip, mse_high_eff, 120)
+
+        assert stab_high["stability_index"] > stab_low["stability_index"]

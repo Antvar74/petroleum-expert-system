@@ -66,19 +66,32 @@ def calculate_stability_index(
     ss_severity = stick_slip_result.get("severity_index", 0)
     scores["torsional"] = max(0, 100 - ss_severity * 66.7)
 
-    # MSE score
-    mse_val = mse_result.get("mse_total_psi", 50000)
-    if mse_val < 20000:
-        scores["mse"] = 95
-    elif mse_val < 50000:
-        scores["mse"] = 70
-    elif mse_val < 100000:
-        scores["mse"] = 40
+    # MSE score — prefer efficiency_pct when available (UCS-based)
+    efficiency = mse_result.get("efficiency_pct")
+    if efficiency is not None:
+        # UCS-based efficiency scoring
+        if efficiency > 80:
+            scores["mse"] = 95
+        elif efficiency > 40:
+            scores["mse"] = 70
+        elif efficiency > 20:
+            scores["mse"] = 35
+        else:
+            scores["mse"] = 10  # Highly inefficient
     else:
-        scores["mse"] = 15
+        # Fallback: absolute MSE thresholds
+        mse_val = mse_result.get("mse_total_psi", 50000)
+        if mse_val < 20000:
+            scores["mse"] = 95
+        elif mse_val < 50000:
+            scores["mse"] = 70
+        elif mse_val < 100000:
+            scores["mse"] = 40
+        else:
+            scores["mse"] = 15
 
-    # Weighted overall
-    weights = {"axial": 0.20, "lateral": 0.30, "torsional": 0.35, "mse": 0.15}
+    # Weighted overall — MSE doubled from 0.15 to 0.30
+    weights = {"axial": 0.15, "lateral": 0.25, "torsional": 0.30, "mse": 0.30}
     overall = sum(scores[k] * weights[k] for k in scores)
 
     if overall >= 80:
@@ -173,6 +186,7 @@ def generate_vibration_map(
             mse = calculate_mse(
                 wob_klb=wob, torque_ftlb=torque_est, rpm=rpm,
                 rop_fph=rop_est, bit_diameter_in=bit_diameter_in,
+                ucs_psi=ucs_psi,
             )
             stability = calculate_stability_index(
                 axial, lateral, stick_slip, mse, rpm
