@@ -207,6 +207,55 @@ def _split_into_spans(
     return spans
 
 
+_BHA_MAX_ELEMENT_FT = 15.0  # Fine mesh for BHA span analysis
+
+
+def _check_span_buckling(
+    span_components: List[Dict[str, Any]],
+    wob_klb: float,
+    mud_weight_ppg: float = 10.0,
+) -> Dict[str, Any]:
+    """Check if a BHA span is Euler-buckled under compressive load.
+
+    Uses the span's total length and area-weighted average EI to compute
+    the Euler critical load P_cr = pi^2 * EI_avg / L^2.
+    """
+    bf = max(0.01, 1.0 - mud_weight_ppg / 65.5)
+    total_length_ft = sum(c.get("length_ft", 0) for c in span_components)
+    total_length_in = total_length_ft * 12.0
+
+    if total_length_in < 1.0:
+        return {"is_stable": True, "p_cr_lbs": float("inf"), "p_axial_lbs": 0, "p_over_pcr": 0}
+
+    weighted_EI = 0.0
+    total_weight = 0.0
+    for c in span_components:
+        od = c.get("od", 6.75)
+        id_in = c.get("id_inner", 2.813)
+        l_ft = c.get("length_ft", 0)
+        I_mom = math.pi * (od ** 4 - id_in ** 4) / 64.0
+        EI = STEEL_E * I_mom
+        weighted_EI += EI * l_ft
+        total_weight += c.get("weight_ppf", 80) * bf * l_ft
+
+    avg_EI = weighted_EI / total_length_ft if total_length_ft > 0 else 1e9
+    p_cr = math.pi ** 2 * avg_EI / (total_length_in ** 2)
+
+    p_axial = wob_klb * 1000.0 - total_weight / 2.0
+    if p_axial < 0:
+        p_axial = 0.0
+
+    p_over_pcr = p_axial / p_cr if p_cr > 0 else 0.0
+
+    return {
+        "is_stable": p_over_pcr < 1.0,
+        "p_cr_lbs": round(p_cr, 0),
+        "p_axial_lbs": round(p_axial, 0),
+        "p_over_pcr": round(p_over_pcr, 3),
+        "span_length_ft": round(total_length_ft, 1),
+    }
+
+
 def assemble_global_matrices(
     bha_components: List[Dict[str, Any]],
     mud_weight_ppg: float = 10.0,
@@ -628,6 +677,10 @@ def generate_campbell_diagram(
                         "risk": "critical" if exc_name == "1x" else "high",
                     })
 
+    # Y-axis domain for frontend: cover mode frequencies + 30% margin
+    max_mode_freq = max(base_freqs) if base_freqs and max(base_freqs) > 0 else 1.0
+    y_domain = [0, round(max_mode_freq * 1.3, 4)]
+
     return {
         "rpm_values": rpm_values,
         "natural_freq_curves": natural_freq_curves,
@@ -636,6 +689,7 @@ def generate_campbell_diagram(
         "node_positions_ft": node_positions,
         "mode_shapes": eigen_result["mode_shapes"],
         "frequencies_hz": base_freqs,
+        "y_domain_hz": y_domain,
     }
 
 
@@ -656,69 +710,146 @@ def run_fea_analysis(
     rpm_max: float = 300.0,
     rpm_step: float = 5.0,
 ) -> Dict[str, Any]:
-    """Run complete FEA analysis on BHA: eigenvalue + forced response + Campbell.
+    """Run span-based FEA lateral vibration analysis on BHA.
 
-    This is the main entry point for the FEA module.
+    Workflow:
+      1. Filter out DP components (wall-constrained, no lateral vibration).
+      2. Detect stabilizer positions (structural supports).
+      3. Split BHA into spans between supports (bit, stabilizers, top).
+      4. Check each span for Euler buckling.
+      5. Analyze stable spans with fine mesh (15 ft elements).
+      6. Combine results from all stable spans.
 
-    Args:
-        bha_components: BHA component list (see assemble_global_matrices).
-        wob_klb: Weight on bit (klbs).
-        rpm: Operating RPM.
-        mud_weight_ppg: Mud weight (ppg).
-        pv_cp: Plastic viscosity (cP). Improves damping model when available.
-        yp_lbf_100ft2: Yield point (lbf/100ft2). Improves damping model when available.
-        hole_diameter_in: Hole diameter (in).
-        bc: Boundary conditions.
-        n_modes: Number of modes.
-        include_forced_response: Calculate forced response amplitudes.
-        include_campbell: Generate Campbell diagram.
-        n_blades: PDC blade count for blade-pass excitation.
-        rpm_min, rpm_max, rpm_step: Campbell diagram RPM sweep range.
-
-    Returns:
-        Dict with eigenvalue, forced_response, campbell, node_positions_ft, summary.
+    This matches industry practice (DrillBench, WellPlan) where BHA lateral
+    vibrations are modeled per-span between stabilizers.
     """
-    # 1. Assemble (full string — auto-mesh handles long elements,
-    #    distributed axial force ensures numerical stability)
-    K, Kg, M, node_positions = assemble_global_matrices(
-        bha_components, mud_weight_ppg, wob_klb,
-    )
+    # 1. Filter DP
+    bha_only = _filter_bha_components(bha_components)
+    if len(bha_only) == 0:
+        bha_only = list(bha_components)
 
-    # 2. Eigenvalue analysis
-    eigen = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
+    # 2. Detect stabilizers
+    stab_depths = _find_stabilizer_positions(bha_only)
 
-    # 3. Forced response (at 1x RPM excitation)
+    # 3. Split into spans
+    spans = _split_into_spans(bha_only, stab_depths)
+
+    # 4. Check buckling and analyze stable spans
+    all_node_positions: List[float] = []
+    span_summaries: List[Dict[str, Any]] = []
+    primary_eigen: Optional[Dict[str, Any]] = None
+    primary_span_idx: Optional[int] = None
+
+    # Compute cumulative depths for span start offsets
+    cumulative_depth = 0.0
+    span_start_depths: List[float] = [0.0]
+    for comp in bha_only:
+        cumulative_depth += comp.get("length_ft", 0)
+        comp_type = comp.get("type", "").lower()
+        if "stabilizer" in comp_type:
+            span_start_depths.append(cumulative_depth)
+
+    bf = max(0.01, 1.0 - mud_weight_ppg / 65.5)
+
+    for span_idx, span_comps in enumerate(spans):
+        span_length = sum(c.get("length_ft", 0) for c in span_comps)
+        depth_offset = span_start_depths[span_idx] if span_idx < len(span_start_depths) else 0.0
+
+        # Estimate axial load: WOB decreases upward by buoyant weight of spans below
+        weight_below = 0.0
+        for prev_idx in range(span_idx):
+            for c in spans[prev_idx]:
+                weight_below += c.get("weight_ppf", 80) * bf * c.get("length_ft", 0)
+        span_wob_klb = max(0, wob_klb - weight_below / 1000.0)
+
+        buckling = _check_span_buckling(span_comps, wob_klb=span_wob_klb, mud_weight_ppg=mud_weight_ppg)
+        span_info: Dict[str, Any] = {
+            "span_index": span_idx + 1,
+            "depth_from_ft": round(depth_offset, 1),
+            "depth_to_ft": round(depth_offset + span_length, 1),
+            "length_ft": round(span_length, 1),
+            **buckling,
+        }
+
+        if buckling["is_stable"]:
+            K, Kg, M, npos = assemble_global_matrices(
+                _auto_mesh(span_comps, max_length_ft=_BHA_MAX_ELEMENT_FT),
+                mud_weight_ppg=mud_weight_ppg,
+                wob_klb=span_wob_klb,
+            )
+            eigen = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
+
+            offset_positions = [p + depth_offset for p in npos]
+            span_info["frequencies_hz"] = eigen["frequencies_hz"]
+            span_info["critical_rpms"] = eigen["critical_rpms"]
+
+            if primary_eigen is None:
+                primary_eigen = eigen
+                primary_eigen["node_positions_ft"] = offset_positions
+                all_node_positions = offset_positions
+                primary_span_idx = span_idx
+        else:
+            span_info["frequencies_hz"] = []
+            span_info["critical_rpms"] = []
+            span_info["status"] = "buckled — wall-constrained (no free lateral modes)"
+
+        span_summaries.append(span_info)
+
+    # Build combined eigenvalue result
+    if primary_eigen is None:
+        primary_eigen = {
+            "frequencies_hz": [0.0] * n_modes,
+            "critical_rpms": [0.0] * n_modes,
+            "mode_shapes": [[0.0] * 2 for _ in range(n_modes)],
+            "n_nodes": 2,
+            "n_free_dofs": 0,
+            "boundary_conditions": bc,
+        }
+        all_node_positions = [0.0, sum(c.get("length_ft", 0) for c in bha_only)]
+
+    # 5. Forced response on primary stable span
     forced = None
-    if include_forced_response and eigen["frequencies_hz"]:
-        excitation_freq = rpm / 60.0  # 1x RPM in Hz
+    if include_forced_response and primary_span_idx is not None and primary_eigen["frequencies_hz"][0] > 0:
+        K, Kg, M, _ = assemble_global_matrices(
+            _auto_mesh(spans[primary_span_idx], max_length_ft=_BHA_MAX_ELEMENT_FT),
+            mud_weight_ppg=mud_weight_ppg,
+            wob_klb=wob_klb,
+        )
+        excitation_freq = rpm / 60.0
         forced = solve_forced_response(
             K=K, Kg=Kg, M=M, bc=bc,
             excitation_freq_hz=excitation_freq,
-            excitation_node=0,  # bit node
-            force_lbs=wob_klb * 50.0,  # rough imbalance force estimate
+            excitation_node=0,
+            force_lbs=wob_klb * 50.0,
             mud_weight_ppg=mud_weight_ppg,
             pv_cp=pv_cp,
             yp_lbf_100ft2=yp_lbf_100ft2,
         )
 
-    # 4. Campbell diagram
+    # 6. Campbell diagram using primary span
     campbell = None
-    if include_campbell:
+    if include_campbell and primary_span_idx is not None and primary_eigen["frequencies_hz"][0] > 0:
+        max_freq = max((f for f in primary_eigen["frequencies_hz"] if f > 0), default=1.0)
+        auto_rpm_max = max(rpm_max, max_freq * 60 * 1.5)
+        auto_rpm_min = min(rpm_min, max(5, primary_eigen["frequencies_hz"][0] * 60 * 0.3))
+
         campbell = generate_campbell_diagram(
-            bha_components=bha_components,
+            bha_components=spans[primary_span_idx],
             wob_klb=wob_klb,
             mud_weight_ppg=mud_weight_ppg,
             hole_diameter_in=hole_diameter_in,
             bc=bc,
-            rpm_min=rpm_min, rpm_max=rpm_max, rpm_step=rpm_step,
+            rpm_min=auto_rpm_min,
+            rpm_max=auto_rpm_max,
+            rpm_step=rpm_step,
             n_modes=n_modes,
             n_blades=n_blades,
         )
 
-    # 5. Resonance warnings
+    # 7. Resonance warnings
     warnings: List[str] = []
     operating_freq = rpm / 60.0
-    for i, freq in enumerate(eigen["frequencies_hz"]):
+    for i, freq in enumerate(primary_eigen["frequencies_hz"]):
         if freq <= 0:
             continue
         ratio = operating_freq / freq
@@ -726,25 +857,33 @@ def run_fea_analysis(
             warnings.append(
                 f"1x RPM ({rpm}) near Mode {i+1} ({freq:.2f} Hz / {freq*60:.0f} RPM) — resonance risk"
             )
-        if freq > 0 and 0.85 < 2 * operating_freq / freq < 1.15:
+        if 0.85 < 2 * operating_freq / freq < 1.15:
             warnings.append(
                 f"2x RPM near Mode {i+1} ({freq:.2f} Hz) — secondary resonance"
             )
+    for span in span_summaries:
+        if not span["is_stable"]:
+            warnings.append(
+                f"Span {span['span_index']} ({span['depth_from_ft']:.0f}-{span['depth_to_ft']:.0f} ft) "
+                f"is buckled (P/Pcr={span['p_over_pcr']:.1f}) — wall-constrained"
+            )
 
-    # 6. Summary
+    # 8. Summary
     summary: Dict[str, Any] = {
-        "fea_method": "Euler-Bernoulli FEM (auto-meshed, distributed axial force)",
+        "fea_method": "Euler-Bernoulli FEM (span-based, auto-meshed, BHA-only)",
         "n_components": len(bha_components),
-        "n_elements": len(node_positions) - 1,
-        "n_nodes": len(node_positions),
-        "n_dof": len(node_positions) * 2,
+        "n_bha_components": len(bha_only),
+        "n_elements": len(all_node_positions) - 1 if len(all_node_positions) > 1 else 0,
+        "n_nodes": len(all_node_positions),
+        "n_dof": len(all_node_positions) * 2,
         "boundary_conditions": bc,
         "wob_klb": wob_klb,
         "operating_rpm": rpm,
+        "spans": span_summaries,
         "resonance_warnings": warnings,
     }
     for i, (freq, crit_rpm) in enumerate(
-        zip(eigen["frequencies_hz"], eigen["critical_rpms"])
+        zip(primary_eigen["frequencies_hz"], primary_eigen["critical_rpms"])
     ):
         summary[f"mode_{i+1}_freq_hz"] = freq
         summary[f"mode_{i+1}_critical_rpm"] = crit_rpm
@@ -753,9 +892,9 @@ def run_fea_analysis(
         summary["max_vibration_amplitude_in"] = forced["max_amplitude_in"]
 
     return {
-        "eigenvalue": eigen,
+        "eigenvalue": primary_eigen,
         "forced_response": forced,
         "campbell": campbell,
-        "node_positions_ft": node_positions,
+        "node_positions_ft": all_node_positions,
         "summary": summary,
     }

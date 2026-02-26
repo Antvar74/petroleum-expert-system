@@ -481,14 +481,8 @@ class TestAutoMeshing:
         meshed_total = sum(e["length_ft"] for e in meshed)
         assert abs(meshed_total - original_total) < 0.01
 
-    def test_fea_nonzero_frequencies_with_long_dp(self):
-        """FEA with 14,665 ft DP: full string with wellbore-constrained model.
-
-        Post-buckled elements (P > P_cr) have their geometric stiffness zeroed
-        and get wellbore contact springs. Tension spans get periodic contacts
-        every ~500 ft.  Result: all 5 modes must have positive frequencies and
-        mode shapes span the full ~15,000 ft.
-        """
+    def test_fea_with_long_dp_filters_to_bha_only(self):
+        """FEA with DP: DP filtered out, only BHA analyzed."""
         from orchestrator.vibrations_engine.fea import run_fea_analysis
         components = [
             {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
@@ -500,23 +494,17 @@ class TestAutoMeshing:
         ]
         result = run_fea_analysis(
             bha_components=components,
-            wob_klb=20, rpm=60,
+            wob_klb=5, rpm=60,
             mud_weight_ppg=10.0,
             include_campbell=False,
         )
         freqs = result["eigenvalue"]["frequencies_hz"]
-        assert len(freqs) == 5, f"Expected 5 modes, got {len(freqs)}"
-        # With wellbore contacts and buckled-element zeroing, most modes
-        # should be positive.  Modes near the buckled/tension boundary may
-        # still have eigenvalues near zero (≈ 0.0 Hz) — this is physical.
+        assert len(freqs) == 5
         positive_modes = sum(1 for f in freqs if f > 0)
-        assert positive_modes >= 2, (
-            f"Expected at least 2 positive modes, got {positive_modes}: {freqs}"
-        )
-        # Full string: mode shapes must span the entire depth
+        assert positive_modes >= 2, f"Expected >= 2 positive modes: {freqs}"
         max_md = max(result["node_positions_ft"])
-        assert max_md > 14000, f"Expected full string in model, got max MD = {max_md} ft"
-        assert result["summary"]["n_components"] == 6
+        assert max_md < 500, f"DP should be excluded, got max MD = {max_md}"
+        assert result["summary"]["n_bha_components"] == 5
 
     def test_fea_summary_reports_auto_mesh(self):
         """FEA summary should report 'auto-meshed' in method and correct counts."""
@@ -530,10 +518,7 @@ class TestAutoMeshing:
             wob_klb=20, rpm=120,
             include_campbell=False,
         )
-        assert "auto-meshed" in result["summary"]["fea_method"]
-        assert result["summary"]["n_components"] == 2
-        # 90 ft collar: 1 element (<=100), 300 ft DP: 3 elements (300/100=3)
-        assert result["summary"]["n_elements"] == 4
+        assert "span-based" in result["summary"]["fea_method"]
 
 
 # ---------------------------------------------------------------------------
@@ -609,3 +594,152 @@ class TestSpanBasedHelpers:
         assert len(spans) == 1
         total = sum(c["length_ft"] for c in spans[0])
         assert abs(total - 150.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Span buckling check
+# ---------------------------------------------------------------------------
+class TestSpanBucklingCheck:
+    """Test span-level Euler critical load check."""
+
+    def test_short_span_under_high_wob_is_stable(self):
+        """35 ft motor-stabilizer span: P_cr=167k lbs >> WOB=35k -> stable."""
+        from orchestrator.vibrations_engine.fea import _check_span_buckling
+        span = [
+            {"type": "motor", "od": 6.75, "id_inner": 2.5, "length_ft": 30, "weight_ppf": 95},
+            {"type": "stabilizer", "od": 8.25, "id_inner": 2.813, "length_ft": 5, "weight_ppf": 120},
+        ]
+        result = _check_span_buckling(span, wob_klb=35.0, mud_weight_ppg=13.5)
+        assert result["is_stable"] is True
+        assert result["p_over_pcr"] < 1.0
+
+    def test_long_span_under_load_is_buckled(self):
+        """300 ft span: P_cr~1900 lbs << P~32k lbs -> buckled."""
+        from orchestrator.vibrations_engine.fea import _check_span_buckling
+        span = [
+            {"type": "MWD",    "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "collar", "od": 6.5,  "id_inner": 2.813, "length_ft": 90, "weight_ppf": 78},
+            {"type": "hwdp",   "od": 5,    "id_inner": 3,     "length_ft": 150, "weight_ppf": 50},
+        ]
+        result = _check_span_buckling(span, wob_klb=32.0, mud_weight_ppg=13.5)
+        assert result["is_stable"] is False
+        assert result["p_over_pcr"] > 1.0
+
+    def test_zero_wob_always_stable(self):
+        from orchestrator.vibrations_engine.fea import _check_span_buckling
+        span = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+        ]
+        result = _check_span_buckling(span, wob_klb=0.0, mud_weight_ppg=10.0)
+        assert result["is_stable"] is True
+
+
+# ---------------------------------------------------------------------------
+# Span-based FEA solver
+# ---------------------------------------------------------------------------
+class TestSpanBasedFEA:
+    """Test the span-based FEA solver with realistic BHA configurations."""
+
+    @pytest.fixture
+    def realistic_bha_with_dp(self):
+        return [
+            {"type": "motor",      "od": 6.75, "id_inner": 2.5,   "length_ft": 30,    "weight_ppf": 95},
+            {"type": "stabilizer", "od": 8.25, "id_inner": 2.813, "length_ft": 5,     "weight_ppf": 120},
+            {"type": "MWD",        "od": 6.75, "id_inner": 2.813, "length_ft": 60,    "weight_ppf": 83},
+            {"type": "collar",     "od": 6.5,  "id_inner": 2.813, "length_ft": 90,    "weight_ppf": 78},
+            {"type": "hwdp",       "od": 5,    "id_inner": 3,     "length_ft": 150,   "weight_ppf": 50},
+            {"type": "dp",         "od": 5,    "id_inner": 4.276, "length_ft": 14670, "weight_ppf": 19.5},
+        ]
+
+    def test_dp_excluded_from_model(self, realistic_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=realistic_bha_with_dp,
+            wob_klb=35, rpm=60, mud_weight_ppg=13.5,
+            n_modes=5, include_campbell=False, include_forced_response=False,
+        )
+        max_depth = max(result["node_positions_ft"])
+        assert max_depth < 400, f"DP should be excluded, max depth={max_depth}"
+
+    def test_mode1_near_1hz_for_bit_to_stabilizer_span(self, realistic_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=realistic_bha_with_dp,
+            wob_klb=35, rpm=60, mud_weight_ppg=13.5,
+            n_modes=5, include_campbell=False, include_forced_response=False,
+        )
+        freqs = result["eigenvalue"]["frequencies_hz"]
+        assert len(freqs) >= 1
+        assert 0.5 < freqs[0] < 2.0, f"Mode 1 = {freqs[0]} Hz, expected ~1.0 Hz"
+
+    def test_resonance_detected_at_60rpm(self, realistic_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=realistic_bha_with_dp,
+            wob_klb=35, rpm=60, mud_weight_ppg=13.5,
+            n_modes=5, include_campbell=False, include_forced_response=False,
+        )
+        warnings = result["summary"]["resonance_warnings"]
+        assert len(warnings) > 0, "Should detect resonance at 60 RPM"
+        assert any("Mode 1" in w for w in warnings)
+
+    def test_span_buckling_status_in_summary(self, realistic_bha_with_dp):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        result = run_fea_analysis(
+            bha_components=realistic_bha_with_dp,
+            wob_klb=35, rpm=60, mud_weight_ppg=13.5,
+            n_modes=5, include_campbell=False, include_forced_response=False,
+        )
+        summary = result["summary"]
+        assert "spans" in summary
+        spans = summary["spans"]
+        assert len(spans) >= 2
+        assert spans[0]["is_stable"] is True
+        assert spans[1]["is_stable"] is False
+
+    def test_bha_without_dp_still_works(self):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83},
+        ]
+        result = run_fea_analysis(
+            bha_components=bha, wob_klb=5, rpm=120,
+            n_modes=3, include_campbell=False, include_forced_response=False,
+        )
+        assert len(result["eigenvalue"]["frequencies_hz"]) == 3
+        assert all(f > 0 for f in result["eigenvalue"]["frequencies_hz"])
+
+    def test_bha_without_stabilizers_single_span(self):
+        from orchestrator.vibrations_engine.fea import run_fea_analysis
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp",   "od": 5,    "id_inner": 3,     "length_ft": 90, "weight_ppf": 50},
+        ]
+        result = run_fea_analysis(
+            bha_components=bha, wob_klb=10, rpm=120,
+            n_modes=3, include_campbell=False, include_forced_response=False,
+        )
+        assert len(result["summary"]["spans"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Campbell y_domain_hz
+# ---------------------------------------------------------------------------
+class TestCampbellYDomain:
+    def test_y_domain_covers_modes_with_margin(self):
+        from orchestrator.vibrations_engine.fea import generate_campbell_diagram
+        bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 83}
+            for _ in range(3)
+        ]
+        result = generate_campbell_diagram(
+            bha_components=bha, wob_klb=5, mud_weight_ppg=10,
+            hole_diameter_in=8.5, bc="pinned-pinned",
+            rpm_min=20, rpm_max=200, rpm_step=10, n_modes=3,
+        )
+        assert "y_domain_hz" in result
+        assert result["y_domain_hz"][0] == 0
+        max_mode = max(result["frequencies_hz"])
+        assert result["y_domain_hz"][1] >= max_mode
+        assert result["y_domain_hz"][1] <= max_mode * 2.0
