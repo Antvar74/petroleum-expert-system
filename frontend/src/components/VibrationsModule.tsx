@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Vibrate, Play, RefreshCw } from 'lucide-react';
+import { Vibrate, Play, RefreshCw, Wrench } from 'lucide-react';
 import StabilityGauge from './charts/vb/StabilityGauge';
 import VibrationMapHeatmap from './charts/vb/VibrationMapHeatmap';
 import CriticalRPMChart from './charts/vb/CriticalRPMChart';
 import MSEBreakdownChart from './charts/vb/MSEBreakdownChart';
 import StickSlipIndicator from './charts/vb/StickSlipIndicator';
+import BHAEditor, { type BHAComponent } from './charts/vb/BHAEditor';
+import ModeShapePlot from './charts/vb/ModeShapePlot';
+import CampbellDiagram from './charts/vb/CampbellDiagram';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -46,6 +49,10 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [bhaComponents, setBhaComponents] = useState<BHAComponent[]>([]);
+  const [feaResult, setFeaResult] = useState<Record<string, any> | null>(null);
+  const [feaLoading, setFeaLoading] = useState(false);
+  const [showBhaEditor, setShowBhaEditor] = useState(false);
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
@@ -57,6 +64,13 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   });
 
   const optionalFields = new Set(['stabilizer_spacing_ft', 'ucs_psi', 'n_blades']);
+
+  const lithologyPresets = [
+    { label: 'Shale', value: 8000 },
+    { label: 'Sandstone', value: 20000 },
+    { label: 'Limestone', value: 35000 },
+    { label: 'Dolomite', value: 50000 },
+  ];
 
   const updateParam = (key: string, value: string) => {
     if (optionalFields.has(key)) {
@@ -81,6 +95,33 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
     }
     setLoading(false);
   }, [wellId, params, addToast]);
+
+  const calculateFEA = useCallback(async () => {
+    if (bhaComponents.length < 2) {
+      addToast('Add at least 2 BHA components for FEA analysis', 'error');
+      return;
+    }
+    setFeaLoading(true);
+    try {
+      const res = await api.post('/vibrations/fea', {
+        bha_components: bhaComponents,
+        wob_klb: params.wob_klb || 20,
+        rpm: params.rpm || 120,
+        mud_weight_ppg: params.mud_weight_ppg || 10,
+        hole_diameter_in: params.hole_diameter_in || 8.5,
+        boundary_conditions: 'pinned-pinned',
+        n_modes: 5,
+        include_forced_response: true,
+        include_campbell: true,
+        n_blades: params.n_blades || undefined,
+      });
+      setFeaResult(res.data);
+      setActiveTab('results');
+    } catch (e: unknown) {
+      addToast('FEA Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
+    }
+    setFeaLoading(false);
+  }, [bhaComponents, params, addToast]);
 
   const handleRunAnalysis = () => {
     runAnalysis(result || {}, params);
@@ -134,7 +175,6 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                     { key: 'inclination_deg', label: t('vibrations.inclination'), step: '5' },
                     { key: 'friction_factor', label: t('vibrations.frictionCoeff'), step: '0.05' },
                     { key: 'stabilizer_spacing_ft', label: 'Estabilizador (ft)', step: '5', placeholder: 'Auto (max 90 ft)' },
-                    { key: 'ucs_psi', label: 'UCS (psi)', step: '1000', placeholder: 'Opcional' },
                     { key: 'n_blades', label: 'Blades PDC', step: '1', placeholder: 'Opcional' },
                   ].map(({ key, label, step, placeholder }) => (
                     <div key={key} className="space-y-1">
@@ -147,6 +187,33 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                       />
                     </div>
                   ))}
+                  {/* UCS with lithology quick-select */}
+                  <div className="space-y-1 col-span-2 md:col-span-2">
+                    <label className="text-xs text-gray-400">UCS (psi)</label>
+                    <div className="flex gap-2">
+                      <input type="number" step="1000"
+                        value={params.ucs_psi ?? ''}
+                        placeholder="Opcional"
+                        onChange={e => updateParam('ucs_psi', e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-rose-500 focus:outline-none"
+                      />
+                      <div className="flex gap-1">
+                        {lithologyPresets.map(lith => (
+                          <button key={lith.label} type="button"
+                            onClick={() => setParams(prev => ({ ...prev, ucs_psi: lith.value }))}
+                            className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                              params.ucs_psi === lith.value
+                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                                : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-300'
+                            }`}
+                            title={`${lith.label}: ${lith.value.toLocaleString()} psi`}
+                          >
+                            {lith.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -173,6 +240,33 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* FEA — BHA Detailed Editor */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowBhaEditor(!showBhaEditor)}
+                  className="flex items-center gap-2 text-lg font-bold mb-3 hover:text-rose-400 transition-colors"
+                >
+                  <Wrench size={18} />
+                  BHA Detallado (FEA)
+                  <span className="text-xs font-normal text-gray-500 ml-2">
+                    {showBhaEditor ? '▼' : '▶'} {bhaComponents.length > 0 ? `${bhaComponents.length} components` : 'Click to expand'}
+                  </span>
+                </button>
+                {showBhaEditor && (
+                  <div className="glass-panel p-4 rounded-xl border border-white/5">
+                    <BHAEditor components={bhaComponents} onChange={setBhaComponents} />
+                    {bhaComponents.length >= 2 && (
+                      <button onClick={calculateFEA} disabled={feaLoading}
+                        className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                        {feaLoading ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
+                        {feaLoading ? 'Running FEA...' : 'Run FEA Analysis'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button onClick={calculate} disabled={loading}
@@ -259,6 +353,30 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               )}
             </div>
 
+            {/* Bit Excitation & Resonance */}
+            {result.bit_excitation && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-3">Bit Excitation</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span className="text-gray-400">Frecuencia:</span> <span className="font-mono">{result.bit_excitation.excitation_freq_hz} Hz</span></div>
+                  <div><span className="text-gray-400">Corte/rev:</span> <span className="font-mono">{result.bit_excitation.depth_of_cut_in} in</span></div>
+                  <div><span className="text-gray-400">Fuerza corte:</span> <span className="font-mono">{result.bit_excitation.cutting_force_lbs?.toLocaleString()} lbs</span></div>
+                  {result.resonance_check && (
+                    <div>
+                      <span className="text-gray-400">Resonancia:</span>{' '}
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        result.resonance_check.resonance_risk === 'low' ? 'text-green-400 bg-green-500/10' :
+                        result.resonance_check.resonance_risk === 'moderate' ? 'text-yellow-400 bg-yellow-500/10' :
+                        'text-red-400 bg-red-500/10'
+                      }`}>
+                        {result.resonance_check.resonance_risk}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
@@ -281,6 +399,50 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               <MSEBreakdownChart mse={result.mse} />
               <StickSlipIndicator stickSlip={result.stick_slip} />
             </div>
+
+            {/* FEA Results */}
+            {feaResult && (
+              <>
+                {/* FEA Summary */}
+                <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20">
+                  <h3 className="text-lg font-bold text-indigo-400 mb-3">FEA Analysis (Euler-Bernoulli FEM)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    {feaResult.eigenvalue?.frequencies_hz?.slice(0, 4).map((freq: number, i: number) => (
+                      <div key={i} className="text-center">
+                        <div className="text-xs text-gray-500">Mode {i + 1}</div>
+                        <div className="font-bold text-indigo-300">{freq.toFixed(2)} Hz</div>
+                        <div className="text-xs text-gray-500">{(freq * 60).toFixed(0)} RPM</div>
+                      </div>
+                    ))}
+                  </div>
+                  {feaResult.summary?.resonance_warnings?.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {feaResult.summary.resonance_warnings.map((w: string, i: number) => (
+                        <p key={i} className="text-xs text-red-400">&#9888; {w}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* FEA Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ModeShapePlot
+                    nodePositions={feaResult.node_positions_ft || []}
+                    modeShapes={feaResult.eigenvalue?.mode_shapes || []}
+                    frequenciesHz={feaResult.eigenvalue?.frequencies_hz || []}
+                  />
+                  {feaResult.campbell && (
+                    <CampbellDiagram
+                      rpmValues={feaResult.campbell.rpm_values || []}
+                      naturalFreqCurves={feaResult.campbell.natural_freq_curves || {}}
+                      excitationLines={feaResult.campbell.excitation_lines || {}}
+                      crossings={feaResult.campbell.crossings || []}
+                      operatingRpm={params.rpm as number}
+                    />
+                  )}
+                </div>
+              </>
+            )}
 
             {/* AI Analysis */}
             <AIAnalysisPanel
