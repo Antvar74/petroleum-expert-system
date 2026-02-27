@@ -7,7 +7,7 @@ All existing imports continue to work unchanged:
 from .constants import CASING_GRADES, CASING_CATALOG, DEFAULT_SF
 from .loads import calculate_burst_load, calculate_collapse_load, calculate_tension_load
 from .ratings import calculate_burst_rating, calculate_collapse_rating, derate_for_temperature
-from .corrections import calculate_biaxial_correction, calculate_triaxial_vme, calculate_hoop_stress_lame
+from .corrections import calculate_biaxial_correction, calculate_biaxial_profile, calculate_triaxial_vme, calculate_hoop_stress_lame
 from .grade_selection import select_casing_grade, lookup_casing_catalog, design_combination_string
 from .safety_factors import calculate_safety_factors, calculate_sf_vs_depth
 from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
@@ -37,6 +37,7 @@ class CasingDesignEngine:
 
     # corrections
     calculate_biaxial_correction = staticmethod(calculate_biaxial_correction)
+    calculate_biaxial_profile = staticmethod(calculate_biaxial_profile)
     calculate_triaxial_vme = staticmethod(calculate_triaxial_vme)
     calculate_hoop_stress_lame = staticmethod(calculate_hoop_stress_lame)
 

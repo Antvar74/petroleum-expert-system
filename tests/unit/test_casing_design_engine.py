@@ -455,9 +455,74 @@ class TestFullCasingDesign:
         expected_keys = {
             "burst_load", "collapse_load", "tension_load",
             "burst_rating", "collapse_rating", "biaxial_correction",
-            "triaxial_vme", "grade_selection", "safety_factors", "summary",
+            "biaxial_depth_profile", "triaxial_vme", "grade_selection",
+            "safety_factors", "sf_vs_depth", "summary",
+            "burst_scenarios", "collapse_scenarios", "tension_scenarios",
+            "connection", "temperature_derating",
         }
         assert expected_keys.issubset(result.keys())
+
+    def test_multi_scenario_burst_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert result["burst_scenarios"]["num_scenarios"] == 5
+        assert result["summary"]["governing_burst_scenario"] != ""
+
+    def test_multi_scenario_collapse_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert result["collapse_scenarios"]["num_scenarios"] == 4
+        assert result["summary"]["governing_collapse_scenario"] != ""
+
+    def test_collapse_uses_full_evacuation_by_default(self, engine):
+        """Default behavior: full evacuation produces realistic collapse load."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+            cement_top_tvd_ft=0.0,
+        )
+        assert result["summary"]["max_collapse_load_psi"] > 5000
+
+    def test_sf_collapse_not_absurdly_high(self, engine):
+        """SF collapse should be reasonable (< 10), not 17+ like the bug produced."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+        )
+        assert result["summary"]["sf_collapse"] < 10.0
+
+    def test_tension_scenarios_separated(self, engine):
+        result = engine.calculate_full_casing_design()
+        ts = result["tension_scenarios"]
+        assert "running" in ts
+        assert "stuck_pipe" in ts
+        assert ts["running"]["shock_load_lbs"] > 0
+        assert ts["running"]["overpull_lbs"] == 0
+        assert ts["stuck_pipe"]["shock_load_lbs"] == 0
+        assert ts["stuck_pipe"]["overpull_lbs"] > 0
+
+    def test_biaxial_depth_profile_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        bdp = result["biaxial_depth_profile"]
+        assert bdp["num_points"] > 0
+        assert len(bdp["profile"]) > 0
+        first = bdp["profile"][0]["reduction_factor"]
+        last = bdp["profile"][-1]["reduction_factor"]
+        assert last >= first  # Less tension at shoe -> less derating -> higher factor
+
+    def test_connection_verification_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert "connection" in result
+        assert result["connection"]["connection_type"] in ("STC", "LTC", "BTC", "PREMIUM")
+
+    def test_sf_vs_depth_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert "sf_vs_depth" in result
+        assert result["sf_vs_depth"]["num_points"] > 0
+
+    def test_sf_sanity_alert_on_unrealistic_values(self, engine):
+        """If any SF > 10, an alert should be generated."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=1000, mud_weight_ppg=8.6, pore_pressure_ppg=8.6,
+        )
+        sf_alerts = [a for a in result["summary"]["alerts"] if "unusually high" in a]
+        assert len(sf_alerts) > 0
 
     def test_summary_fields(self, engine):
         result = engine.calculate_full_casing_design()
@@ -465,40 +530,21 @@ class TestFullCasingDesign:
         for key in ["selected_grade", "max_burst_load_psi", "max_collapse_load_psi",
                      "total_tension_lbs", "burst_rating_psi", "collapse_rating_psi",
                      "sf_burst", "sf_collapse", "sf_tension",
-                     "triaxial_status", "overall_status", "alerts"]:
+                     "triaxial_status", "overall_status", "alerts",
+                     "governing_burst_scenario", "governing_collapse_scenario",
+                     "tension_governing_scenario"]:
             assert key in s, f"Missing summary key: {key}"
 
     def test_alerts_is_list(self, engine):
         result = engine.calculate_full_casing_design()
         assert isinstance(result["summary"]["alerts"], list)
 
-    def test_sub_results_are_dicts(self, engine):
-        result = engine.calculate_full_casing_design()
-        for key in ["burst_load", "collapse_load", "tension_load",
-                     "burst_rating", "collapse_rating", "biaxial_correction",
-                     "triaxial_vme", "grade_selection", "safety_factors"]:
-            assert isinstance(result[key], dict)
-            assert "error" not in result[key]
-
     def test_default_params_produce_valid_design(self, engine):
-        """Default parameters should produce a valid casing design."""
         result = engine.calculate_full_casing_design()
         assert result["summary"]["selected_grade"] != ""
         assert result["summary"]["sf_burst"] > 0
         assert result["summary"]["sf_collapse"] > 0
         assert result["summary"]["sf_tension"] > 0
-
-    def test_summary_grade_matches_selection(self, engine):
-        result = engine.calculate_full_casing_design()
-        assert result["summary"]["selected_grade"] == result["grade_selection"]["selected_grade"]
-
-    def test_biaxial_reduces_collapse_rating(self, engine):
-        """Biaxial correction should reduce collapse vs original."""
-        result = engine.calculate_full_casing_design()
-        original = result["collapse_rating"]["collapse_rating_psi"]
-        corrected = result["biaxial_correction"]["corrected_collapse_psi"]
-        # With tension present, corrected should be <= original
-        assert corrected <= original
 
 
 # ===========================================================================

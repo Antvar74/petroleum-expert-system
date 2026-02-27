@@ -61,6 +61,89 @@ def calculate_biaxial_correction(
     }
 
 
+def calculate_biaxial_profile(
+    collapse_profile: list,
+    collapse_rating_psi: float,
+    casing_weight_ppf: float,
+    casing_length_ft: float,
+    casing_od_in: float,
+    casing_id_in: float,
+    mud_weight_ppg: float,
+    yield_strength_psi: float,
+    overpull_lbs: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Calculate depth-varying biaxial correction.
+
+    At each depth, the axial tension is the buoyed weight of pipe below
+    that point (plus overpull at surface). The biaxial correction factor
+    varies with depth because tension decreases toward the shoe.
+
+    References:
+    - API TR 5C3 (ISO 10400): Biaxial yield criterion
+    """
+    area = math.pi / 4.0 * (casing_od_in ** 2 - casing_id_in ** 2)
+    if area <= 0 or yield_strength_psi <= 0:
+        return {"error": "Invalid dimensions or yield strength"}
+
+    bf = 1.0 - mud_weight_ppg / 65.4
+
+    profile = []
+    for point in collapse_profile:
+        depth = point.get("tvd_ft", 0)
+        collapse_load = point.get("collapse_load_psi", 0)
+
+        # Tension at this depth: buoyed weight of pipe below
+        remaining_length = max(casing_length_ft - depth, 0)
+        tension_at_depth = casing_weight_ppf * remaining_length * bf
+        # Add overpull only at surface
+        if depth == 0:
+            tension_at_depth += overpull_lbs
+
+        axial_stress = tension_at_depth / area
+        sa_ratio = axial_stress / yield_strength_psi
+        sa_ratio = max(min(sa_ratio, 0.99), -0.99)
+
+        # Effective yield under biaxial loading
+        yp_eff = yield_strength_psi * (
+            math.sqrt(1.0 - 0.75 * sa_ratio ** 2) - 0.5 * sa_ratio
+        )
+        yp_eff = max(yp_eff, 0.0)
+        reduction_factor = yp_eff / yield_strength_psi
+
+        # Corrected collapse rating at this depth
+        corrected_collapse = collapse_rating_psi * reduction_factor
+
+        # SF at this depth
+        sf = corrected_collapse / collapse_load if collapse_load > 0 else 99.0
+
+        profile.append({
+            "tvd_ft": round(depth, 0),
+            "collapse_load_psi": round(collapse_load, 0),
+            "tension_at_depth_lbs": round(tension_at_depth, 0),
+            "axial_stress_psi": round(axial_stress, 0),
+            "reduction_factor": round(reduction_factor, 4),
+            "corrected_collapse_psi": round(corrected_collapse, 0),
+            "sf_collapse_biaxial": round(min(sf, 99.0), 2),
+        })
+
+    # Find worst case (minimum SF)
+    if profile:
+        worst = min(profile, key=lambda p: p["sf_collapse_biaxial"])
+        min_sf = worst["sf_collapse_biaxial"]
+        min_sf_depth = worst["tvd_ft"]
+    else:
+        min_sf = 99.0
+        min_sf_depth = 0
+
+    return {
+        "profile": profile,
+        "min_sf_collapse_biaxial": min_sf,
+        "min_sf_depth_ft": min_sf_depth,
+        "num_points": len(profile),
+    }
+
+
 def calculate_triaxial_vme(
     axial_stress_psi: float,
     hoop_stress_psi: float,
