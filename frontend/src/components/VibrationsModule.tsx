@@ -296,7 +296,19 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               {[
                 { label: t('vibrations.stability'), value: `${result.summary?.stability_index?.toFixed(0)}/100`, color: statusColor(result.summary?.stability_status || '') },
                 { label: t('vibrations.criticalRpmAxial'), value: `${result.summary?.critical_rpm_axial?.toFixed(0)}`, color: 'text-blue-400' },
-                { label: t('vibrations.criticalRpmLateral'), value: `${result.summary?.critical_rpm_lateral?.toFixed(0)}${(result.lateral_vibrations as Record<string, unknown>)?.span_source === 'estimated' ? ' (est)' : ''}`, color: 'text-cyan-400' },
+                {
+                  label: t('vibrations.criticalRpmLateral'),
+                  value: (() => {
+                    const feaMode1Rpm = feaResult?.eigenvalue?.critical_rpms?.[0];
+                    if (feaMode1Rpm != null && feaMode1Rpm > 0) {
+                      return `${Math.round(feaMode1Rpm)} (FEA)`;
+                    }
+                    const tmm = result.summary?.critical_rpm_lateral;
+                    const est = (result.lateral_vibrations as Record<string, unknown>)?.span_source === 'estimated' ? ' (est)' : '';
+                    return `${tmm?.toFixed(0)}${est}`;
+                  })(),
+                  color: feaResult?.eigenvalue?.critical_rpms?.[0] ? 'text-indigo-400' : 'text-cyan-400',
+                },
                 { label: 'Stick-Slip', value: `${result.summary?.stick_slip_severity?.toFixed(2)} (${result.summary?.stick_slip_class})`, color: statusColor(result.summary?.stick_slip_class === 'Mild' ? 'Stable' : result.summary?.stick_slip_class === 'Moderate' ? 'Marginal' : 'Critical') },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
