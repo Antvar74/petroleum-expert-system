@@ -193,9 +193,6 @@ def calculate_collapse_scenarios(
             p_ext_cc = mud_weight_ppg * 0.052 * d
         else:
             p_ext_cc = (mud_weight_ppg * 0.052 * cement_top_tvd_ft +
-                        cement_slurry_density_ppg * 0.052 * (depth - cement_top_tvd_ft)
-                        if 'depth' in dir() else
-                        mud_weight_ppg * 0.052 * cement_top_tvd_ft +
                         cement_slurry_density_ppg * 0.052 * (d - cement_top_tvd_ft))
         # Internal: reduced pressure (partial lost returns)
         p_int_cc = mud_weight_ppg * 0.052 * d * 0.85  # 85% of original MW
