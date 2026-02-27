@@ -79,6 +79,46 @@ API_5C3_CASING_7_29_P110 = {
     },
 }
 
+API_5C3_CASING_7_32_C90 = {
+    "reference": "API TR 5C3 (ISO 10400), 7 inch 32# C90",
+    "description": "Burst and collapse for 7 inch C90 casing",
+    "od": 7.000,
+    "wall_thickness": 0.453,
+    "yield_psi": 90000,
+    "grade": "C90",
+    "expected": {
+        "burst_psi": {"value": 10200, "tolerance_pct": 5},
+        "collapse_psi": {"value": 8600, "tolerance_pct": 10},
+    },
+}
+
+API_5C3_CASING_9625_53_P110 = {
+    "reference": "API TR 5C3 (ISO 10400), 9-5/8 53.5# P110",
+    "description": "Burst and collapse for 9-5/8 inch P110 casing",
+    "od": 9.625,
+    "wall_thickness": 0.545,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 10910, "tolerance_pct": 5},
+        # Plastic collapse: Yp*(A/dt - B) - C = 110000*(3.181/17.66 - 0.0819) - 2852 ≈ 7950
+        "collapse_psi": {"value": 7950, "tolerance_pct": 10},
+    },
+}
+
+API_5C3_CASING_13375_68_N80 = {
+    "reference": "API TR 5C3 (ISO 10400), 13-3/8 68# N80",
+    "description": "Burst and collapse for 13-3/8 inch N80 casing",
+    "od": 13.375,
+    "wall_thickness": 0.480,
+    "yield_psi": 80000,
+    "grade": "N80",
+    "expected": {
+        "burst_psi": {"value": 5030, "tolerance_pct": 5},
+        "collapse_psi": {"value": 2420, "tolerance_pct": 10},
+    },
+}
+
 
 # ──────────────────────────────────────────────────────────────
 # HYDRAULICS — API RP 13D (Drilling Fluid Rheology)

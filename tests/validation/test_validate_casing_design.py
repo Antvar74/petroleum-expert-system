@@ -7,6 +7,9 @@ from orchestrator.casing_design_engine import CasingDesignEngine
 from tests.validation.benchmark_data import (
     API_5C3_CASING_9_625_N80,
     API_5C3_CASING_7_29_P110,
+    API_5C3_CASING_7_32_C90,
+    API_5C3_CASING_9625_53_P110,
+    API_5C3_CASING_13375_68_N80,
 )
 from tests.validation.conftest import assert_within_tolerance
 
@@ -208,3 +211,70 @@ class TestCasingTensionValidation:
             overpull_lbs=0,
         )
         assert result["buoyant_weight_lbs"] < result["air_weight_lbs"]
+
+
+class TestExpandedCollapseValidation:
+    """Validate collapse ratings across multiple grade/size combinations."""
+
+    @pytest.mark.parametrize("bm_name,bm_data", [
+        ("7_32_C90", API_5C3_CASING_7_32_C90),
+        ("9625_53_P110", API_5C3_CASING_9625_53_P110),
+        ("13375_68_N80", API_5C3_CASING_13375_68_N80),
+    ])
+    def test_collapse_rating_vs_api(self, bm_name, bm_data):
+        result = CasingDesignEngine.calculate_collapse_rating(
+            casing_od_in=bm_data["od"],
+            wall_thickness_in=bm_data["wall_thickness"],
+            yield_strength_psi=bm_data["yield_psi"],
+        )
+        expected = bm_data["expected"]["collapse_psi"]
+        assert_within_tolerance(
+            result["collapse_rating_psi"],
+            expected["value"],
+            expected["tolerance_pct"],
+            label=f"Collapse {bm_name}",
+        )
+
+    @pytest.mark.parametrize("bm_name,bm_data", [
+        ("7_32_C90", API_5C3_CASING_7_32_C90),
+        ("9625_53_P110", API_5C3_CASING_9625_53_P110),
+        ("13375_68_N80", API_5C3_CASING_13375_68_N80),
+    ])
+    def test_burst_rating_vs_api(self, bm_name, bm_data):
+        result = CasingDesignEngine.calculate_burst_rating(
+            casing_od_in=bm_data["od"],
+            wall_thickness_in=bm_data["wall_thickness"],
+            yield_strength_psi=bm_data["yield_psi"],
+        )
+        expected = bm_data["expected"]["burst_psi"]
+        assert_within_tolerance(
+            result["burst_rating_psi"],
+            expected["value"],
+            expected["tolerance_pct"],
+            label=f"Burst {bm_name}",
+        )
+
+
+class TestFullEvacuationCollapseLoad:
+    """Validate that full evacuation produces correct collapse loads."""
+
+    def test_11000ft_14ppg_full_evacuation(self):
+        """Full evacuation: P_collapse = MW * 0.052 * TVD at shoe."""
+        from orchestrator.casing_design_engine.scenarios import calculate_collapse_scenarios
+        result = calculate_collapse_scenarios(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+            cement_top_tvd_ft=0.0,
+        )
+        expected_max = 14.0 * 0.052 * 11000  # 8008 psi
+        actual = result["scenarios"]["full_evacuation"]["max_collapse_psi"]
+        assert abs(actual - expected_max) / expected_max < 0.02, \
+            f"Full evacuation collapse {actual} vs expected {expected_max}"
+
+    def test_10000ft_10ppg_full_evacuation(self):
+        from orchestrator.casing_design_engine.scenarios import calculate_collapse_scenarios
+        result = calculate_collapse_scenarios(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+        )
+        expected_max = 10.0 * 0.052 * 10000  # 5200 psi
+        actual = result["scenarios"]["full_evacuation"]["max_collapse_psi"]
+        assert abs(actual - expected_max) / expected_max < 0.02
