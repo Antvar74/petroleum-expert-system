@@ -31,6 +31,16 @@ class CasingDesignCalculateRequest(BaseModel):
     sf_collapse: float = Field(default=1.00, description="Safety factor for collapse")
     sf_tension: float = Field(default=1.60, description="Safety factor for tension")
 
+    # Tier 1 parameters
+    connection_type: str = Field(default="BTC", description="Connection type: STC, LTC, BTC, PREMIUM")
+    wear_pct: float = Field(default=0.0, description="Casing wear percentage (%)")
+    corrosion_rate_in_yr: float = Field(default=0.0, description="Corrosion rate (in/yr)")
+    design_life_years: float = Field(default=20.0, description="Design life (years)")
+    bottomhole_temp_f: float = Field(default=200.0, description="Bottomhole temperature (°F)")
+    tubing_pressure_psi: float = Field(default=0.0, description="Tubing head pressure for leak scenario (psi)")
+    internal_fluid_density_ppg: float = Field(default=0.0, description="Internal fluid density (ppg), 0 = use mud weight")
+    evacuation_level_ft: float = Field(default=-1.0, description="Evacuation fluid level (ft). -1=full evacuation, 0=no evacuation, >0=partial")
+
 
 class CombinationStringRequest(BaseModel):
     """Body for ``POST /casing-design/combination-string``."""

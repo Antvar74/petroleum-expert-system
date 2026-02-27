@@ -256,7 +256,15 @@ def standalone_casing_design(data: CasingDesignCalculateRequest):
         overpull_lbs=data.overpull_lbs,
         sf_burst=data.sf_burst,
         sf_collapse=data.sf_collapse,
-        sf_tension=data.sf_tension
+        sf_tension=data.sf_tension,
+        connection_type=data.connection_type,
+        wear_pct=data.wear_pct,
+        corrosion_rate_in_yr=data.corrosion_rate_in_yr,
+        design_life_years=data.design_life_years,
+        bottomhole_temp_f=data.bottomhole_temp_f,
+        tubing_pressure_psi=data.tubing_pressure_psi,
+        internal_fluid_density_ppg=data.internal_fluid_density_ppg,
+        evacuation_level_ft=data.evacuation_level_ft,
     )
     return result
 
