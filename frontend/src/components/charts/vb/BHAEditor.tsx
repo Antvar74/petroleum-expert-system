@@ -21,7 +21,7 @@ export interface BHAComponent {
 interface BHAEditorProps {
   components: BHAComponent[];
   onChange: (components: BHAComponent[]) => void;
-  onImportFeedback?: (message: string, type: 'success' | 'error') => void;
+  onImportFeedback?: (message: string, type: 'success' | 'error' | 'warning') => void;
 }
 
 /** Component types organized by drilling category */
@@ -137,6 +137,7 @@ const TYPE_COLORS: Record<string, string> = {
 const INPUT_CLASS = 'w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none';
 
 const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFeedback }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addComponent = () => {
     const defaults = DEFAULT_BY_TYPE['collar'];
@@ -175,8 +176,6 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
     onChange(updated);
   };
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -186,8 +185,7 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
       // Collect all valid COMPONENT_TYPES + extras recognized by backend
       const VALID_TYPES = new Set([
         ...COMPONENT_TYPES.map(t => t.toLowerCase()),
-        'lwd', 'jar', 'crossover', 'sub', 'bit_sub', 'reamer',
-        'near_bit_stabilizer', 'string_stabilizer', 'float_sub', 'shock_sub',
+        'string_stabilizer',  // backend-only type not in UI groups
       ]);
 
       let skipped = 0;
@@ -233,17 +231,20 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
         const msg = `Imported ${mapped.length} components` +
           (skipped > 0 ? `, ${skipped} rows skipped (no type)` : '') +
           (warnings.length > 0 ? `. Warnings: ${warnings.join('; ')}` : '');
-        onImportFeedback?.(msg, warnings.length > 0 ? 'error' : 'success');
+        onImportFeedback?.(msg, warnings.length > 0 ? 'warning' : 'success');
       } else {
         onImportFeedback?.('No valid components found in file. Ensure column "type" exists.', 'error');
       }
     };
 
+    const resetInput = () => { if (fileInputRef.current) fileInputRef.current.value = ''; };
+
     if (ext === 'csv') {
       Papa.parse<Record<string, string>>(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (result) => parseRows(result.data),
+        complete: (result) => { parseRows(result.data); resetInput(); },
+        error: (err) => { onImportFeedback?.(`CSV parse error: ${err.message}`, 'error'); resetInput(); },
       });
     } else if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader();
@@ -256,12 +257,11 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
         } catch (err) {
           onImportFeedback?.(`Excel parse error: ${(err as Error).message}`, 'error');
         }
+        resetInput();
       };
-      reader.onerror = () => onImportFeedback?.('Failed to read file', 'error');
+      reader.onerror = () => { onImportFeedback?.('Failed to read file', 'error'); resetInput(); };
       reader.readAsArrayBuffer(file);
     }
-    // Reset input so same file can be re-imported
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const totalLength = components.reduce((sum, c) => sum + c.length_ft, 0);

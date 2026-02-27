@@ -123,14 +123,14 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
         wob_klb: params.wob_klb || 20,
         rpm: params.rpm || 120,
         mud_weight_ppg: params.mud_weight_ppg || 10,
-        pv_cp: params.pv_cp || undefined,
-        yp_lbf_100ft2: params.yp_lbf_100ft2 || undefined,
+        pv_cp: params.pv_cp ?? undefined,
+        yp_lbf_100ft2: params.yp_lbf_100ft2 ?? undefined,
         hole_diameter_in: params.hole_diameter_in || 8.5,
         boundary_conditions: 'pinned-pinned',
         n_modes: 5,
         include_forced_response: true,
         include_campbell: true,
-        n_blades: params.n_blades || undefined,
+        n_blades: params.n_blades ?? undefined,
       });
       setFeaResult(res.data);
       setActiveTab('results');
