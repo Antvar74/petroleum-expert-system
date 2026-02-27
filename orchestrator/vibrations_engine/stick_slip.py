@@ -2,9 +2,50 @@
 
 References:
 - Jansen & van den Steen (1995): Active damping of stick-slip vibrations
+- Bowden & Tabor (1950): Friction and Lubrication of Solids (Stribeck curve)
 """
 import math
 from typing import Dict, Any, List, Optional
+
+
+def _stribeck_friction(friction_factor: float, surface_rpm: float) -> float:
+    """Apply Stribeck friction curve.
+
+    mu_eff = mu_d + (mu_s - mu_d) * exp(-(omega/omega_s)^2)
+
+    Where:
+        mu_s = friction_factor (static, user input)
+        mu_d = 0.6 * mu_s (dynamic, ~60% of static per Bowden & Tabor 1950)
+        omega_s = 5.0 rad/s (Stribeck transition velocity)
+    """
+    mu_s = friction_factor
+    mu_d = 0.6 * mu_s
+    omega = surface_rpm * 2.0 * math.pi / 60.0
+    omega_s = 5.0  # Stribeck transition velocity (rad/s)
+    return mu_d + (mu_s - mu_d) * math.exp(-(omega / omega_s) ** 2)
+
+
+def _viscous_damping_factor(
+    surface_rpm: float,
+    mud_weight_ppg: float,
+    pv_cp: Optional[float],
+    hole_diameter_in: float,
+    bha_od_in: float,
+    bha_length_ft: float,
+) -> float:
+    """Compute viscous damping reduction factor (0 < D <= 1).
+
+    Based on annular viscous drag torque opposing torsional oscillations.
+    Higher RPM + higher viscosity + smaller clearance = more damping.
+
+    Reference: Jansen & van den Steen (1995), eq. 12-14.
+    """
+    pv = pv_cp if pv_cp is not None else mud_weight_ppg * 2.5
+    omega = surface_rpm * 2.0 * math.pi / 60.0
+    clearance_in = max(0.25, (hole_diameter_in - bha_od_in) / 2.0)
+    c_visc = (pv / 100.0) * (bha_length_ft / 300.0) / (clearance_in / 0.875)
+    c_visc *= 0.003
+    return 1.0 / (1.0 + c_visc * omega)
 
 
 def calculate_stick_slip_severity(
@@ -17,6 +58,8 @@ def calculate_stick_slip_severity(
     bha_id_in: float,
     mud_weight_ppg: float = 10.0,
     friction_factor: float = 0.25,
+    pv_cp: Optional[float] = None,
+    hole_diameter_in: float = 8.5,
     total_depth_ft: Optional[float] = None,
     dp_od_in: float = 5.0,
     dp_id_in: float = 4.276,
@@ -66,10 +109,13 @@ def calculate_stick_slip_severity(
     if surface_rpm <= 0:
         return {"error": "RPM must be > 0"}
 
+    # Stribeck-adjusted friction at operating RPM
+    mu_eff = _stribeck_friction(friction_factor, surface_rpm)
+
     # Friction torque at bit (ft-lbs)
     r_bit_ft = bit_diameter_in / (2.0 * 12.0)
     wob_lbs = wob_klb * 1000.0
-    t_friction = friction_factor * wob_lbs * r_bit_ft * 2.0 / 3.0
+    t_friction = mu_eff * wob_lbs * r_bit_ft * 2.0 / 3.0
 
     # Torsional stiffness — G = E / (2(1+nu)) ~ 11.5e6 psi for steel
     g_shear = 11.5e6  # psi
@@ -118,10 +164,18 @@ def calculate_stick_slip_severity(
     omega_surface = surface_rpm * 2.0 * math.pi / 60.0  # rad/s
     delta_omega = 2.0 * delta_theta * omega_surface
 
-    # Severity
+    # Severity (undamped)
     severity = delta_omega / omega_surface if omega_surface > 0 else 0
+    severity_undamped = severity
 
-    # Min/Max RPM at bit
+    # Viscous damping reduction
+    d_factor = _viscous_damping_factor(
+        surface_rpm, mud_weight_ppg, pv_cp,
+        hole_diameter_in, bha_od_in, bha_length_ft,
+    )
+    severity = severity_undamped * d_factor
+
+    # Min/Max RPM at bit (using damped severity)
     rpm_min_bit = max(0, surface_rpm * (1.0 - severity / 2.0))
     rpm_max_bit = surface_rpm * (1.0 + severity / 2.0)
 
@@ -145,6 +199,7 @@ def calculate_stick_slip_severity(
 
     return {
         "severity_index": round(severity, 3),
+        "severity_undamped": round(severity_undamped, 3),
         "classification": classification,
         "color": color,
         "rpm_min_at_bit": round(rpm_min_bit, 0),
@@ -153,5 +208,7 @@ def calculate_stick_slip_severity(
         "friction_torque_ftlb": round(t_friction, 0),
         "torsional_stiffness_inlb_rad": round(k_torsion, 0),
         "angular_displacement_deg": round(math.degrees(delta_theta), 2),
+        "stribeck_friction_factor": round(mu_eff, 4),
+        "damping_factor": round(d_factor, 4),
         "recommendation": recommendation,
     }
