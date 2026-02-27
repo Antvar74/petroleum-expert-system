@@ -8,6 +8,7 @@ import SafetyFactorTrack from './charts/csg/SafetyFactorTrack';
 import BiaxialEllipse from './charts/csg/BiaxialEllipse';
 import CasingProgramSchematic from './charts/csg/CasingProgramSchematic';
 import GradeSelectionTable from './charts/csg/GradeSelectionTable';
+import SFvsDepthChart from './charts/csg/SFvsDepthChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -361,6 +362,16 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <CasingProgramSchematic summary={result.summary} params={params} />
               <GradeSelectionTable gradeSelection={result.grade_selection} />
             </div>
+
+            {/* SF vs Depth Chart */}
+            {result?.sf_vs_depth && (
+              <SFvsDepthChart
+                sfVsDepth={result.sf_vs_depth as any}
+                sfBurstMin={params.sf_burst}
+                sfCollapseMin={params.sf_collapse}
+                sfTensionMin={params.sf_tension}
+              />
+            )}
 
             {/* AI Analysis */}
             <AIAnalysisPanel
