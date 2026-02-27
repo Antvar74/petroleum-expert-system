@@ -21,6 +21,7 @@ export interface BHAComponent {
 interface BHAEditorProps {
   components: BHAComponent[];
   onChange: (components: BHAComponent[]) => void;
+  onImportFeedback?: (message: string, type: 'success' | 'error') => void;
 }
 
 const COMPONENT_TYPES = ['collar', 'dp', 'hwdp', 'stabilizer', 'motor', 'MWD'];
@@ -76,7 +77,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const INPUT_CLASS = 'w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none';
 
-const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
+const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFeedback }) => {
 
   const addComponent = () => {
     const defaults = DEFAULT_BY_TYPE['collar'];
@@ -123,24 +124,60 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     const parseRows = (rows: Record<string, string>[]) => {
+      // Collect all valid COMPONENT_TYPES + extras recognized by backend
+      const VALID_TYPES = new Set([
+        ...COMPONENT_TYPES.map(t => t.toLowerCase()),
+        'lwd', 'jar', 'crossover', 'sub', 'bit_sub', 'reamer',
+        'near_bit_stabilizer', 'string_stabilizer', 'float_sub', 'shock_sub',
+      ]);
+
+      let skipped = 0;
+      const warnings: string[] = [];
+
       const mapped: BHAComponent[] = rows
-        .filter(r => r.type || r.Type || r.component)
+        .filter(r => {
+          const hasType = !!(r.type || r.Type || r.component);
+          if (!hasType) { skipped++; return false; }
+          return true;
+        })
         .map(r => {
+          const rawType = (r.type || r.Type || r.component || 'collar').toLowerCase();
+          const type = VALID_TYPES.has(rawType) ? rawType : 'collar';
+          if (!VALID_TYPES.has(rawType)) {
+            warnings.push(`Unknown type "${rawType}" → defaulted to collar`);
+          }
+
+          const od = parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75;
+          const id_inner = parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813;
+          if (id_inner >= od) {
+            warnings.push(`Row "${rawType}": ID (${id_inner}) >= OD (${od}) — check dimensions`);
+          }
+
           const qty = Math.max(1, parseInt(r.quantity || r.qty || r.Qty || '1') || 1);
           const unitLen = parseFloat(r.unit_length_ft || r.joint_length || r.jt_len || '0');
           const totalLen = parseFloat(r.length_ft || r.length || r.Length || '30') || 30;
           const resolvedUnitLen = unitLen > 0 ? unitLen : (qty > 1 ? totalLen / qty : totalLen);
+
           return {
-            type: (r.type || r.Type || r.component || 'collar').toLowerCase(),
-            od: parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75,
-            id_inner: parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813,
+            type,
+            od,
+            id_inner,
             unit_length_ft: resolvedUnitLen,
             quantity: qty,
             length_ft: resolvedUnitLen * qty,
             weight_ppf: parseFloat(r.weight_ppf || r.weight || r.Weight || r.weight_lbft || '83') || 83,
           };
         });
-      if (mapped.length > 0) onChange(mapped);
+
+      if (mapped.length > 0) {
+        onChange(mapped);
+        const msg = `Imported ${mapped.length} components` +
+          (skipped > 0 ? `, ${skipped} rows skipped (no type)` : '') +
+          (warnings.length > 0 ? `. Warnings: ${warnings.join('; ')}` : '');
+        onImportFeedback?.(msg, warnings.length > 0 ? 'error' : 'success');
+      } else {
+        onImportFeedback?.('No valid components found in file. Ensure column "type" exists.', 'error');
+      }
     };
 
     if (ext === 'csv') {
@@ -152,11 +189,16 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange }) => {
     } else if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const wb = XLSX.read(e.target?.result, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
-        parseRows(rows);
+        try {
+          const wb = XLSX.read(e.target?.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+          parseRows(rows);
+        } catch (err) {
+          onImportFeedback?.(`Excel parse error: ${(err as Error).message}`, 'error');
+        }
       };
+      reader.onerror = () => onImportFeedback?.('Failed to read file', 'error');
       reader.readAsArrayBuffer(file);
     }
     // Reset input so same file can be re-imported

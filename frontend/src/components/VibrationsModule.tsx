@@ -268,7 +268,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                 </button>
                 {showBhaEditor && (
                   <div className="glass-panel p-4 rounded-xl border border-white/5">
-                    <BHAEditor components={bhaComponents} onChange={setBhaComponents} />
+                    <BHAEditor components={bhaComponents} onChange={setBhaComponents} onImportFeedback={(msg, type) => addToast(msg, type)} />
                     {bhaComponents.length >= 2 && (
                       <button onClick={calculateFEA} disabled={feaLoading}
                         className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
