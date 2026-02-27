@@ -650,3 +650,85 @@ class TestConnectionVerification:
         )
         # STC tension rating = 300000, required = 250000 * 1.6 = 400000
         assert result["passes_tension"] is False
+
+
+# ===========================================================================
+# 14. SAFETY FACTOR VS DEPTH PROFILE
+# ===========================================================================
+class TestSFvsDepth:
+    """Validate safety factor vs depth profile calculation."""
+
+    def test_profile_length_matches_input(self):
+        """Output profile length must match input burst profile length."""
+        burst = [{"tvd_ft": i * 500, "burst_load_psi": 3000 - i * 100} for i in range(20)]
+        collapse = [{"tvd_ft": i * 500, "collapse_load_psi": i * 200} for i in range(20)]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert len(result["profile"]) == 20
+        assert result["num_points"] == 20
+
+    def test_sf_values_positive(self):
+        """All safety factors must be positive."""
+        burst = [{"tvd_ft": 0, "burst_load_psi": 3000}]
+        collapse = [{"tvd_ft": 0, "collapse_load_psi": 2000}]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        point = result["profile"][0]
+        assert point["sf_burst"] > 0
+        assert point["sf_collapse"] > 0
+        assert point["sf_tension"] > 0
+        assert result["min_sf"] > 0
+
+    def test_min_sf_depth_reported(self):
+        """Must report the depth of minimum safety factor."""
+        burst = [
+            {"tvd_ft": 0, "burst_load_psi": 1000},
+            {"tvd_ft": 5000, "burst_load_psi": 5000},
+            {"tvd_ft": 10000, "burst_load_psi": 2000},
+        ]
+        collapse = [
+            {"tvd_ft": 0, "collapse_load_psi": 500},
+            {"tvd_ft": 5000, "collapse_load_psi": 3000},
+            {"tvd_ft": 10000, "collapse_load_psi": 4000},
+        ]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert result["min_sf_depth_ft"] in [0, 5000, 10000]
+        assert result["min_sf"] < 99.0
+
+    def test_empty_profiles(self):
+        """Empty input profiles should return empty result."""
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=[], collapse_profile=[],
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert result["num_points"] == 0
+        assert result["profile"] == []
+
+    def test_governing_sf_is_minimum(self):
+        """Governing SF at each depth must be the minimum of burst, collapse, tension."""
+        burst = [{"tvd_ft": 5000, "burst_load_psi": 4000}]
+        collapse = [{"tvd_ft": 5000, "collapse_load_psi": 3000}]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        point = result["profile"][0]
+        expected_gov = min(point["sf_burst"], point["sf_collapse"], point["sf_tension"])
+        assert point["governing_sf"] == expected_gov

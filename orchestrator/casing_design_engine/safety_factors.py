@@ -71,3 +71,69 @@ def calculate_safety_factors(
         "governing_sf": governing[1]["safety_factor"],
         "overall_status": "ALL PASS" if all_pass else "DESIGN FAILURE",
     }
+
+
+def calculate_sf_vs_depth(
+    burst_profile: list,
+    collapse_profile: list,
+    burst_rating_psi: float,
+    collapse_rating_psi: float,
+    tension_at_surface_lbs: float,
+    tension_rating_lbs: float,
+    casing_weight_ppf: float,
+    mud_weight_ppg: float,
+    casing_length_ft: float,
+) -> Dict[str, Any]:
+    """
+    Calculate burst, collapse, and tension safety factors at each depth point.
+
+    Produces a depth-wise SF profile for visualization (similar to Landmark WellPlan).
+
+    burst_profile: list of {"tvd_ft": float, "burst_load_psi": float}
+    collapse_profile: list of {"tvd_ft": float, "collapse_load_psi": float}
+
+    References:
+    - NORSOK D-010: Well Integrity in Drilling and Well Operations
+    - API RP 90: Annular Casing Pressure Management
+    """
+    bf = 1.0 - mud_weight_ppg / 65.4
+
+    sf_profile = []
+    for i, bp in enumerate(burst_profile):
+        depth = bp.get("tvd_ft", 0)
+        burst_load = abs(bp.get("burst_load_psi", 0))
+        collapse_load = 0
+        if i < len(collapse_profile):
+            collapse_load = abs(collapse_profile[i].get("collapse_load_psi", 0))
+
+        # Tension decreases with depth (less string below)
+        remaining = max(casing_length_ft - depth, 0)
+        tension_at_depth = casing_weight_ppf * remaining * bf
+        # At surface, use actual tension (includes all loads)
+        if depth == 0:
+            tension_at_depth = tension_at_surface_lbs
+
+        sf_b = burst_rating_psi / burst_load if burst_load > 0 else 99.0
+        sf_c = collapse_rating_psi / collapse_load if collapse_load > 0 else 99.0
+        sf_t = tension_rating_lbs / tension_at_depth if tension_at_depth > 0 else 99.0
+
+        sf_profile.append({
+            "tvd_ft": round(depth, 0),
+            "sf_burst": round(min(sf_b, 99.0), 2),
+            "sf_collapse": round(min(sf_c, 99.0), 2),
+            "sf_tension": round(min(sf_t, 99.0), 2),
+            "governing_sf": round(min(sf_b, sf_c, sf_t, 99.0), 2),
+        })
+
+    if not sf_profile:
+        return {"profile": [], "min_sf": 0, "min_sf_depth_ft": 0, "num_points": 0}
+
+    # Find minimum SF and its depth
+    min_point = min(sf_profile, key=lambda p: p["governing_sf"])
+
+    return {
+        "profile": sf_profile,
+        "min_sf": min_point["governing_sf"],
+        "min_sf_depth_ft": min_point["tvd_ft"],
+        "num_points": len(sf_profile),
+    }

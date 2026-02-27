@@ -9,7 +9,7 @@ from .loads import calculate_burst_load, calculate_collapse_load, calculate_tens
 from .ratings import calculate_burst_rating, calculate_collapse_rating, derate_for_temperature
 from .corrections import calculate_biaxial_correction, calculate_triaxial_vme, calculate_hoop_stress_lame
 from .grade_selection import select_casing_grade, lookup_casing_catalog, design_combination_string
-from .safety_factors import calculate_safety_factors
+from .safety_factors import calculate_safety_factors, calculate_sf_vs_depth
 from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
 from .running_loads import calculate_running_loads, calculate_thermal_axial_load
 from .wear import apply_wear_allowance
@@ -47,6 +47,7 @@ class CasingDesignEngine:
 
     # safety factors
     calculate_safety_factors = staticmethod(calculate_safety_factors)
+    calculate_sf_vs_depth = staticmethod(calculate_sf_vs_depth)
 
     # scenarios
     calculate_burst_scenarios = staticmethod(calculate_burst_scenarios)
