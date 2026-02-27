@@ -11,7 +11,7 @@ from typing import Dict, Any, List
 from .constants import CASING_GRADES
 from .loads import calculate_burst_load, calculate_collapse_load, calculate_tension_load
 from .ratings import calculate_burst_rating, calculate_collapse_rating
-from .corrections import calculate_biaxial_correction, calculate_triaxial_vme
+from .corrections import calculate_biaxial_correction, calculate_triaxial_vme, calculate_hoop_stress_lame
 from .grade_selection import select_casing_grade
 from .safety_factors import calculate_safety_factors
 
@@ -40,6 +40,8 @@ def calculate_full_casing_design(
     ratings, biaxial correction, triaxial VME, grade selection,
     and safety factor verification.
     """
+    alerts = []
+
     # 1. Burst load
     burst_load = calculate_burst_load(
         tvd_ft=tvd_ft, mud_weight_ppg=mud_weight_ppg,
@@ -105,11 +107,23 @@ def calculate_full_casing_design(
     )
 
     # 7. Triaxial VME check
-    # Hoop stress approximation: P_collapse * (D/t) / 2 at maximum collapse depth
-    hoop_stress = max_collapse * (casing_od_in / wall_thickness_in) / 2 if wall_thickness_in > 0 else 0
+    # Use Lamé thick-wall equations for accurate hoop stress at max collapse depth
+    lame_result = calculate_hoop_stress_lame(
+        od_in=casing_od_in, id_in=casing_id_in,
+        p_internal_psi=0.0,  # worst case: evacuated casing
+        p_external_psi=max_collapse,
+    )
+    if "error" in lame_result:
+        alerts.append(f"Lamé hoop stress error: {lame_result['error']} — triaxial VME result may be unreliable")
+        hoop_stress = 0
+        radial_stress = 0
+    else:
+        hoop_stress = lame_result["hoop_inner_psi"]
+        radial_stress = lame_result["radial_inner_psi"]
     triaxial = calculate_triaxial_vme(
         axial_stress_psi=axial_stress,
         hoop_stress_psi=hoop_stress,
+        radial_stress_psi=radial_stress,
         yield_strength_psi=selected_yield,
     )
 
@@ -127,8 +141,7 @@ def calculate_full_casing_design(
         sf_burst_min=sf_burst, sf_collapse_min=sf_collapse, sf_tension_min=sf_tension,
     )
 
-    # Alerts
-    alerts = []
+    # Alerts (list initialized at function start)
     if not safety_factors["all_pass"]:
         alerts.append(f"DESIGN FAILURE: {safety_factors['governing_criterion']} SF = "
                       f"{safety_factors['governing_sf']:.2f} < minimum")

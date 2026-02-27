@@ -468,3 +468,67 @@ class TestFullCasingDesign:
         corrected = result["biaxial_correction"]["corrected_collapse_psi"]
         # With tension present, corrected should be <= original
         assert corrected <= original
+
+
+# ===========================================================================
+# 11. LAMÉ THICK-WALL HOOP STRESS
+# ===========================================================================
+class TestLameHoopStress:
+    """Validate Lamé thick-wall hoop stress calculation."""
+
+    def test_external_pressure_only(self):
+        """External pressure only -> hoop stress negative (compressive) at inner wall."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=0, p_external_psi=5000,
+        )
+        assert result["hoop_inner_psi"] < 0  # compressive
+
+    def test_internal_pressure_only(self):
+        """Internal pressure only -> hoop stress positive (tensile) at inner wall."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=5000, p_external_psi=0,
+        )
+        assert result["hoop_inner_psi"] > 0  # tensile
+
+    def test_known_value_external(self):
+        """Verify against manual Lamé calculation for 9-5/8 casing under external pressure."""
+        # For 9.625" OD, 8.681" ID with 5000 psi external (Pi=0):
+        # ro=4.8125, ri=4.3405
+        # sigma_h(ri) = -2*Po*ro^2 / (ro^2-ri^2)
+        #             = -10000*23.16 / 4.32 ≈ -53,609 psi (compressive)
+        ro, ri = 9.625 / 2, 8.681 / 2
+        expected = -10000 * ro ** 2 / (ro ** 2 - ri ** 2)
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=0, p_external_psi=5000,
+        )
+        assert result["hoop_inner_psi"] == pytest.approx(expected, abs=1)
+
+    def test_radial_stress_at_walls(self):
+        """Radial stress at inner wall = -P_internal, at outer wall = -P_external."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=3000, p_external_psi=5000,
+        )
+        assert result["radial_inner_psi"] == -3000
+        assert result["radial_outer_psi"] == -5000
+
+    def test_equal_pressures_hydrostatic(self):
+        """Equal internal and external pressure: hoop = radial = -P (hydrostatic)."""
+        P = 5000
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=P, p_external_psi=P,
+        )
+        assert result["hoop_inner_psi"] == pytest.approx(-P, abs=1)
+        assert result["hoop_outer_psi"] == pytest.approx(-P, abs=1)
+
+    def test_invalid_dimensions(self):
+        """Invalid dimensions (OD <= ID) should return error."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=5.0, id_in=6.0,
+            p_internal_psi=1000, p_external_psi=1000,
+        )
+        assert "error" in result

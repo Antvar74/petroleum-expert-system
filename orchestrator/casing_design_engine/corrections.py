@@ -113,3 +113,51 @@ def calculate_triaxial_vme(
             "shear_psi": round(tau, 0),
         },
     }
+
+
+def calculate_hoop_stress_lame(
+    od_in: float,
+    id_in: float,
+    p_internal_psi: float,
+    p_external_psi: float,
+) -> Dict[str, Any]:
+    """
+    Lame thick-walled cylinder hoop stress at inner and outer wall.
+
+    sigma_h(r) = (Pi*ri^2 - Po*ro^2)/(ro^2-ri^2) + ri^2*ro^2*(Pi-Po)/(r^2*(ro^2-ri^2))
+
+    At inner wall (r=ri): maximum magnitude for collapse
+    At outer wall (r=ro): maximum magnitude for burst
+
+    References:
+    - Timoshenko: Theory of Elasticity, thick cylinder analysis
+    - API TR 5C3 Annex B: Stress analysis of casing
+    """
+    ro = od_in / 2.0
+    ri = id_in / 2.0
+
+    if ro <= ri or ri <= 0:
+        return {"error": "Invalid dimensions: OD must be > ID > 0"}
+
+    ro2 = ro ** 2
+    ri2 = ri ** 2
+    diff = ro2 - ri2
+
+    # Hoop stress at inner wall (r = ri)
+    hoop_inner = (p_internal_psi * ri2 - p_external_psi * ro2) / diff + \
+                 ri2 * ro2 * (p_internal_psi - p_external_psi) / (ri2 * diff)
+
+    # Hoop stress at outer wall (r = ro)
+    hoop_outer = (p_internal_psi * ri2 - p_external_psi * ro2) / diff + \
+                 ri2 * ro2 * (p_internal_psi - p_external_psi) / (ro2 * diff)
+
+    # Radial stress at inner wall = -P_internal, at outer wall = -P_external
+    radial_inner = -p_internal_psi
+    radial_outer = -p_external_psi
+
+    return {
+        "hoop_inner_psi": round(hoop_inner, 0),
+        "hoop_outer_psi": round(hoop_outer, 0),
+        "radial_inner_psi": round(radial_inner, 0),
+        "radial_outer_psi": round(radial_outer, 0),
+    }
