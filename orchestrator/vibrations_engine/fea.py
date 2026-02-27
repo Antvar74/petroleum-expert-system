@@ -83,11 +83,16 @@ def beam_element_matrices(
 
 MAX_ELEMENT_LENGTH_FT = 100.0  # Max element length before auto-meshing (ft)
 
-# Wellbore contact supports — for long strings the DP contacts the casing/hole
-# wall at regular intervals due to gravity and buckling.
+# Wellbore contact supports — the BHA/DP contacts the casing/hole wall.
 _WELLBORE_CONTACT_THRESHOLD_FT = 1000.0   # Only add contacts for strings > 1000 ft
 _WELLBORE_CONTACT_INTERVAL_FT = 500.0     # Spring support every ~500 ft (tension zone)
 _WELLBORE_CONTACT_STIFFNESS = 1e8         # lb/in (stiff wall contact)
+
+# Compression-zone contacts for BHA — the BHA in compression rests against
+# the low side of the hole.  Adding periodic contacts at 30 ft intervals
+# prevents unrealistic global buckling modes (negative eigenvalues).
+_BHA_COMPRESSION_CONTACT_INTERVAL_FT = 30.0
+_BHA_COMPRESSION_CONTACT_STIFFNESS = 5e5  # lb/in (softer — compliant wall contact)
 
 
 def _auto_mesh(
@@ -378,6 +383,33 @@ def assemble_global_matrices(
         if 0 < node_idx < n_nodes - 1:  # skip end nodes (BCs)
             K_global[node_idx * 2, node_idx * 2] += _WELLBORE_CONTACT_STIFFNESS
 
+    # Compression-zone wall contacts for BHA.
+    # The BHA below the neutral point presses against the low side of the
+    # borehole under gravity + inclination.  Adding periodic contact springs
+    # (every ~30 ft) in the compression zone prevents unrealistic negative
+    # eigenvalues from global span buckling while allowing lateral vibration.
+    # The neutral point is where cumulative buoyant weight equals WOB.
+    neutral_point_ft = node_positions_ft[-1]  # default: entire string
+    cum_wt = 0.0
+    for i_el, comp in enumerate(elements):
+        cum_wt += comp.get("weight_ppf", 80) * bf * comp.get("length_ft", 0)
+        if cum_wt >= P_wob_lbs:
+            neutral_point_ft = node_positions_ft[min(i_el + 1, n_nodes - 1)]
+            break
+
+    if neutral_point_ft > _BHA_COMPRESSION_CONTACT_INTERVAL_FT:
+        last_contact = 0.0
+        stab_set = set(stabilizer_nodes or [])
+        for idx in range(1, n_nodes - 1):
+            if node_positions_ft[idx] > neutral_point_ft:
+                break
+            if idx in buckled_nodes or idx in stab_set:
+                continue
+            if node_positions_ft[idx] - last_contact >= _BHA_COMPRESSION_CONTACT_INTERVAL_FT:
+                dof_y = idx * 2
+                K_global[dof_y, dof_y] += _BHA_COMPRESSION_CONTACT_STIFFNESS
+                last_contact = node_positions_ft[idx]
+
     # Periodic wellbore contact supports for long tension spans.
     # In inclined wells the DP rests on the low side of the hole at regular
     # intervals.  Adding spring supports every ~500 ft breaks the free span
@@ -626,6 +658,7 @@ def generate_campbell_diagram(
     rpm_step: float = 5.0,
     n_modes: int = 5,
     n_blades: Optional[int] = None,
+    stabilizer_nodes: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """Generate Campbell diagram data: natural frequencies vs RPM.
 
@@ -643,6 +676,7 @@ def generate_campbell_diagram(
 
     K, Kg, M, node_positions = assemble_global_matrices(
         bha_components, mud_weight_ppg, wob_klb,
+        stabilizer_nodes=stabilizer_nodes,
     )
 
     eigen_result = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
@@ -693,6 +727,24 @@ def generate_campbell_diagram(
     }
 
 
+def _find_stabilizer_node_indices(
+    meshed_components: List[Dict[str, Any]],
+) -> List[int]:
+    """Find node indices where stabilizers provide lateral support.
+
+    After meshing, each element maps to one node at its start.  Node i is
+    at the start of element i (the bit end), node N is at the top.
+    A stabilizer component constrains the node at its *midpoint*.
+    """
+    indices: List[int] = []
+    for i, comp in enumerate(meshed_components):
+        if "stabilizer" in comp.get("type", "").lower():
+            # Use the node at the END of the stabilizer element (bottom of
+            # the stabilizer contact point in the bit-up convention).
+            indices.append(i + 1)
+    return indices
+
+
 def run_fea_analysis(
     bha_components: List[Dict[str, Any]],
     wob_klb: float = 20.0,
@@ -710,111 +762,49 @@ def run_fea_analysis(
     rpm_max: float = 300.0,
     rpm_step: float = 5.0,
 ) -> Dict[str, Any]:
-    """Run span-based FEA lateral vibration analysis on BHA.
+    """Run FEA lateral vibration analysis on BHA.
 
     Workflow:
       1. Filter out DP components (wall-constrained, no lateral vibration).
-      2. Detect stabilizer positions (structural supports).
-      3. Split BHA into spans between supports (bit, stabilizers, top).
-      4. Check each span for Euler buckling.
-      5. Analyze stable spans with fine mesh (15 ft elements).
-      6. Combine results from all stable spans.
+      2. Fine-mesh BHA components (≤15 ft elements).
+      3. Identify stabilizer node indices → lateral spring supports.
+      4. Assemble and solve the FULL BHA as one unit with stabilizer springs.
+         Per-element buckling and wall contact springs are handled internally
+         by assemble_global_matrices.
 
-    This matches industry practice (DrillBench, WellPlan) where BHA lateral
-    vibrations are modeled per-span between stabilizers.
+    The bit (node 0) and top of BHA (node N) are constrained by the chosen
+    boundary conditions.  Stabilizers add stiff lateral springs that divide
+    the BHA into effective spans, producing realistic natural frequencies
+    (typically 1–10 Hz instead of 0.02 Hz for an unconstrained full string).
+
+    This matches industry practice (DrillBench, WellPlan) where stabilizers
+    act as pinned lateral supports.
     """
-    # 1. Filter DP
+    # 1. Filter DP — only BHA participates in lateral vibrations
     bha_only = _filter_bha_components(bha_components)
     if len(bha_only) == 0:
         bha_only = list(bha_components)
 
-    # 2. Detect stabilizers
-    stab_depths = _find_stabilizer_positions(bha_only)
+    # 2. Fine-mesh all BHA components (≤15 ft per element)
+    meshed = _auto_mesh(bha_only, max_length_ft=_BHA_MAX_ELEMENT_FT)
 
-    # 3. Split into spans
-    spans = _split_into_spans(bha_only, stab_depths)
+    # 3. Identify stabilizer nodes
+    stab_nodes = _find_stabilizer_node_indices(meshed)
 
-    # 4. Check buckling and analyze stable spans
-    all_node_positions: List[float] = []
-    span_summaries: List[Dict[str, Any]] = []
-    primary_eigen: Optional[Dict[str, Any]] = None
-    primary_span_idx: Optional[int] = None
+    # 4. Assemble global matrices with stabilizer springs
+    K, Kg, M, node_positions = assemble_global_matrices(
+        meshed,
+        mud_weight_ppg=mud_weight_ppg,
+        wob_klb=wob_klb,
+        stabilizer_nodes=stab_nodes,
+    )
 
-    # Compute cumulative depths for span start offsets
-    cumulative_depth = 0.0
-    span_start_depths: List[float] = [0.0]
-    for comp in bha_only:
-        cumulative_depth += comp.get("length_ft", 0)
-        comp_type = comp.get("type", "").lower()
-        if "stabilizer" in comp_type:
-            span_start_depths.append(cumulative_depth)
+    # 5. Solve eigenvalue problem
+    eigen = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
 
-    bf = max(0.01, 1.0 - mud_weight_ppg / 65.5)
-
-    for span_idx, span_comps in enumerate(spans):
-        span_length = sum(c.get("length_ft", 0) for c in span_comps)
-        depth_offset = span_start_depths[span_idx] if span_idx < len(span_start_depths) else 0.0
-
-        # Estimate axial load: WOB decreases upward by buoyant weight of spans below
-        weight_below = 0.0
-        for prev_idx in range(span_idx):
-            for c in spans[prev_idx]:
-                weight_below += c.get("weight_ppf", 80) * bf * c.get("length_ft", 0)
-        span_wob_klb = max(0, wob_klb - weight_below / 1000.0)
-
-        buckling = _check_span_buckling(span_comps, wob_klb=span_wob_klb, mud_weight_ppg=mud_weight_ppg)
-        span_info: Dict[str, Any] = {
-            "span_index": span_idx + 1,
-            "depth_from_ft": round(depth_offset, 1),
-            "depth_to_ft": round(depth_offset + span_length, 1),
-            "length_ft": round(span_length, 1),
-            **buckling,
-        }
-
-        if buckling["is_stable"]:
-            K, Kg, M, npos = assemble_global_matrices(
-                _auto_mesh(span_comps, max_length_ft=_BHA_MAX_ELEMENT_FT),
-                mud_weight_ppg=mud_weight_ppg,
-                wob_klb=span_wob_klb,
-            )
-            eigen = solve_eigenvalue(K, Kg, M, bc=bc, n_modes=n_modes)
-
-            offset_positions = [p + depth_offset for p in npos]
-            span_info["frequencies_hz"] = eigen["frequencies_hz"]
-            span_info["critical_rpms"] = eigen["critical_rpms"]
-
-            if primary_eigen is None:
-                primary_eigen = eigen
-                primary_eigen["node_positions_ft"] = offset_positions
-                all_node_positions = offset_positions
-                primary_span_idx = span_idx
-        else:
-            span_info["frequencies_hz"] = []
-            span_info["critical_rpms"] = []
-            span_info["status"] = "buckled — wall-constrained (no free lateral modes)"
-
-        span_summaries.append(span_info)
-
-    # Build combined eigenvalue result
-    if primary_eigen is None:
-        primary_eigen = {
-            "frequencies_hz": [0.0] * n_modes,
-            "critical_rpms": [0.0] * n_modes,
-            "mode_shapes": [[0.0] * 2 for _ in range(n_modes)],
-            "n_nodes": 2,
-            "n_free_dofs": 0,
-            "boundary_conditions": bc,
-        }
-        all_node_positions = [0.0, sum(c.get("length_ft", 0) for c in bha_only)]
-
-    # 5. Forced response on primary stable span
+    # 6. Forced response at operating RPM
     forced = None
-    if include_forced_response and primary_span_idx is not None and primary_eigen["frequencies_hz"][0] > 0:
-        K, Kg, M, _ = assemble_global_matrices(
-            _auto_mesh(spans[primary_span_idx], max_length_ft=_BHA_MAX_ELEMENT_FT),
-            mud_weight_ppg=mud_weight_ppg,
-            wob_klb=wob_klb,
-        )
+    if include_forced_response and eigen["frequencies_hz"] and eigen["frequencies_hz"][0] > 0:
         excitation_freq = rpm / 60.0
         forced = solve_forced_response(
             K=K, Kg=Kg, M=M, bc=bc,
@@ -826,15 +816,15 @@ def run_fea_analysis(
             yp_lbf_100ft2=yp_lbf_100ft2,
         )
 
-    # 6. Campbell diagram using primary span
+    # 7. Campbell diagram
     campbell = None
-    if include_campbell and primary_span_idx is not None and primary_eigen["frequencies_hz"][0] > 0:
-        max_freq = max((f for f in primary_eigen["frequencies_hz"] if f > 0), default=1.0)
+    if include_campbell and eigen["frequencies_hz"] and eigen["frequencies_hz"][0] > 0:
+        max_freq = max((f for f in eigen["frequencies_hz"] if f > 0), default=1.0)
         auto_rpm_max = max(rpm_max, max_freq * 60 * 1.5)
-        auto_rpm_min = min(rpm_min, max(5, primary_eigen["frequencies_hz"][0] * 60 * 0.3))
+        auto_rpm_min = min(rpm_min, max(5, eigen["frequencies_hz"][0] * 60 * 0.3))
 
         campbell = generate_campbell_diagram(
-            bha_components=spans[primary_span_idx],
+            bha_components=meshed,
             wob_klb=wob_klb,
             mud_weight_ppg=mud_weight_ppg,
             hole_diameter_in=hole_diameter_in,
@@ -844,12 +834,13 @@ def run_fea_analysis(
             rpm_step=rpm_step,
             n_modes=n_modes,
             n_blades=n_blades,
+            stabilizer_nodes=stab_nodes,
         )
 
-    # 7. Resonance warnings
+    # 8. Resonance warnings
     warnings: List[str] = []
     operating_freq = rpm / 60.0
-    for i, freq in enumerate(primary_eigen["frequencies_hz"]):
+    for i, freq in enumerate(eigen["frequencies_hz"]):
         if freq <= 0:
             continue
         ratio = operating_freq / freq
@@ -861,29 +852,53 @@ def run_fea_analysis(
             warnings.append(
                 f"2x RPM near Mode {i+1} ({freq:.2f} Hz) — secondary resonance"
             )
-    for span in span_summaries:
-        if not span["is_stable"]:
-            warnings.append(
-                f"Span {span['span_index']} ({span['depth_from_ft']:.0f}-{span['depth_to_ft']:.0f} ft) "
-                f"is buckled (P/Pcr={span['p_over_pcr']:.1f}) — wall-constrained"
-            )
 
-    # 8. Summary
+    # Span-level buckling info for reporting
+    stab_depths = _find_stabilizer_positions(bha_only)
+    spans = _split_into_spans(bha_only, stab_depths)
+    bf = max(0.01, 1.0 - mud_weight_ppg / 65.5)
+    span_summaries: List[Dict[str, Any]] = []
+    cumul = 0.0
+    for span_idx, span_comps in enumerate(spans):
+        span_len = sum(c.get("length_ft", 0) for c in span_comps)
+        weight_below = sum(
+            c.get("weight_ppf", 80) * bf * c.get("length_ft", 0)
+            for prev in spans[:span_idx] for c in prev
+        )
+        span_wob = max(0, wob_klb - weight_below / 1000.0)
+        buckling = _check_span_buckling(span_comps, wob_klb=span_wob, mud_weight_ppg=mud_weight_ppg)
+        span_summaries.append({
+            "span_index": span_idx + 1,
+            "depth_from_ft": round(cumul, 1),
+            "depth_to_ft": round(cumul + span_len, 1),
+            "length_ft": round(span_len, 1),
+            **buckling,
+        })
+        if not buckling["is_stable"]:
+            warnings.append(
+                f"Span {span_idx+1} ({cumul:.0f}-{cumul+span_len:.0f} ft) "
+                f"buckled (P/Pcr={buckling['p_over_pcr']:.1f}) — wall-constrained"
+            )
+        cumul += span_len
+
+    # 9. Summary
     summary: Dict[str, Any] = {
-        "fea_method": "Euler-Bernoulli FEM (span-based, auto-meshed, BHA-only)",
+        "fea_method": "Euler-Bernoulli FEM (BHA-only, stabilizer-constrained, auto-meshed)",
         "n_components": len(bha_components),
         "n_bha_components": len(bha_only),
-        "n_elements": len(all_node_positions) - 1 if len(all_node_positions) > 1 else 0,
-        "n_nodes": len(all_node_positions),
-        "n_dof": len(all_node_positions) * 2,
+        "n_elements": len(node_positions) - 1 if len(node_positions) > 1 else 0,
+        "n_nodes": len(node_positions),
+        "n_dof": len(node_positions) * 2,
+        "n_stabilizer_supports": len(stab_nodes),
         "boundary_conditions": bc,
         "wob_klb": wob_klb,
         "operating_rpm": rpm,
+        "max_depth_ft": round(node_positions[-1], 1) if node_positions else 0,
         "spans": span_summaries,
         "resonance_warnings": warnings,
     }
     for i, (freq, crit_rpm) in enumerate(
-        zip(primary_eigen["frequencies_hz"], primary_eigen["critical_rpms"])
+        zip(eigen["frequencies_hz"], eigen["critical_rpms"])
     ):
         summary[f"mode_{i+1}_freq_hz"] = freq
         summary[f"mode_{i+1}_critical_rpm"] = crit_rpm
@@ -892,9 +907,9 @@ def run_fea_analysis(
         summary["max_vibration_amplitude_in"] = forced["max_amplitude_in"]
 
     return {
-        "eigenvalue": primary_eigen,
+        "eigenvalue": eigen,
         "forced_response": forced,
         "campbell": campbell,
-        "node_positions_ft": all_node_positions,
+        "node_positions_ft": node_positions,
         "summary": summary,
     }

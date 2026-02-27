@@ -176,13 +176,21 @@ class TestEigenvalueSolver:
             assert abs(shape[0]) < 1e-6   # bit end
             assert abs(shape[-1]) < 1e-6  # top end
 
-    def test_wob_reduces_natural_frequencies(self, uniform_bha):
-        """Axial compression (WOB) should reduce natural frequencies."""
+    def test_wob_reduces_natural_frequencies(self):
+        """Axial compression (WOB) should reduce natural frequencies.
+
+        Uses a short BHA (< 30 ft) so no compression-zone wall contacts
+        are added, keeping the pure beam-compression effect observable.
+        """
         from orchestrator.vibrations_engine.fea import assemble_global_matrices, solve_eigenvalue
-        K0, Kg0, M0, _ = assemble_global_matrices(uniform_bha, mud_weight_ppg=10.0, wob_klb=0.0)
+        short_bha = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 10, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 10, "weight_ppf": 83},
+        ]
+        K0, Kg0, M0, _ = assemble_global_matrices(short_bha, mud_weight_ppg=10.0, wob_klb=0.0)
         r0 = solve_eigenvalue(K0, Kg0, M0, bc="pinned-pinned", n_modes=3)
 
-        K1, Kg1, M1, _ = assemble_global_matrices(uniform_bha, mud_weight_ppg=10.0, wob_klb=30.0)
+        K1, Kg1, M1, _ = assemble_global_matrices(short_bha, mud_weight_ppg=10.0, wob_klb=5.0)
         r1 = solve_eigenvalue(K1, Kg1, M1, bc="pinned-pinned", n_modes=3)
 
         # With WOB, frequencies should be lower
@@ -518,7 +526,7 @@ class TestAutoMeshing:
             wob_klb=20, rpm=120,
             include_campbell=False,
         )
-        assert "span-based" in result["summary"]["fea_method"]
+        assert "stabilizer-constrained" in result["summary"]["fea_method"]
 
 
 # ---------------------------------------------------------------------------

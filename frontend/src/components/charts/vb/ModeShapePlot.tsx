@@ -28,6 +28,23 @@ const ModeShapePlot: React.FC<ModeShapePlotProps> = ({
 
   if (!nodePositions?.length || !modeShapes?.length) return null;
 
+  // Compute nice tick interval based on depth range
+  const depthMin = Math.min(...nodePositions);
+  const depthMax = Math.max(...nodePositions);
+  const depthRange = depthMax - depthMin;
+  // Choose tick count: 5-10 ticks regardless of range
+  const rawStep = depthRange / 8;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const niceSteps = [1, 2, 5, 10, 20, 25, 50];
+  const tickStep = niceSteps.find(s => s * magnitude >= rawStep)! * magnitude;
+  const ticks: number[] = [];
+  const firstTick = Math.ceil(depthMin / tickStep) * tickStep;
+  for (let t = firstTick; t <= depthMax; t += tickStep) {
+    ticks.push(Math.round(t * 100) / 100);
+  }
+  if (ticks.length === 0 || ticks[0] > depthMin) ticks.unshift(Math.round(depthMin));
+  if (ticks[ticks.length - 1] < depthMax) ticks.push(Math.round(depthMax));
+
   // Build data: each row = { depth, mode_0, mode_1, mode_2, ... }
   const data = nodePositions.map((depth, i) => {
     const row: Record<string, number> = { depth };
@@ -56,7 +73,8 @@ const ModeShapePlot: React.FC<ModeShapePlotProps> = ({
           dataKey="depth"
           type="number"
           reversed
-          domain={['dataMin', 'dataMax']}
+          domain={[depthMin, depthMax]}
+          ticks={ticks}
           tick={{ fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
           tickFormatter={(v: number) => Math.round(v).toLocaleString()}
           label={{ value: 'MD (ft)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 12 }}
