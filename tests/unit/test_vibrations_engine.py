@@ -263,8 +263,9 @@ class TestStickSlip:
 
     def test_friction_torque_uses_two_thirds_radius(self, engine, typical_bha):
         """Friction torque must use 2R/3 effective radius (centroid of uniform PDC face)."""
+        # Use low RPM so Stribeck friction ≈ static friction (mu_eff ≈ mu_s)
         result = engine.calculate_stick_slip_severity(
-            surface_rpm=120, wob_klb=20.0, torque_ftlb=12000,
+            surface_rpm=1, wob_klb=20.0, torque_ftlb=12000,
             bit_diameter_in=8.5, bha_length_ft=typical_bha["bha_length_ft"],
             bha_od_in=typical_bha["bha_od_in"], bha_id_in=typical_bha["bha_id_in"],
             mud_weight_ppg=typical_bha["mud_weight_ppg"], friction_factor=0.25,
@@ -620,8 +621,9 @@ class TestRegressionAuditFixes:
 
     def test_friction_torque_not_r_over_3(self, engine):
         """Friction torque must use 2R/3, not R/3."""
+        # Use low RPM so Stribeck friction ≈ static friction
         result = engine.calculate_stick_slip_severity(
-            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            surface_rpm=1, wob_klb=20, torque_ftlb=12000,
             bit_diameter_in=8.5, bha_length_ft=300,
             bha_od_in=6.75, bha_id_in=2.813, friction_factor=0.25,
         )
