@@ -14,6 +14,7 @@ from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
 from .running_loads import calculate_running_loads, calculate_thermal_axial_load
 from .wear import apply_wear_allowance
 from .pipeline import calculate_full_casing_design, generate_recommendations
+from .connections import verify_connection, CONNECTION_CATALOG
 
 
 class CasingDesignEngine:
@@ -61,6 +62,10 @@ class CasingDesignEngine:
     # pipeline
     calculate_full_casing_design = staticmethod(calculate_full_casing_design)
     generate_recommendations = staticmethod(generate_recommendations)
+
+    # connections
+    CONNECTION_CATALOG = CONNECTION_CATALOG
+    verify_connection = staticmethod(verify_connection)
 
 
 __all__ = ["CasingDesignEngine"]

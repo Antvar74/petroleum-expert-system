@@ -584,3 +584,69 @@ class TestThermalAxialLoad:
             surface_temp_f=80, bottomhole_temp_f=250, cement_temp_f=150,
         )
         assert abs(result["thermal_load_lbs"] - expected_load) < 100
+
+
+# ===========================================================================
+# 13. CONNECTION VERIFICATION
+# ===========================================================================
+class TestConnectionVerification:
+    """Validate connection verification against API 5B catalog."""
+
+    def test_stc_lower_tension_than_body(self):
+        """STC connection has 60% tension efficiency — is weak link."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="STC",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["tension_rating_lbs"] == 600000  # 60% of 1M
+        assert result["is_weak_link"] is True
+
+    def test_premium_passes_all(self):
+        """Premium connection has 95% efficiency and is gas-tight."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="PREMIUM",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["passes_all"] is True
+        assert result["gas_tight"] is True
+
+    def test_unknown_connection_error(self):
+        """Unknown connection type returns error."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="XYZ",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert "error" in result
+
+    def test_btc_tension_efficiency(self):
+        """BTC has 80% tension efficiency."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="BTC",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["tension_rating_lbs"] == 800000  # 80% of 1M
+        assert result["efficiency"] == 0.80
+
+    def test_stc_fails_under_high_tension(self):
+        """STC should fail when applied tension exceeds connection rating / SF."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="STC",
+            pipe_body_yield_lbs=500000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=250000,  # STC rating = 300000, SF=1.6 -> need 400000
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        # STC tension rating = 300000, required = 250000 * 1.6 = 400000
+        assert result["passes_tension"] is False
