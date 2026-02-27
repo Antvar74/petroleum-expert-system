@@ -131,6 +131,7 @@ _BHA_TYPES = frozenset({
     "motor", "stabilizer", "mwd", "collar", "hwdp",
     "bit_sub", "reamer", "jar", "crossover", "sub",
     "near_bit_stabilizer", "string_stabilizer",
+    "float_sub", "shock_sub", "lwd",
 })
 
 

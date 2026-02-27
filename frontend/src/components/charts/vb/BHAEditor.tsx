@@ -24,7 +24,42 @@ interface BHAEditorProps {
   onImportFeedback?: (message: string, type: 'success' | 'error') => void;
 }
 
-const COMPONENT_TYPES = ['collar', 'dp', 'hwdp', 'stabilizer', 'motor', 'MWD'];
+/** Component types organized by drilling category */
+const COMPONENT_GROUPS: { label: string; types: { value: string; label: string }[] }[] = [
+  {
+    label: 'Combinaciones',
+    types: [
+      { value: 'collar', label: 'Drill Collar' },
+      { value: 'dp', label: 'Drill Pipe' },
+      { value: 'hwdp', label: 'Heavy Weight DP' },
+    ],
+  },
+  {
+    label: 'Accesorios',
+    types: [
+      { value: 'crossover', label: 'Crossover Sub' },
+      { value: 'sub', label: 'Sub' },
+      { value: 'float_sub', label: 'Float Sub' },
+      { value: 'bit_sub', label: 'Bit Sub' },
+      { value: 'shock_sub', label: 'Shock Sub' },
+    ],
+  },
+  {
+    label: 'Herramientas de Fondo',
+    types: [
+      { value: 'stabilizer', label: 'Stabilizer' },
+      { value: 'near_bit_stabilizer', label: 'Near-Bit Stabilizer' },
+      { value: 'motor', label: 'Motor (PDM)' },
+      { value: 'mwd', label: 'MWD' },
+      { value: 'lwd', label: 'LWD' },
+      { value: 'jar', label: 'Jar' },
+      { value: 'reamer', label: 'Reamer' },
+    ],
+  },
+];
+
+/** Flat list of all valid types (for backward compatibility) */
+const COMPONENT_TYPES = COMPONENT_GROUPS.flatMap(g => g.types.map(t => t.value));
 
 /** Tubular types that can have quantity > 1 */
 const TUBULAR_TYPES = new Set(['collar', 'dp', 'hwdp']);
@@ -33,12 +68,24 @@ const getQty = (c: BHAComponent) => c.quantity ?? 1;
 const getUnitLen = (c: BHAComponent) => c.unit_length_ft ?? c.length_ft;
 
 const DEFAULT_BY_TYPE: Record<string, Partial<BHAComponent>> = {
-  collar:     { od: 6.75, id_inner: 2.813, weight_ppf: 83.0, unit_length_ft: 30, quantity: 1, length_ft: 30 },
-  dp:         { od: 5.0,  id_inner: 4.276, weight_ppf: 19.5, unit_length_ft: 30, quantity: 1, length_ft: 30 },
-  hwdp:       { od: 5.0,  id_inner: 3.0,   weight_ppf: 49.3, unit_length_ft: 30, quantity: 1, length_ft: 30 },
-  stabilizer: { od: 8.25, id_inner: 2.813, weight_ppf: 95.0, unit_length_ft: 5,  quantity: 1, length_ft: 5 },
-  motor:      { od: 6.75, id_inner: 3.5,   weight_ppf: 90.0, unit_length_ft: 25, quantity: 1, length_ft: 25 },
-  MWD:        { od: 6.75, id_inner: 3.25,  weight_ppf: 85.0, unit_length_ft: 10, quantity: 1, length_ft: 10 },
+  // Combinaciones
+  collar:     { od: 6.75, id_inner: 2.813, weight_ppf: 83.0,  unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  dp:         { od: 5.0,  id_inner: 4.276, weight_ppf: 19.5,  unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  hwdp:       { od: 5.0,  id_inner: 3.0,   weight_ppf: 49.3,  unit_length_ft: 30, quantity: 1, length_ft: 30 },
+  // Accesorios
+  crossover:  { od: 6.75, id_inner: 2.813, weight_ppf: 75.0,  unit_length_ft: 3,  quantity: 1, length_ft: 3 },
+  sub:        { od: 6.75, id_inner: 2.813, weight_ppf: 75.0,  unit_length_ft: 3,  quantity: 1, length_ft: 3 },
+  float_sub:  { od: 6.75, id_inner: 2.813, weight_ppf: 70.0,  unit_length_ft: 4,  quantity: 1, length_ft: 4 },
+  bit_sub:    { od: 6.75, id_inner: 2.813, weight_ppf: 75.0,  unit_length_ft: 3,  quantity: 1, length_ft: 3 },
+  shock_sub:  { od: 6.75, id_inner: 2.813, weight_ppf: 80.0,  unit_length_ft: 8,  quantity: 1, length_ft: 8 },
+  // Herramientas de Fondo
+  stabilizer:          { od: 8.25, id_inner: 2.813, weight_ppf: 95.0,  unit_length_ft: 5,  quantity: 1, length_ft: 5 },
+  near_bit_stabilizer: { od: 8.25, id_inner: 2.813, weight_ppf: 95.0,  unit_length_ft: 4,  quantity: 1, length_ft: 4 },
+  motor:      { od: 6.75, id_inner: 3.5,   weight_ppf: 90.0,  unit_length_ft: 25, quantity: 1, length_ft: 25 },
+  mwd:        { od: 6.75, id_inner: 3.25,  weight_ppf: 85.0,  unit_length_ft: 10, quantity: 1, length_ft: 10 },
+  lwd:        { od: 6.75, id_inner: 3.25,  weight_ppf: 85.0,  unit_length_ft: 10, quantity: 1, length_ft: 10 },
+  jar:        { od: 6.75, id_inner: 2.813, weight_ppf: 85.0,  unit_length_ft: 10, quantity: 1, length_ft: 10 },
+  reamer:     { od: 8.5,  id_inner: 3.0,   weight_ppf: 100.0, unit_length_ft: 6,  quantity: 1, length_ft: 6 },
 };
 
 const BHA_PRESETS: Record<string, BHAComponent[]> = {
@@ -51,7 +98,7 @@ const BHA_PRESETS: Record<string, BHAComponent[]> = {
   'Motor BHA': [
     { type: 'stabilizer', od: 8.25, id_inner: 2.813, unit_length_ft: 5, quantity: 1, length_ft: 5, weight_ppf: 95 },
     { type: 'motor', od: 6.75, id_inner: 3.5, unit_length_ft: 25, quantity: 1, length_ft: 25, weight_ppf: 90 },
-    { type: 'MWD', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
+    { type: 'mwd', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
     { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 83 },
     { type: 'hwdp', od: 5.0, id_inner: 3.0, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 49.3 },
     { type: 'dp', od: 5.0, id_inner: 4.276, unit_length_ft: 30, quantity: 2, length_ft: 60, weight_ppf: 19.5 },
@@ -59,7 +106,7 @@ const BHA_PRESETS: Record<string, BHAComponent[]> = {
   'RSS BHA': [
     { type: 'stabilizer', od: 8.25, id_inner: 2.813, unit_length_ft: 3, quantity: 1, length_ft: 3, weight_ppf: 95 },
     { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 15, quantity: 1, length_ft: 15, weight_ppf: 83 },
-    { type: 'MWD', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
+    { type: 'mwd', od: 6.75, id_inner: 3.25, unit_length_ft: 10, quantity: 1, length_ft: 10, weight_ppf: 85 },
     { type: 'collar', od: 6.75, id_inner: 2.813, unit_length_ft: 30, quantity: 4, length_ft: 120, weight_ppf: 83 },
     { type: 'hwdp', od: 5.0, id_inner: 3.0, unit_length_ft: 30, quantity: 3, length_ft: 90, weight_ppf: 49.3 },
     { type: 'dp', od: 5.0, id_inner: 4.276, unit_length_ft: 30, quantity: 2, length_ft: 60, weight_ppf: 19.5 },
@@ -67,12 +114,24 @@ const BHA_PRESETS: Record<string, BHAComponent[]> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
+  // Combinaciones
   collar: 'bg-rose-500/20 text-rose-300',
   dp: 'bg-blue-500/20 text-blue-300',
   hwdp: 'bg-amber-500/20 text-amber-300',
+  // Accesorios
+  crossover: 'bg-gray-500/20 text-gray-300',
+  sub: 'bg-gray-500/20 text-gray-300',
+  float_sub: 'bg-teal-500/20 text-teal-300',
+  bit_sub: 'bg-gray-500/20 text-gray-300',
+  shock_sub: 'bg-orange-500/20 text-orange-300',
+  // Herramientas de Fondo
   stabilizer: 'bg-green-500/20 text-green-300',
+  near_bit_stabilizer: 'bg-emerald-500/20 text-emerald-300',
   motor: 'bg-purple-500/20 text-purple-300',
-  MWD: 'bg-cyan-500/20 text-cyan-300',
+  mwd: 'bg-cyan-500/20 text-cyan-300',
+  lwd: 'bg-sky-500/20 text-sky-300',
+  jar: 'bg-yellow-500/20 text-yellow-300',
+  reamer: 'bg-red-500/20 text-red-300',
 };
 
 const INPUT_CLASS = 'w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none';
@@ -249,7 +308,13 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
                     <select value={comp.type}
                       onChange={e => updateComponent(i, 'type', e.target.value)}
                       className={`bg-transparent border border-white/10 rounded px-2 py-1 text-xs ${TYPE_COLORS[comp.type] || 'text-gray-300'}`}>
-                      {COMPONENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      {COMPONENT_GROUPS.map(group => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.types.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                   </td>
                   {/* OD */}
