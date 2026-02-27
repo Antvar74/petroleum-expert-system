@@ -143,7 +143,42 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
   }, [bhaComponents, params, addToast, calculate]);
 
   const handleRunAnalysis = () => {
-    runAnalysis(result || {}, params);
+    const data: Record<string, unknown> = { ...(result || {}) };
+    if (feaResult) {
+      const eigen = feaResult.eigenvalue as { frequencies_hz?: number[]; critical_rpms?: number[] } | undefined;
+      const summary = feaResult.summary as {
+        spans?: { span_index: number; depth_from_ft: number; depth_to_ft: number; length_ft: number; p_over_pcr: number; is_stable: boolean }[];
+        resonance_warnings?: string[];
+      } | undefined;
+      const campbell = feaResult.campbell as { crossings?: { rpm: number; freq_hz: number; line: string }[] } | undefined;
+
+      const modes = (eigen?.frequencies_hz || []).map((freq: number, i: number) => ({
+        mode: i + 1,
+        freq_hz: freq,
+        critical_rpm: eigen?.critical_rpms?.[i] ?? null,
+      }));
+
+      const spans = summary?.spans || [];
+      const worstRatio = spans.length > 0
+        ? Math.max(...spans.map(s => s.p_over_pcr))
+        : 0;
+      const allStable = spans.every(s => s.is_stable);
+
+      data.fea_analysis_results = {
+        modes,
+        buckling_spans: spans.map(s => ({
+          span: s.span_index,
+          length_ft: s.length_ft,
+          p_over_pcr: s.p_over_pcr,
+          is_stable: s.is_stable,
+        })),
+        worst_buckling_ratio: worstRatio,
+        buckling_status: allStable ? 'Safe' : 'Buckled',
+        resonance_warnings: summary?.resonance_warnings || [],
+        campbell_crossings: campbell?.crossings || [],
+      };
+    }
+    runAnalysis(data, params);
   };
 
   const tabs = [
@@ -261,9 +296,9 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                   className="flex items-center gap-2 text-lg font-bold mb-3 hover:text-rose-400 transition-colors"
                 >
                   <Wrench size={18} />
-                  BHA Detallado (FEA)
+                  {t('vibrations.bhaDetailed')}
                   <span className="text-xs font-normal text-gray-500 ml-2">
-                    {showBhaEditor ? '▼' : '▶'} {bhaComponents.length > 0 ? `${bhaComponents.reduce((s, c) => s + (c.quantity ?? 1), 0)} joints · ${bhaComponents.reduce((s, c) => s + c.length_ft, 0).toFixed(0)} ft` : 'Click to expand'}
+                    {showBhaEditor ? '▼' : '▶'} {bhaComponents.length > 0 ? t('vibrations.jointsCount', { count: bhaComponents.reduce((s, c) => s + (c.quantity ?? 1), 0), length: bhaComponents.reduce((s, c) => s + c.length_ft, 0).toFixed(0) }) : t('vibrations.clickToExpand')}
                   </span>
                 </button>
                 {showBhaEditor && (
@@ -273,7 +308,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                       <button onClick={calculateFEA} disabled={feaLoading}
                         className="mt-4 flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
                         {feaLoading ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
-                        {feaLoading ? 'Running FEA...' : 'Run FEA Analysis'}
+                        {feaLoading ? t('vibrations.runningFea') : t('vibrations.runFea')}
                       </button>
                     )}
                   </div>

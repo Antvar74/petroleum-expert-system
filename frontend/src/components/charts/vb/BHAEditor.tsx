@@ -4,9 +4,10 @@
  * Tubulars (collar, dp, hwdp) support quantity × joint length.
  */
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { Plus, Trash2, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Upload, Download } from 'lucide-react';
 
 export interface BHAComponent {
   type: string;
@@ -25,9 +26,9 @@ interface BHAEditorProps {
 }
 
 /** Component types organized by drilling category */
-const COMPONENT_GROUPS: { label: string; types: { value: string; label: string }[] }[] = [
+const COMPONENT_GROUPS: { i18nKey: string; types: { value: string; label: string }[] }[] = [
   {
-    label: 'Combinaciones',
+    i18nKey: 'vibrations.bha.groupCombinations',
     types: [
       { value: 'collar', label: 'Drill Collar' },
       { value: 'dp', label: 'Drill Pipe' },
@@ -35,7 +36,7 @@ const COMPONENT_GROUPS: { label: string; types: { value: string; label: string }
     ],
   },
   {
-    label: 'Accesorios',
+    i18nKey: 'vibrations.bha.groupAccessories',
     types: [
       { value: 'crossover', label: 'Crossover Sub' },
       { value: 'sub', label: 'Sub' },
@@ -45,7 +46,7 @@ const COMPONENT_GROUPS: { label: string; types: { value: string; label: string }
     ],
   },
   {
-    label: 'Herramientas de Fondo',
+    i18nKey: 'vibrations.bha.groupDownholeTools',
     types: [
       { value: 'stabilizer', label: 'Stabilizer' },
       { value: 'near_bit_stabilizer', label: 'Near-Bit Stabilizer' },
@@ -134,9 +135,68 @@ const TYPE_COLORS: Record<string, string> = {
   reamer: 'bg-red-500/20 text-red-300',
 };
 
+/** Aliases for CSV/Excel column headers → canonical field names (EN + ES) */
+const COLUMN_ALIASES: Record<string, string> = {
+  // Type
+  type: 'type', tipo: 'type', component: 'type', componente: 'type',
+  component_type: 'type', comp_type: 'type', bha_type: 'type',
+  // OD
+  od: 'od', od_in: 'od', diametro_externo: 'od', de: 'od',
+  // ID
+  id: 'id_inner', id_inner: 'id_inner', id_in: 'id_inner',
+  diametro_interno: 'id_inner', di: 'id_inner', bore: 'id_inner',
+  // Length
+  length_ft: 'length_ft', length: 'length_ft', longitud: 'length_ft',
+  longitud_ft: 'length_ft', largo: 'length_ft',
+  // Unit length
+  unit_length_ft: 'unit_length_ft', joint_length: 'unit_length_ft',
+  jt_len: 'unit_length_ft', longitud_junta: 'unit_length_ft',
+  // Quantity
+  quantity: 'quantity', qty: 'quantity', cantidad: 'quantity', cant: 'quantity',
+  // Weight
+  weight_ppf: 'weight_ppf', weight: 'weight_ppf', weight_lbft: 'weight_ppf',
+  peso: 'weight_ppf', wt: 'weight_ppf',
+};
+
+/** Aliases for component type values (common names → canonical internal type) */
+const TYPE_ALIASES: Record<string, string> = {
+  drill_collar: 'collar', dc: 'collar',
+  drill_pipe: 'dp',
+  heavy_weight: 'hwdp', heavy_weight_dp: 'hwdp',
+  crossover_sub: 'crossover', xo: 'crossover',
+  float_valve: 'float_sub',
+  shock_tool: 'shock_sub',
+  stab: 'stabilizer', string_stabilizer: 'stabilizer',
+  near_bit_stab: 'near_bit_stabilizer', nbs: 'near_bit_stabilizer',
+  pdm: 'motor', mud_motor: 'motor',
+  drilling_jar: 'jar',
+  hole_opener: 'reamer', under_reamer: 'reamer',
+};
+
+/** Normalize a raw CSV/Excel row: map arbitrary column names to canonical field names */
+const normalizeRow = (raw: Record<string, unknown>): Record<string, string> => {
+  const result: Record<string, string> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    const k = key.trim().toLowerCase().replace(/[\s()/]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    const canonical = COLUMN_ALIASES[k] || k;
+    result[canonical] = String(val ?? '').trim();
+  }
+  return result;
+};
+
+/** Resolve a raw type string to a valid canonical type */
+const resolveType = (rawType: string, validTypes: Set<string>): { type: string; wasUnknown: boolean } => {
+  const normalized = rawType.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (validTypes.has(normalized)) return { type: normalized, wasUnknown: false };
+  const aliased = TYPE_ALIASES[normalized];
+  if (aliased && validTypes.has(aliased)) return { type: aliased, wasUnknown: false };
+  return { type: 'collar', wasUnknown: true };
+};
+
 const INPUT_CLASS = 'w-full text-right bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:border-rose-500 focus:outline-none';
 
 const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFeedback }) => {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addComponent = () => {
@@ -181,38 +241,36 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
     if (!file) return;
     const ext = file.name.split('.').pop()?.toLowerCase();
 
-    const parseRows = (rows: Record<string, string>[]) => {
-      // Collect all valid COMPONENT_TYPES + extras recognized by backend
+    const parseRows = (rawRows: Record<string, unknown>[]) => {
       const VALID_TYPES = new Set([
         ...COMPONENT_TYPES.map(t => t.toLowerCase()),
-        'string_stabilizer',  // backend-only type not in UI groups
+        'string_stabilizer',
       ]);
 
       let skipped = 0;
       const warnings: string[] = [];
 
-      const mapped: BHAComponent[] = rows
+      const mapped: BHAComponent[] = rawRows
+        .map(raw => normalizeRow(raw))
         .filter(r => {
-          const hasType = !!(r.type || r.Type || r.component);
-          if (!hasType) { skipped++; return false; }
+          if (!r.type) { skipped++; return false; }
           return true;
         })
         .map(r => {
-          const rawType = (r.type || r.Type || r.component || 'collar').toLowerCase();
-          const type = VALID_TYPES.has(rawType) ? rawType : 'collar';
-          if (!VALID_TYPES.has(rawType)) {
-            warnings.push(`Unknown type "${rawType}" → defaulted to collar`);
+          const { type, wasUnknown } = resolveType(r.type, VALID_TYPES);
+          if (wasUnknown) {
+            warnings.push(`Unknown type "${r.type}" → defaulted to collar`);
           }
 
-          const od = parseFloat(r.od || r.OD || r.od_in || '6.75') || 6.75;
-          const id_inner = parseFloat(r.id_inner || r.ID || r.id_in || r.id || '2.813') || 2.813;
+          const od = parseFloat(r.od || '6.75') || 6.75;
+          const id_inner = parseFloat(r.id_inner || '2.813') || 2.813;
           if (id_inner >= od) {
-            warnings.push(`Row "${rawType}": ID (${id_inner}) >= OD (${od}) — check dimensions`);
+            warnings.push(`Row "${r.type}": ID (${id_inner}) >= OD (${od}) — check dimensions`);
           }
 
-          const qty = Math.max(1, parseInt(r.quantity || r.qty || r.Qty || '1') || 1);
-          const unitLen = parseFloat(r.unit_length_ft || r.joint_length || r.jt_len || '0');
-          const totalLen = parseFloat(r.length_ft || r.length || r.Length || '30') || 30;
+          const qty = Math.max(1, parseInt(r.quantity || '1') || 1);
+          const unitLen = parseFloat(r.unit_length_ft || '0');
+          const totalLen = parseFloat(r.length_ft || '30') || 30;
           const resolvedUnitLen = unitLen > 0 ? unitLen : (qty > 1 ? totalLen / qty : totalLen);
 
           return {
@@ -222,7 +280,7 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
             unit_length_ft: resolvedUnitLen,
             quantity: qty,
             length_ft: resolvedUnitLen * qty,
-            weight_ppf: parseFloat(r.weight_ppf || r.weight || r.Weight || r.weight_lbft || '83') || 83,
+            weight_ppf: parseFloat(r.weight_ppf || '83') || 83,
           };
         });
 
@@ -233,14 +291,15 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
           (warnings.length > 0 ? `. Warnings: ${warnings.join('; ')}` : '');
         onImportFeedback?.(msg, warnings.length > 0 ? 'warning' : 'success');
       } else {
-        onImportFeedback?.('No valid components found in file. Ensure column "type" exists.', 'error');
+        const sampleKeys = rawRows.length > 0 ? Object.keys(rawRows[0]).join(', ') : 'empty';
+        onImportFeedback?.(`No valid components found. Columns detected: [${sampleKeys}]. Need a "type" or "tipo" column.`, 'error');
       }
     };
 
     const resetInput = () => { if (fileInputRef.current) fileInputRef.current.value = ''; };
 
     if (ext === 'csv') {
-      Papa.parse<Record<string, string>>(file, {
+      Papa.parse<Record<string, unknown>>(file, {
         header: true,
         skipEmptyLines: true,
         complete: (result) => { parseRows(result.data); resetInput(); },
@@ -252,7 +311,7 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
         try {
           const wb = XLSX.read(e.target?.result, { type: 'array' });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+          const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
           parseRows(rows);
         } catch (err) {
           onImportFeedback?.(`Excel parse error: ${(err as Error).message}`, 'error');
@@ -288,13 +347,13 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
           <thead>
             <tr className="text-gray-500 text-xs border-b border-white/10">
               <th className="text-left py-2 px-1 w-8">#</th>
-              <th className="text-left py-2 px-1">Type</th>
-              <th className="text-right py-2 px-1">OD (in)</th>
-              <th className="text-right py-2 px-1">ID (in)</th>
-              <th className="text-right py-2 px-1">Length (ft)</th>
-              <th className="text-right py-2 px-1 w-16">Qty</th>
-              <th className="text-right py-2 px-1 w-20">Total (ft)</th>
-              <th className="text-right py-2 px-1">Wt (lb/ft)</th>
+              <th className="text-left py-2 px-1">{t('vibrations.bha.type')}</th>
+              <th className="text-right py-2 px-1">{t('vibrations.bha.odIn')}</th>
+              <th className="text-right py-2 px-1">{t('vibrations.bha.idIn')}</th>
+              <th className="text-right py-2 px-1">{t('vibrations.bha.lengthFt')}</th>
+              <th className="text-right py-2 px-1 w-16">{t('vibrations.bha.qty')}</th>
+              <th className="text-right py-2 px-1 w-20">{t('vibrations.bha.totalFt')}</th>
+              <th className="text-right py-2 px-1">{t('vibrations.bha.wtLbFt')}</th>
               <th className="py-2 px-1 w-24"></th>
             </tr>
           </thead>
@@ -309,9 +368,9 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
                       onChange={e => updateComponent(i, 'type', e.target.value)}
                       className={`bg-transparent border border-white/10 rounded px-2 py-1 text-xs ${TYPE_COLORS[comp.type] || 'text-gray-300'}`}>
                       {COMPONENT_GROUPS.map(group => (
-                        <optgroup key={group.label} label={group.label}>
-                          {group.types.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                        <optgroup key={group.i18nKey} label={t(group.i18nKey)}>
+                          {group.types.map(ct => (
+                            <option key={ct.value} value={ct.value}>{ct.label}</option>
                           ))}
                         </optgroup>
                       ))}
@@ -378,16 +437,20 @@ const BHAEditor: React.FC<BHAEditorProps> = ({ components, onChange, onImportFee
         <div className="flex gap-2">
           <button onClick={addComponent} type="button"
             className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-rose-500/40 hover:text-rose-300 transition-colors">
-            <Plus size={14} /> Add Component
+            <Plus size={14} /> {t('vibrations.bha.addComponent')}
           </button>
           <button onClick={() => fileInputRef.current?.click()} type="button"
             className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-cyan-500/40 hover:text-cyan-300 transition-colors">
-            <Upload size={14} /> Import CSV/Excel
+            <Upload size={14} /> {t('vibrations.bha.importCsvExcel')}
           </button>
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileImport} className="hidden" />
+          <a href="/templates/bha_template.csv" download="bha_template.csv"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-dashed border-white/20 text-gray-400 hover:border-emerald-500/40 hover:text-emerald-300 transition-colors">
+            <Download size={14} /> {t('vibrations.bha.templateCsv')}
+          </a>
         </div>
         <span className="text-xs text-gray-500">
-          {totalJoints} joints &middot; {totalConnections} connections &middot; Total: {totalLength.toFixed(0)} ft
+          {totalJoints} {t('vibrations.bha.joints')} &middot; {totalConnections} {t('vibrations.bha.connections')} &middot; {t('vibrations.bha.total')}: {totalLength.toFixed(0)} ft
         </span>
       </div>
     </div>
