@@ -11,7 +11,7 @@ from .corrections import calculate_biaxial_correction, calculate_triaxial_vme, c
 from .grade_selection import select_casing_grade, lookup_casing_catalog, design_combination_string
 from .safety_factors import calculate_safety_factors
 from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
-from .running_loads import calculate_running_loads
+from .running_loads import calculate_running_loads, calculate_thermal_axial_load
 from .wear import apply_wear_allowance
 from .pipeline import calculate_full_casing_design, generate_recommendations
 
@@ -53,6 +53,7 @@ class CasingDesignEngine:
 
     # running loads
     calculate_running_loads = staticmethod(calculate_running_loads)
+    calculate_thermal_axial_load = staticmethod(calculate_thermal_axial_load)
 
     # wear
     apply_wear_allowance = staticmethod(apply_wear_allowance)

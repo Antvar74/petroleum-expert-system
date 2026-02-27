@@ -532,3 +532,55 @@ class TestLameHoopStress:
             p_internal_psi=1000, p_external_psi=1000,
         )
         assert "error" in result
+
+
+# ===========================================================================
+# 12. THERMAL AXIAL LOAD
+# ===========================================================================
+class TestThermalAxialLoad:
+    """Validate thermal axial load calculation."""
+
+    def test_heating_produces_compressive(self):
+        """Heating above cement temperature produces compressive load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=300, cement_temp_f=150,
+        )
+        assert result["load_type"] == "compressive"
+        assert result["thermal_load_lbs"] > 0
+
+    def test_cooling_produces_tensile(self):
+        """Cooling below cement temperature produces tensile load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=100, cement_temp_f=150,
+        )
+        assert result["load_type"] == "tensile"
+        assert result["thermal_load_lbs"] > 0
+
+    def test_no_delta_t_no_load(self):
+        """No temperature change means no thermal load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=150, cement_temp_f=150,
+        )
+        assert result["thermal_load_lbs"] == 0
+
+    def test_free_casing_no_load(self):
+        """Free (unlocked) casing has no thermal load regardless of temperature."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681, locked_in=False,
+        )
+        assert result["thermal_load_lbs"] == 0
+
+    def test_known_value(self):
+        """Verify against hand calculation: F = E * A * alpha * delta_T."""
+        od, id_ = 9.625, 8.681
+        area = math.pi / 4.0 * (od ** 2 - id_ ** 2)
+        delta_t = 100  # 250 - 150
+        expected_load = 30e6 * area * 6.9e-6 * delta_t
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=od, casing_id_in=id_,
+            surface_temp_f=80, bottomhole_temp_f=250, cement_temp_f=150,
+        )
+        assert abs(result["thermal_load_lbs"] - expected_load) < 100

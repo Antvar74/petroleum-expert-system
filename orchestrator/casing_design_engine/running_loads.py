@@ -81,3 +81,56 @@ def calculate_running_loads(
         "max_dls_deg_100ft": round(max_dls, 2),
         "friction_factor": friction_factor,
     }
+
+
+# Steel properties
+STEEL_E_PSI = 30e6           # Young's modulus (psi)
+STEEL_ALPHA_F = 6.9e-6       # Thermal expansion coefficient (/°F)
+
+
+def calculate_thermal_axial_load(
+    casing_od_in: float,
+    casing_id_in: float,
+    surface_temp_f: float = 80.0,
+    bottomhole_temp_f: float = 250.0,
+    cement_temp_f: float = 150.0,
+    locked_in: bool = True,
+) -> Dict[str, Any]:
+    """
+    Calculate thermal axial load from temperature change after cement sets.
+
+    When casing is cemented and later heated (production) or cooled (injection),
+    the restrained thermal expansion/contraction creates axial stress:
+
+        F_thermal = E * A * alpha * delta_T
+
+    References:
+    - API TR 5C3 Annex G: Temperature effects on casing
+    - Bourgoyne et al.: Applied Drilling Engineering, Ch. 7
+    """
+    if not locked_in:
+        return {
+            "thermal_load_lbs": 0,
+            "thermal_stress_psi": 0,
+            "delta_t_f": 0,
+            "note": "Casing free to expand — no thermal load",
+        }
+
+    area = math.pi / 4.0 * (casing_od_in ** 2 - casing_id_in ** 2)
+
+    # Temperature change at bottomhole (worst-case, conservative).
+    # Uses bottomhole delta_T for maximum local thermal stress.
+    # Future: integrate over depth using (surface_temp_f, bottomhole_temp_f)
+    # gradient for average thermal load across the string.
+    delta_t = bottomhole_temp_f - cement_temp_f
+
+    f_thermal = STEEL_E_PSI * area * STEEL_ALPHA_F * delta_t
+    stress = f_thermal / area if area > 0 else 0
+
+    return {
+        "thermal_load_lbs": round(abs(f_thermal), 0),
+        "thermal_stress_psi": round(abs(stress), 0),
+        "delta_t_f": round(delta_t, 1),
+        "load_type": "compressive" if delta_t > 0 else "tensile",
+        "note": "Heating → compressive, Cooling → tensile",
+    }
