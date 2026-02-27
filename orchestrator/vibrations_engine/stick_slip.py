@@ -40,6 +40,8 @@ def _viscous_damping_factor(
 
     Reference: Jansen & van den Steen (1995), eq. 12-14.
     """
+    # Approximate PV from mud weight when not provided (heuristic, not a published
+    # correlation — users should supply actual PV for accurate damping estimates)
     pv = pv_cp if pv_cp is not None else mud_weight_ppg * 2.5
     omega = surface_rpm * 2.0 * math.pi / 60.0
     clearance_in = max(0.25, (hole_diameter_in - bha_od_in) / 2.0)
@@ -159,13 +161,9 @@ def calculate_stick_slip_severity(
     t_friction_inlb = t_friction * 12.0  # convert to in-lb
     delta_theta = t_friction_inlb / k_torsion if k_torsion > 0 else 0
 
-    # RPM fluctuation estimate
-    # delta_omega ~ 2 * delta_theta * omega_surface (simplified oscillation model)
-    omega_surface = surface_rpm * 2.0 * math.pi / 60.0  # rad/s
-    delta_omega = 2.0 * delta_theta * omega_surface
-
-    # Severity (undamped)
-    severity = delta_omega / omega_surface if omega_surface > 0 else 0
+    # Severity = 2 * delta_theta (peak-to-peak torsional oscillation amplitude)
+    # Factor 2 accounts for full oscillation cycle per Jansen & van den Steen (1995)
+    severity = 2.0 * delta_theta
     severity_undamped = severity
 
     # Viscous damping reduction

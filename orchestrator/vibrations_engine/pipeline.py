@@ -139,7 +139,7 @@ def calculate_full_vibration_analysis(
         operating_rpm=rpm,
     )
 
-    # 6. Vibration map
+    # 7. Vibration map
     vib_map = generate_vibration_map(
         bit_diameter_in=bit_diameter_in,
         bha_od_in=bha_od_in,
