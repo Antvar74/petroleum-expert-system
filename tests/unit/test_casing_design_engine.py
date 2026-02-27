@@ -109,6 +109,37 @@ class TestCollapseLoad:
         result = engine.calculate_collapse_load(**typical_well, evacuation_level_ft=3000.0)
         assert "Partial" in result["scenario"]
 
+    def test_full_evacuation_default_produces_max_collapse(self, engine):
+        """evacuation_level_ft=TVD should produce max collapse = MW * 0.052 * TVD at shoe."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+            evacuation_level_ft=11000,
+        )
+        expected_max = 14.0 * 0.052 * 11000  # 8008 psi
+        assert result["max_collapse_load_psi"] == pytest.approx(expected_max, rel=0.05)
+
+    def test_zero_evacuation_means_no_collapse_differential(self, engine):
+        """evacuation_level_ft=0 means casing full of mud, so collapse ≈ 0 (no cement)."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=0.0,
+            cement_top_tvd_ft=0.0,
+        )
+        # With no cement and casing full, external = internal → collapse ≈ 0
+        assert result["max_collapse_load_psi"] < 100
+
+    @pytest.mark.xfail(
+        reason="Label logic in loads.py is inverted: evacuation_level_ft=TVD "
+               "(physically full evacuation) currently produces 'Partial' label. "
+               "Will be fixed alongside pipeline.py semantics in Task 3.",
+        strict=True,
+    )
+    def test_full_evacuation_scenario_label(self, engine, typical_well):
+        """Full evacuation should be labeled correctly."""
+        result = engine.calculate_collapse_load(
+            **typical_well, evacuation_level_ft=typical_well["tvd_ft"])
+        assert "Full" in result["scenario"]
+
 
 # ===========================================================================
 # 3. TENSION LOAD
