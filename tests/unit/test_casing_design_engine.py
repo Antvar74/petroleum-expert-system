@@ -129,6 +129,17 @@ class TestCollapseLoad:
         expected = 10.0 * 0.052 * 10000  # 5200 psi
         assert result["max_collapse_load_psi"] == pytest.approx(expected, rel=0.02)
 
+    def test_negative_evacuation_means_no_evacuation(self, engine):
+        """evacuation_level_ft=-1 means no evacuation (casing full of mud), collapse ≈ 0."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=-1,
+            cement_top_tvd_ft=0.0,
+        )
+        # Casing full of same mud: P_ext = P_int at each depth → differential ≈ 0
+        assert result["max_collapse_load_psi"] < 100
+        assert "No Evacuation" in result["scenario"]
+
     def test_full_evacuation_scenario_label(self, engine, typical_well):
         """Full evacuation (evac=0 or evac=TVD) should be labeled 'Full Evacuation'."""
         result = engine.calculate_collapse_load(
