@@ -1,6 +1,7 @@
 /**
  * GradeSelectionTable.tsx — Table showing evaluated grades and why one was selected.
  * Displays yield, burst/collapse/tension ratings, and pass/fail per grade.
+ * Rows are clickable to let the user inspect any grade's detailed data.
  */
 import React from 'react';
 import ChartContainer from '../ChartContainer';
@@ -9,6 +10,8 @@ import { List } from 'lucide-react';
 interface GradeSelectionTableProps {
   gradeSelection: { selected_grade: string; selection_reason?: string; all_candidates?: Array<{ grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }>; evaluated_grades?: Array<{ grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }>; selected_details?: { yield_psi: number }; yield_strength_psi?: number };
   height?: number;
+  onGradeSelect?: (gradeName: string) => void;
+  userSelectedGrade?: string | null;
 }
 
 const GRADE_COLORS: Record<string, string> = {
@@ -23,25 +26,45 @@ const GRADE_COLORS: Record<string, string> = {
   Q125: '#ef4444',
 };
 
-const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelection, height = 350 }) => {
+const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({
+  gradeSelection, height = 350, onGradeSelect, userSelectedGrade,
+}) => {
   if (!gradeSelection) return null;
 
-  const selected = gradeSelection.selected_grade;
+  const autoSelected = gradeSelection.selected_grade;
+  const activeGrade = userSelectedGrade || autoSelected;
+  const isOverride = Boolean(userSelectedGrade && userSelectedGrade !== autoSelected);
   const evaluated = gradeSelection.all_candidates || gradeSelection.evaluated_grades || [];
 
   return (
     <ChartContainer title="Selección de Grado" icon={List} height={height} isFluid>
       <div className="flex flex-col h-full overflow-auto">
-        {/* Selected grade highlight */}
-        <div className="flex items-center gap-3 mb-4 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
+        {/* Active grade highlight */}
+        <div className={`flex items-center gap-3 mb-4 p-3 rounded-xl border ${
+          isOverride ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-indigo-500/30 bg-indigo-500/5'
+        }`}>
           <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg"
-            style={{ backgroundColor: (GRADE_COLORS[selected] || '#6366f1') + '20', color: GRADE_COLORS[selected] || '#6366f1' }}>
-            {selected?.charAt(0)}
+            style={{ backgroundColor: (GRADE_COLORS[activeGrade] || '#6366f1') + '20', color: GRADE_COLORS[activeGrade] || '#6366f1' }}>
+            {activeGrade?.charAt(0)}
           </div>
-          <div>
-            <div className="font-bold text-indigo-400">{selected || 'No seleccionado'}</div>
-            <div className="text-xs text-gray-500">{gradeSelection.selection_reason || 'Grado óptimo según API 5C3'}</div>
+          <div className="flex-1">
+            <div className={`font-bold ${isOverride ? 'text-yellow-400' : 'text-indigo-400'}`}>
+              {activeGrade || 'No seleccionado'}
+            </div>
+            <div className="text-xs text-gray-500">
+              {isOverride
+                ? `Selección manual (auto: ${autoSelected})`
+                : gradeSelection.selection_reason || 'Grado óptimo según API 5C3'}
+            </div>
           </div>
+          {isOverride && (
+            <button
+              onClick={() => onGradeSelect?.(autoSelected)}
+              className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              Reset
+            </button>
+          )}
         </div>
 
         {/* Table */}
@@ -59,11 +82,17 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
             </thead>
             <tbody>
               {evaluated.map((g: { grade: string; yield_psi: number; passes_burst?: boolean; burst_pass?: boolean; passes_collapse?: boolean; collapse_pass?: boolean; passes_tension?: boolean; tension_pass?: boolean; passes_all?: boolean; all_pass?: boolean }, i: number) => {
-                const isSelected = g.grade === selected;
+                const isActive = g.grade === activeGrade;
+                const isAuto = g.grade === autoSelected && !isActive;
                 return (
-                  <tr key={i} className={`border-b border-white/5 ${isSelected ? 'bg-indigo-500/10' : ''}`}>
+                  <tr key={i}
+                    className={`border-b border-white/5 transition-colors ${
+                      isActive ? 'bg-indigo-500/10' : ''
+                    } ${onGradeSelect ? 'cursor-pointer hover:bg-white/5' : ''}`}
+                    onClick={() => onGradeSelect?.(g.grade)}
+                  >
                     <td className="py-2 px-2 font-bold" style={{ color: GRADE_COLORS[g.grade] || '#fff' }}>
-                      {g.grade} {isSelected && '✓'}
+                      {g.grade} {isActive && '◆'} {isAuto && '✓'}
                     </td>
                     <td className="text-right py-2 px-2 font-mono text-gray-300">
                       {(g.yield_psi || 0).toLocaleString()}
@@ -99,7 +128,7 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({ gradeSelectio
 
         {evaluated.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm">
-            <p>Grado: <span className="font-bold text-indigo-400">{selected}</span></p>
+            <p>Grado: <span className="font-bold text-indigo-400">{activeGrade}</span></p>
             <p className="text-xs mt-1">Yield: {(gradeSelection.selected_details?.yield_psi || gradeSelection.yield_strength_psi || 0).toLocaleString()} psi</p>
           </div>
         )}

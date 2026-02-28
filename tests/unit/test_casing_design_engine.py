@@ -897,6 +897,80 @@ class TestNaceMr0175:
         alerts = result["summary"]["alerts"]
         assert any("NACE" in a for a in alerts)
 
+
+class TestCandidateEnrichment:
+    """Verify per-grade enrichment of all_candidates in pipeline output."""
+
+    def test_all_candidates_have_details(self, engine):
+        """Every candidate must include a 'details' dict after enrichment."""
+        result = engine.calculate_full_casing_design()
+        candidates = result["grade_selection"]["all_candidates"]
+        assert len(candidates) > 0
+        for c in candidates:
+            assert "details" in c, f"Grade {c['grade']} missing 'details'"
+            d = c["details"]
+            assert "effective_yield_psi" in d
+            assert "burst_rating_design_psi" in d
+            assert "collapse_rating_design_psi" in d
+            assert "collapse_zone" in d
+            assert "biaxial_correction" in d
+            assert "triaxial_vme" in d
+            assert "safety_factors" in d
+
+    def test_selected_grade_details_match_summary(self, engine):
+        """Auto-selected grade's enriched details must match top-level results."""
+        result = engine.calculate_full_casing_design()
+        selected_grade = result["grade_selection"].get("selected_grade", "")
+        candidates = result["grade_selection"]["all_candidates"]
+        selected = next(
+            (c for c in candidates if c["grade"] == selected_grade), None
+        )
+        if selected is None:
+            pytest.skip("No grade selected (extreme loads)")
+
+        d = selected["details"]
+        # Triaxial VME stress should match (same hoop/radial/axial inputs)
+        assert d["triaxial_vme"]["vme_stress_psi"] == result["triaxial_vme"]["vme_stress_psi"]
+        assert d["triaxial_vme"]["allowable_psi"] == result["triaxial_vme"]["allowable_psi"]
+        # Safety factors should match
+        assert d["safety_factors"]["results"]["burst"]["safety_factor"] == \
+            result["safety_factors"]["results"]["burst"]["safety_factor"]
+        assert d["safety_factors"]["results"]["collapse"]["safety_factor"] == \
+            result["safety_factors"]["results"]["collapse"]["safety_factor"]
+
+    def test_different_grades_have_different_yields(self, engine):
+        """Enriched data for different grades must reflect their own yields."""
+        result = engine.calculate_full_casing_design()
+        candidates = result["grade_selection"]["all_candidates"]
+        j55 = next(c for c in candidates if c["grade"] == "J55")
+        q125 = next(c for c in candidates if c["grade"] == "Q125")
+        assert j55["details"]["effective_yield_psi"] < q125["details"]["effective_yield_psi"]
+        assert j55["details"]["burst_rating_design_psi"] < q125["details"]["burst_rating_design_psi"]
+
+    def test_no_grade_passes_still_has_details(self, engine):
+        """Even when no grade passes, every candidate must have enriched details."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=20000, mud_weight_ppg=18.0, pore_pressure_ppg=17.0,
+            evacuation_level_ft=0,
+        )
+        candidates = result["grade_selection"]["all_candidates"]
+        for c in candidates:
+            assert "details" in c, f"Grade {c['grade']} missing details in fail scenario"
+            d = c["details"]
+            # Even failing grades should have valid triaxial data
+            assert d["triaxial_vme"]["vme_stress_psi"] > 0
+            assert d["triaxial_vme"]["allowable_psi"] > 0
+
+    def test_enrichment_with_wear(self, engine):
+        """Enriched ratings should reflect wear-derated wall thickness."""
+        result_no_wear = engine.calculate_full_casing_design(wear_pct=0)
+        result_wear = engine.calculate_full_casing_design(wear_pct=20)
+        c_no_wear = result_no_wear["grade_selection"]["all_candidates"][0]["details"]
+        c_wear = result_wear["grade_selection"]["all_candidates"][0]["details"]
+        # Wear should reduce burst and collapse ratings
+        assert c_wear["burst_rating_design_psi"] < c_no_wear["burst_rating_design_psi"]
+        assert c_wear["collapse_rating_design_psi"] < c_no_wear["collapse_rating_design_psi"]
+
     def test_pipeline_nace_compliance_in_result(self, engine):
         """Pipeline result should include nace_compliance section."""
         result = engine.calculate_full_casing_design(

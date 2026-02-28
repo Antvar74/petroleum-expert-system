@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Play, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
@@ -44,6 +44,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<Record<string, any> | null>(null);
+  const [userSelectedGrade, setUserSelectedGrade] = useState<string | null>(null);
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
@@ -53,6 +54,29 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     wellId,
     wellName,
   });
+
+  // Derive active grade details from enriched candidates
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeCandidate: Record<string, any> | null = useMemo(() => {
+    if (!result) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidates: Record<string, any>[] = result.grade_selection?.all_candidates || [];
+    if (!candidates.length) return null;
+    const targetGrade = userSelectedGrade || result.grade_selection?.selected_grade;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const match = candidates.find((c: Record<string, any>) => c.grade === targetGrade);
+    if (match) return match;
+    // When auto-selected is "None — no grade satisfies all criteria",
+    // default to the highest-yield candidate so cards show real grade data
+    return candidates[candidates.length - 1];
+  }, [result, userSelectedGrade]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeGradeData: Record<string, any> | null = activeCandidate?.details || null;
+
+  const isGradeOverride = Boolean(
+    userSelectedGrade && result && userSelectedGrade !== result.grade_selection?.selected_grade
+  );
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
@@ -74,6 +98,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
 
   const calculate = useCallback(async () => {
     setLoading(true);
+    setUserSelectedGrade(null);
     try {
       const url = wellId
         ? `/wells/${wellId}/casing-design`
@@ -95,6 +120,17 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     { id: 'input', label: t('common.parameters') },
     { id: 'results', label: t('common.results') },
   ];
+
+  // Active grade values for display (user override or backend auto-selection)
+  const overallStatus = activeGradeData?.safety_factors?.overall_status ?? result?.summary?.overall_status;
+  const activeSF = activeGradeData?.safety_factors ?? result?.safety_factors;
+  const activeBiaxial = activeGradeData?.biaxial_correction ?? result?.biaxial_correction;
+  const activeTriaxial = activeGradeData?.triaxial_vme ?? result?.triaxial_vme;
+  const activeTempDerate = activeGradeData?.temp_derate ?? result?.temperature_derating;
+  const activeCollapseZone = activeGradeData?.collapse_zone ?? result?.summary?.collapse_zone;
+  const activeGradeName = userSelectedGrade || activeCandidate?.grade || result?.summary?.selected_grade;
+  const activeBurstRating = activeGradeData?.burst_rating_design_psi ?? result?.burst_rating?.burst_rating_psi;
+  const activeCollapseRating = activeGradeData?.collapse_rating_biaxial_psi ?? result?.biaxial_correction?.corrected_collapse_psi;
 
   return (
     <div className="space-y-6">
@@ -245,20 +281,21 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
           <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
             {/* Overall Status */}
             <div className={`glass-panel p-5 rounded-2xl border flex items-center gap-4 ${
-              result.summary?.overall_status === 'ALL PASS' ? 'border-green-500/30' : 'border-red-500/30'
+              overallStatus === 'ALL PASS' ? 'border-green-500/30' : 'border-red-500/30'
             }`}>
-              {result.summary?.overall_status === 'ALL PASS' ? (
+              {overallStatus === 'ALL PASS' ? (
                 <CheckCircle size={32} className="text-green-400" />
               ) : (
                 <XCircle size={32} className="text-red-400" />
               )}
               <div>
-                <div className={`text-xl font-bold ${result.summary?.overall_status === 'ALL PASS' ? 'text-green-400' : 'text-red-400'}`}>
-                  {result.summary?.overall_status}
+                <div className={`text-xl font-bold ${overallStatus === 'ALL PASS' ? 'text-green-400' : 'text-red-400'}`}>
+                  {overallStatus}
                 </div>
                 <div className="text-sm text-gray-400">
-                  {t('casingDesign.selectedGrade')}: <span className="font-bold text-indigo-400">{result.summary?.selected_grade}</span>
-                  {' | '}Triaxial VME: <span className={result.summary?.triaxial_status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{result.summary?.triaxial_status}</span>
+                  {t('casingDesign.selectedGrade')}: <span className={`font-bold ${isGradeOverride ? 'text-yellow-400' : 'text-indigo-400'}`}>{activeGradeName}</span>
+                  {isGradeOverride && <span className="ml-2 text-yellow-400 text-xs">(manual)</span>}
+                  {' | '}Triaxial VME: <span className={activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{activeTriaxial?.status}</span>
                 </div>
               </div>
             </div>
@@ -276,7 +313,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Safety Factor Cards */}
             <div className="grid grid-cols-3 gap-4">
               {['burst', 'collapse', 'tension'].map(criterion => {
-                const sf = result.safety_factors?.results?.[criterion];
+                const sf = activeSF?.results?.[criterion];
                 if (!sf) return null;
                 return (
                   <div key={criterion} className={`glass-panel p-4 rounded-xl border ${sf.passes ? 'border-green-500/20' : 'border-red-500/20'}`}>
@@ -301,7 +338,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   <div className="flex justify-between"><span className="text-gray-400">Max Burst:</span><span className="font-mono">{result.summary?.max_burst_load_psi} psi @ {result.burst_load?.max_burst_depth_ft} ft</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Max Collapse:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Tensión Total:</span><span className="font-mono">{result.summary?.total_tension_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Zone:</span><span className="font-mono text-indigo-400">{result.summary?.collapse_zone}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Collapse Zone:</span><span className="font-mono text-indigo-400">{activeCollapseZone}</span></div>
                   {result.connection && (
                     <div className="flex justify-between">
                       <span className="text-gray-400">Connection:</span>
@@ -331,14 +368,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.biaxialCorrection')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Original:</span><span className="font-mono">{result.biaxial_correction?.original_collapse_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Corregido:</span><span className="font-mono text-yellow-400">{result.biaxial_correction?.corrected_collapse_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Factor Reducción:</span><span className="font-mono">{result.biaxial_correction?.reduction_factor}</span></div>
-                  {result.temperature_derating?.derate_factor < 1.0 && (
+                  <div className="flex justify-between"><span className="text-gray-400">Collapse Original:</span><span className="font-mono">{activeBiaxial?.original_collapse_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Collapse Corregido:</span><span className="font-mono text-yellow-400">{activeBiaxial?.corrected_collapse_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Factor Reducción:</span><span className="font-mono">{activeBiaxial?.reduction_factor}</span></div>
+                  {activeTempDerate?.derate_factor < 1.0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-400">Temp Derate:</span>
                       <span className="font-mono text-yellow-400">
-                        {(result.temperature_derating.derate_factor * 100).toFixed(1)}% at {result.temperature_derating.temperature_f}°F
+                        {(activeTempDerate.derate_factor * 100).toFixed(1)}% at {activeTempDerate.temperature_f}°F
                       </span>
                     </div>
                   )}
@@ -347,10 +384,10 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.triaxialTitle')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">VME Stress:</span><span className="font-mono">{result.triaxial_vme?.vme_stress_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Admisible:</span><span className="font-mono">{result.triaxial_vme?.allowable_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Utilización:</span><span className={`font-mono font-bold ${result.triaxial_vme?.utilization_pct > 90 ? 'text-red-400' : 'text-green-400'}`}>{result.triaxial_vme?.utilization_pct}%</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Status:</span><span className={`font-mono font-bold ${result.triaxial_vme?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>{result.triaxial_vme?.status}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">VME Stress:</span><span className="font-mono">{activeTriaxial?.vme_stress_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Admisible:</span><span className="font-mono">{activeTriaxial?.allowable_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Utilización:</span><span className={`font-mono font-bold ${activeTriaxial?.utilization_pct > 90 ? 'text-red-400' : 'text-green-400'}`}>{activeTriaxial?.utilization_pct}%</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Status:</span><span className={`font-mono font-bold ${activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>{activeTriaxial?.status}</span></div>
                 </div>
               </div>
             </div>
@@ -372,20 +409,24 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BurstCollapseEnvelope burstLoad={result.burst_load} collapseLoad={result.collapse_load}
-                burstRating={result.burst_rating?.burst_rating_psi} collapseRating={result.biaxial_correction?.corrected_collapse_psi} />
-              <SafetyFactorTrack safetyFactors={result.safety_factors} />
+                burstRating={activeBurstRating} collapseRating={activeCollapseRating} />
+              <SafetyFactorTrack safetyFactors={activeSF} />
               <TensionProfile tensionLoad={result.tension_load} />
-              <BiaxialEllipse biaxial={result.biaxial_correction} />
+              <BiaxialEllipse biaxial={activeBiaxial} />
               <CasingProgramSchematic summary={result.summary} params={params} />
-              <GradeSelectionTable gradeSelection={result.grade_selection} />
+              <GradeSelectionTable
+                gradeSelection={result.grade_selection}
+                onGradeSelect={setUserSelectedGrade}
+                userSelectedGrade={userSelectedGrade}
+              />
             </div>
 
             {/* Multi-Scenario Envelope */}
             <ScenarioEnvelope
               burstScenarios={result.burst_scenarios}
               collapseScenarios={result.collapse_scenarios}
-              burstRating={result.summary?.burst_rating_psi || 0}
-              collapseRating={result.biaxial_correction?.corrected_collapse_psi || result.summary?.collapse_rating_psi || 0}
+              burstRating={activeBurstRating || 0}
+              collapseRating={activeCollapseRating || result.summary?.collapse_rating_psi || 0}
             />
 
             {/* SF vs Depth Chart */}

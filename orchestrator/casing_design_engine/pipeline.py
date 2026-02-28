@@ -23,6 +23,95 @@ from .wear import apply_wear_allowance
 from .nace import check_nace_compliance
 
 
+def _enrich_candidates(
+    candidates: List[Dict[str, Any]],
+    casing_od_in: float,
+    casing_id_in: float,
+    design_wall_in: float,
+    bottomhole_temp_f: float,
+    axial_stress_psi: float,
+    hoop_stress_psi: float,
+    radial_stress_psi: float,
+    max_burst_psi: float,
+    max_collapse_psi: float,
+    total_tension_lbs: float,
+    sf_burst_min: float,
+    sf_collapse_min: float,
+    sf_tension_min: float,
+) -> None:
+    """
+    Enrich each grade candidate with per-grade detailed calculations.
+
+    Computes temperature derating, derated burst/collapse ratings,
+    biaxial correction, triaxial VME, and safety factors for every
+    candidate grade so the frontend can display any grade's full
+    engineering data without a server round-trip.
+
+    Mutates candidates in-place by adding a 'details' dict to each.
+    """
+    area = math.pi / 4.0 * (casing_od_in ** 2 - casing_id_in ** 2)
+
+    for candidate in candidates:
+        grade_name = candidate["grade"]
+        yp = candidate["yield_psi"]
+
+        # Temperature derating
+        td = derate_for_temperature(grade_name, yp, bottomhole_temp_f)
+        eff_yield = td["yield_derated_psi"]
+
+        # Burst & collapse ratings with effective yield and design wall
+        burst_r = calculate_burst_rating(casing_od_in, design_wall_in, eff_yield)
+        collapse_r = calculate_collapse_rating(casing_od_in, design_wall_in, eff_yield)
+        burst_rating_psi = burst_r.get("burst_rating_psi", 0)
+        collapse_rating_psi = collapse_r.get("collapse_rating_psi", 0)
+        collapse_zone = collapse_r.get("collapse_zone", "")
+
+        # Tension rating
+        tension_rating = eff_yield * area
+
+        # Biaxial correction
+        bx = calculate_biaxial_correction(
+            collapse_rating_psi=collapse_rating_psi,
+            axial_stress_psi=axial_stress_psi,
+            yield_strength_psi=eff_yield,
+        )
+        eff_collapse = bx.get("corrected_collapse_psi", collapse_rating_psi)
+
+        # Triaxial VME
+        tx = calculate_triaxial_vme(
+            axial_stress_psi=axial_stress_psi,
+            hoop_stress_psi=hoop_stress_psi,
+            radial_stress_psi=radial_stress_psi,
+            yield_strength_psi=eff_yield,
+        )
+
+        # Safety factors
+        sf = calculate_safety_factors(
+            burst_load_psi=max_burst_psi,
+            burst_rating_psi=burst_rating_psi,
+            collapse_load_psi=max_collapse_psi,
+            collapse_rating_psi=eff_collapse,
+            tension_load_lbs=total_tension_lbs,
+            tension_rating_lbs=tension_rating,
+            sf_burst_min=sf_burst_min,
+            sf_collapse_min=sf_collapse_min,
+            sf_tension_min=sf_tension_min,
+        )
+
+        candidate["details"] = {
+            "temp_derate": td,
+            "effective_yield_psi": eff_yield,
+            "burst_rating_design_psi": burst_rating_psi,
+            "collapse_rating_design_psi": collapse_rating_psi,
+            "collapse_zone": collapse_zone,
+            "collapse_rating_biaxial_psi": eff_collapse,
+            "tension_rating_lbs": round(tension_rating, 0),
+            "biaxial_correction": bx,
+            "triaxial_vme": tx,
+            "safety_factors": sf,
+        }
+
+
 def calculate_full_casing_design(
     casing_od_in: float = 9.625,
     casing_id_in: float = 8.681,
@@ -251,6 +340,25 @@ def calculate_full_casing_design(
         hoop_stress_psi=hoop_stress,
         radial_stress_psi=radial_stress,
         yield_strength_psi=effective_yield,
+    )
+
+    # 11b. Enrich all candidates with per-grade detailed calculations
+    design_wall = wear_result["remaining_wall_in"] if wear_result else wall_thickness_in
+    _enrich_candidates(
+        candidates=grade_selection.get("all_candidates", []),
+        casing_od_in=casing_od_in,
+        casing_id_in=casing_id_in,
+        design_wall_in=design_wall,
+        bottomhole_temp_f=bottomhole_temp_f,
+        axial_stress_psi=axial_stress,
+        hoop_stress_psi=hoop_stress,
+        radial_stress_psi=radial_stress,
+        max_burst_psi=max_burst,
+        max_collapse_psi=max_collapse,
+        total_tension_lbs=total_tension,
+        sf_burst_min=sf_burst,
+        sf_collapse_min=sf_collapse,
+        sf_tension_min=sf_tension,
     )
 
     # 12. Connection verification
