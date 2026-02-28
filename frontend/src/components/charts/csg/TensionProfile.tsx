@@ -13,7 +13,7 @@ interface TensionProfileProps {
   height?: number;
 }
 
-const TensionProfile: React.FC<TensionProfileProps> = ({ tensionLoad, height = 350 }) => {
+const TensionProfile: React.FC<TensionProfileProps> = ({ tensionLoad, height = 500 }) => {
   if (!tensionLoad) return null;
 
   const data = [

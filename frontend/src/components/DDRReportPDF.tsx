@@ -76,6 +76,7 @@ const S = {
     maxWidth: 820,
     fontSize: 11,
     lineHeight: 1.45,
+    textAlign: 'justify',
   } as React.CSSProperties,
   header: {
     borderBottom: '3px solid #1e40af',

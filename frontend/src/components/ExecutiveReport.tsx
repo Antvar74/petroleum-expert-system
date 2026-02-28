@@ -1,6 +1,8 @@
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface KeyMetric {
   label: string;
@@ -87,8 +89,10 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
                   {section.title}
                 </div>
               )}
-              <div style={{ fontSize: '12px', lineHeight: '1.7', color: '#334155', whiteSpace: 'pre-wrap' }}>
-                {section.content}
+              <div className="executive-markdown-content">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {section.content}
+                </ReactMarkdown>
               </div>
             </div>
           );

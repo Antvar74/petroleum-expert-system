@@ -197,7 +197,12 @@ def standalone_vibrations(data: VibrationsCalcRequest):
         mud_weight_ppg=data.mud_weight_ppg,
         hole_diameter_in=data.hole_diameter_in,
         inclination_deg=data.inclination_deg,
-        friction_factor=data.friction_factor
+        friction_factor=data.friction_factor,
+        stabilizer_spacing_ft=data.stabilizer_spacing_ft,
+        ucs_psi=data.ucs_psi,
+        total_depth_ft=data.total_depth_ft,
+        n_blades=data.n_blades,
+        bha_components=data.bha_components,
     )
     return result
 
@@ -251,7 +256,17 @@ def standalone_casing_design(data: CasingDesignCalculateRequest):
         overpull_lbs=data.overpull_lbs,
         sf_burst=data.sf_burst,
         sf_collapse=data.sf_collapse,
-        sf_tension=data.sf_tension
+        sf_tension=data.sf_tension,
+        connection_type=data.connection_type,
+        wear_pct=data.wear_pct,
+        corrosion_rate_in_yr=data.corrosion_rate_in_yr,
+        design_life_years=data.design_life_years,
+        bottomhole_temp_f=data.bottomhole_temp_f,
+        tubing_pressure_psi=data.tubing_pressure_psi,
+        internal_fluid_density_ppg=data.internal_fluid_density_ppg,
+        evacuation_level_ft=data.evacuation_level_ft,
+        h2s_partial_pressure_psi=data.h2s_partial_pressure_psi,
+        co2_partial_pressure_psi=data.co2_partial_pressure_psi,
     )
     return result
 

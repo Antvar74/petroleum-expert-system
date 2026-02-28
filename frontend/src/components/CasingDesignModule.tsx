@@ -8,6 +8,9 @@ import SafetyFactorTrack from './charts/csg/SafetyFactorTrack';
 import BiaxialEllipse from './charts/csg/BiaxialEllipse';
 import CasingProgramSchematic from './charts/csg/CasingProgramSchematic';
 import GradeSelectionTable from './charts/csg/GradeSelectionTable';
+import SFvsDepthChart from './charts/csg/SFvsDepthChart';
+import ScenarioEnvelope from './charts/csg/ScenarioEnvelope';
+import CasingCatalogSelector from './CasingCatalogSelector';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -33,9 +36,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     cement_top_tvd_ft: 5000, cement_density_ppg: 16.0,
     bending_dls: 3.0, overpull_lbs: 50000,
     sf_burst: 1.10, sf_collapse: 1.00, sf_tension: 1.60,
+    connection_type: 'BTC' as string,
+    wear_pct: 0, corrosion_rate_in_yr: 0, design_life_years: 20,
+    bottomhole_temp_f: 200, tubing_pressure_psi: 0,
+    internal_fluid_density_ppg: 0, evacuation_level_ft: 0,
   });
 
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [result, setResult] = useState<Record<string, any> | null>(null);
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
@@ -48,6 +56,20 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
 
   const updateParam = (key: string, value: string) => {
     setParams(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+  };
+
+  const updateParamString = (key: string, value: string) => {
+    setParams(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCatalogSelect = (entry: { od: number; id: number; wall: number; weight: number }) => {
+    setParams(prev => ({
+      ...prev,
+      casing_od_in: entry.od,
+      casing_id_in: entry.id,
+      wall_thickness_in: entry.wall,
+      casing_weight_ppf: entry.weight,
+    }));
   };
 
   const calculate = useCallback(async () => {
@@ -95,6 +117,11 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
         {activeTab === 'input' && (
           <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
+              <CasingCatalogSelector
+                onSelect={handleCatalogSelect}
+                currentOd={params.casing_od_in}
+              />
+
               <div>
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.casing')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -110,7 +137,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
-                      <input type="number" step={step} value={(params as Record<string, number>)[key]}
+                      <input type="number" step={step} value={(params as Record<string, number | string>)[key]}
                         onChange={e => updateParam(key, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
                     </div>
@@ -131,7 +158,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
-                      <input type="number" step={step} value={(params as Record<string, number>)[key]}
+                      <input type="number" step={step} value={(params as Record<string, number | string>)[key]}
                         onChange={e => updateParam(key, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
                     </div>
@@ -149,7 +176,55 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
-                      <input type="number" step={step} value={(params as Record<string, number>)[key]}
+                      <input type="number" step={step} value={(params as Record<string, number | string>)[key]}
+                        onChange={e => updateParam(key, e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-3">Collapse &amp; Thermal</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { key: 'evacuation_level_ft', label: 'Nivel Evacuación (ft)', step: '100', title: '-1 = Sin evacuación (lleno de lodo), 0 = Evacuación total (vacío), >0 = Parcial' },
+                    { key: 'bottomhole_temp_f', label: 'Temp. Fondo (°F)', step: '10' },
+                    { key: 'tubing_pressure_psi', label: 'Presión Tubing (psi)', step: '100' },
+                    { key: 'internal_fluid_density_ppg', label: 'Densidad Fluido Int. (ppg)', step: '0.1' },
+                  ].map(({ key, label, step, title }) => (
+                    <div key={key} className="space-y-1">
+                      <label className="text-xs text-gray-400" title={title}>{label}</label>
+                      <input type="number" step={step} value={(params as Record<string, number | string>)[key]}
+                        onChange={e => updateParam(key, e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-3">Connection &amp; Wear</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">Tipo Conexión</label>
+                    <select value={params.connection_type}
+                      onChange={e => updateParamString('connection_type', e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                      <option value="STC">STC (Short Thread)</option>
+                      <option value="LTC">LTC (Long Thread)</option>
+                      <option value="BTC">BTC (Buttress)</option>
+                      <option value="PREMIUM">Premium</option>
+                    </select>
+                  </div>
+                  {[
+                    { key: 'wear_pct', label: 'Desgaste (%)', step: '1' },
+                    { key: 'corrosion_rate_in_yr', label: 'Corrosión (in/yr)', step: '0.001' },
+                    { key: 'design_life_years', label: 'Vida Diseño (años)', step: '1' },
+                  ].map(({ key, label, step }) => (
+                    <div key={key} className="space-y-1">
+                      <label className="text-xs text-gray-400">{label}</label>
+                      <input type="number" step={step} value={(params as Record<string, number | string>)[key]}
                         onChange={e => updateParam(key, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
                     </div>
@@ -188,6 +263,16 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
             </div>
 
+            {/* Governing Scenarios */}
+            {result.summary?.governing_burst_scenario && (
+              <div className="glass-panel p-3 rounded-xl border border-white/5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                <span className="text-gray-400">Governing:</span>
+                <span className="text-red-400">Burst: {result.summary.governing_burst_scenario}</span>
+                <span className="text-blue-400">Collapse: {result.summary.governing_collapse_scenario}</span>
+                <span className="text-indigo-400">Tension: {result.summary.tension_governing_scenario}</span>
+              </div>
+            )}
+
             {/* Safety Factor Cards */}
             <div className="grid grid-cols-3 gap-4">
               {['burst', 'collapse', 'tension'].map(criterion => {
@@ -217,6 +302,15 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   <div className="flex justify-between"><span className="text-gray-400">Max Collapse:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Tensión Total:</span><span className="font-mono">{result.summary?.total_tension_lbs?.toLocaleString()} lbs</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Zone:</span><span className="font-mono text-indigo-400">{result.summary?.collapse_zone}</span></div>
+                  {result.connection && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Connection:</span>
+                      <span className={`font-mono ${result.connection.passes_all ? 'text-green-400' : 'text-red-400'}`}>
+                        {result.connection.connection_type} — {result.connection.passes_all ? 'PASS' : 'FAIL'}
+                        {result.connection.is_weak_link && <span className="text-yellow-400 ml-1">&#9888; Weak link</span>}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
@@ -240,6 +334,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Original:</span><span className="font-mono">{result.biaxial_correction?.original_collapse_psi} psi</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Corregido:</span><span className="font-mono text-yellow-400">{result.biaxial_correction?.corrected_collapse_psi} psi</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Factor Reducción:</span><span className="font-mono">{result.biaxial_correction?.reduction_factor}</span></div>
+                  {result.temperature_derating?.derate_factor < 1.0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Temp Derate:</span>
+                      <span className="font-mono text-yellow-400">
+                        {(result.temperature_derating.derate_factor * 100).toFixed(1)}% at {result.temperature_derating.temperature_f}°F
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
@@ -277,6 +379,24 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <CasingProgramSchematic summary={result.summary} params={params} />
               <GradeSelectionTable gradeSelection={result.grade_selection} />
             </div>
+
+            {/* Multi-Scenario Envelope */}
+            <ScenarioEnvelope
+              burstScenarios={result.burst_scenarios}
+              collapseScenarios={result.collapse_scenarios}
+              burstRating={result.summary?.burst_rating_psi || 0}
+              collapseRating={result.biaxial_correction?.corrected_collapse_psi || result.summary?.collapse_rating_psi || 0}
+            />
+
+            {/* SF vs Depth Chart */}
+            {result?.sf_vs_depth && (
+              <SFvsDepthChart
+                sfVsDepth={result.sf_vs_depth as any}
+                sfBurstMin={params.sf_burst}
+                sfCollapseMin={params.sf_collapse}
+                sfTensionMin={params.sf_tension}
+              />
+            )}
 
             {/* AI Analysis */}
             <AIAnalysisPanel

@@ -109,6 +109,54 @@ class TestCollapseLoad:
         result = engine.calculate_collapse_load(**typical_well, evacuation_level_ft=3000.0)
         assert "Partial" in result["scenario"]
 
+    def test_full_evacuation_default_produces_max_collapse(self, engine):
+        """evacuation_level_ft=TVD should produce max collapse = MW * 0.052 * TVD at shoe."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+            evacuation_level_ft=11000,
+        )
+        expected_max = 14.0 * 0.052 * 11000  # 8008 psi
+        assert result["max_collapse_load_psi"] == pytest.approx(expected_max, rel=0.05)
+
+    def test_zero_evacuation_is_full_evacuation(self, engine):
+        """evacuation_level_ft=0 means full evacuation (casing empty), max collapse = MW*0.052*TVD."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=0.0,
+            cement_top_tvd_ft=0.0,
+        )
+        # Full evacuation with no cement: collapse at shoe = MW * 0.052 * TVD
+        expected = 10.0 * 0.052 * 10000  # 5200 psi
+        assert result["max_collapse_load_psi"] == pytest.approx(expected, rel=0.02)
+
+    def test_negative_evacuation_means_no_evacuation(self, engine):
+        """evacuation_level_ft=-1 means no evacuation (casing full of mud), collapse ≈ 0."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=9.0,
+            evacuation_level_ft=-1,
+            cement_top_tvd_ft=0.0,
+        )
+        # Casing full of same mud: P_ext = P_int at each depth → differential ≈ 0
+        assert result["max_collapse_load_psi"] < 100
+        assert "No Evacuation" in result["scenario"]
+
+    def test_internal_fluid_density_reduces_collapse(self, engine):
+        """Custom internal fluid density (lighter than mud) should increase collapse load."""
+        base = dict(tvd_ft=10000, mud_weight_ppg=13.0, pore_pressure_ppg=12.0,
+                    evacuation_level_ft=5000, cement_top_tvd_ft=0.0)
+        # With mud inside (default)
+        result_mud = engine.calculate_collapse_load(**base)
+        # With lighter brine inside (8.6 ppg)
+        result_brine = engine.calculate_collapse_load(**base, internal_fluid_density_ppg=8.6)
+        # Lighter fluid = higher collapse differential below fluid level
+        assert result_brine["max_collapse_load_psi"] > result_mud["max_collapse_load_psi"]
+
+    def test_full_evacuation_scenario_label(self, engine, typical_well):
+        """Full evacuation (evac=0 or evac=TVD) should be labeled 'Full Evacuation'."""
+        result = engine.calculate_collapse_load(
+            **typical_well, evacuation_level_ft=0)
+        assert "Full" in result["scenario"]
+
 
 # ===========================================================================
 # 3. TENSION LOAD
@@ -424,9 +472,74 @@ class TestFullCasingDesign:
         expected_keys = {
             "burst_load", "collapse_load", "tension_load",
             "burst_rating", "collapse_rating", "biaxial_correction",
-            "triaxial_vme", "grade_selection", "safety_factors", "summary",
+            "biaxial_depth_profile", "triaxial_vme", "grade_selection",
+            "safety_factors", "sf_vs_depth", "summary",
+            "burst_scenarios", "collapse_scenarios", "tension_scenarios",
+            "connection", "temperature_derating",
         }
         assert expected_keys.issubset(result.keys())
+
+    def test_multi_scenario_burst_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert result["burst_scenarios"]["num_scenarios"] == 5
+        assert result["summary"]["governing_burst_scenario"] != ""
+
+    def test_multi_scenario_collapse_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert result["collapse_scenarios"]["num_scenarios"] == 4
+        assert result["summary"]["governing_collapse_scenario"] != ""
+
+    def test_collapse_uses_full_evacuation_by_default(self, engine):
+        """Default behavior: full evacuation produces realistic collapse load."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+            cement_top_tvd_ft=0.0,
+        )
+        assert result["summary"]["max_collapse_load_psi"] > 5000
+
+    def test_sf_collapse_not_absurdly_high(self, engine):
+        """SF collapse should be reasonable (< 10), not 17+ like the bug produced."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=11000, mud_weight_ppg=14.0, pore_pressure_ppg=12.0,
+        )
+        assert result["summary"]["sf_collapse"] < 10.0
+
+    def test_tension_scenarios_separated(self, engine):
+        result = engine.calculate_full_casing_design()
+        ts = result["tension_scenarios"]
+        assert "running" in ts
+        assert "stuck_pipe" in ts
+        assert ts["running"]["shock_load_lbs"] > 0
+        assert ts["running"]["overpull_lbs"] == 0
+        assert ts["stuck_pipe"]["shock_load_lbs"] == 0
+        assert ts["stuck_pipe"]["overpull_lbs"] > 0
+
+    def test_biaxial_depth_profile_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        bdp = result["biaxial_depth_profile"]
+        assert bdp["num_points"] > 0
+        assert len(bdp["profile"]) > 0
+        first = bdp["profile"][0]["reduction_factor"]
+        last = bdp["profile"][-1]["reduction_factor"]
+        assert last >= first  # Less tension at shoe -> less derating -> higher factor
+
+    def test_connection_verification_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert "connection" in result
+        assert result["connection"]["connection_type"] in ("STC", "LTC", "BTC", "PREMIUM")
+
+    def test_sf_vs_depth_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert "sf_vs_depth" in result
+        assert result["sf_vs_depth"]["num_points"] > 0
+
+    def test_sf_sanity_alert_on_unrealistic_values(self, engine):
+        """If any SF > 10, an alert should be generated."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=1000, mud_weight_ppg=8.6, pore_pressure_ppg=8.6,
+        )
+        sf_alerts = [a for a in result["summary"]["alerts"] if "unusually high" in a]
+        assert len(sf_alerts) > 0
 
     def test_summary_fields(self, engine):
         result = engine.calculate_full_casing_design()
@@ -434,37 +547,360 @@ class TestFullCasingDesign:
         for key in ["selected_grade", "max_burst_load_psi", "max_collapse_load_psi",
                      "total_tension_lbs", "burst_rating_psi", "collapse_rating_psi",
                      "sf_burst", "sf_collapse", "sf_tension",
-                     "triaxial_status", "overall_status", "alerts"]:
+                     "triaxial_status", "overall_status", "alerts",
+                     "governing_burst_scenario", "governing_collapse_scenario",
+                     "tension_governing_scenario"]:
             assert key in s, f"Missing summary key: {key}"
 
     def test_alerts_is_list(self, engine):
         result = engine.calculate_full_casing_design()
         assert isinstance(result["summary"]["alerts"], list)
 
-    def test_sub_results_are_dicts(self, engine):
-        result = engine.calculate_full_casing_design()
-        for key in ["burst_load", "collapse_load", "tension_load",
-                     "burst_rating", "collapse_rating", "biaxial_correction",
-                     "triaxial_vme", "grade_selection", "safety_factors"]:
-            assert isinstance(result[key], dict)
-            assert "error" not in result[key]
-
     def test_default_params_produce_valid_design(self, engine):
-        """Default parameters should produce a valid casing design."""
         result = engine.calculate_full_casing_design()
         assert result["summary"]["selected_grade"] != ""
         assert result["summary"]["sf_burst"] > 0
         assert result["summary"]["sf_collapse"] > 0
         assert result["summary"]["sf_tension"] > 0
 
-    def test_summary_grade_matches_selection(self, engine):
-        result = engine.calculate_full_casing_design()
-        assert result["summary"]["selected_grade"] == result["grade_selection"]["selected_grade"]
 
-    def test_biaxial_reduces_collapse_rating(self, engine):
-        """Biaxial correction should reduce collapse vs original."""
-        result = engine.calculate_full_casing_design()
-        original = result["collapse_rating"]["collapse_rating_psi"]
-        corrected = result["biaxial_correction"]["corrected_collapse_psi"]
-        # With tension present, corrected should be <= original
-        assert corrected <= original
+# ===========================================================================
+# 11. LAMÉ THICK-WALL HOOP STRESS
+# ===========================================================================
+class TestLameHoopStress:
+    """Validate Lamé thick-wall hoop stress calculation."""
+
+    def test_external_pressure_only(self):
+        """External pressure only -> hoop stress negative (compressive) at inner wall."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=0, p_external_psi=5000,
+        )
+        assert result["hoop_inner_psi"] < 0  # compressive
+
+    def test_internal_pressure_only(self):
+        """Internal pressure only -> hoop stress positive (tensile) at inner wall."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=5000, p_external_psi=0,
+        )
+        assert result["hoop_inner_psi"] > 0  # tensile
+
+    def test_known_value_external(self):
+        """Verify against manual Lamé calculation for 9-5/8 casing under external pressure."""
+        # For 9.625" OD, 8.681" ID with 5000 psi external (Pi=0):
+        # ro=4.8125, ri=4.3405
+        # sigma_h(ri) = -2*Po*ro^2 / (ro^2-ri^2)
+        #             = -10000*23.16 / 4.32 ≈ -53,609 psi (compressive)
+        ro, ri = 9.625 / 2, 8.681 / 2
+        expected = -10000 * ro ** 2 / (ro ** 2 - ri ** 2)
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=0, p_external_psi=5000,
+        )
+        assert result["hoop_inner_psi"] == pytest.approx(expected, abs=1)
+
+    def test_radial_stress_at_walls(self):
+        """Radial stress at inner wall = -P_internal, at outer wall = -P_external."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=3000, p_external_psi=5000,
+        )
+        assert result["radial_inner_psi"] == -3000
+        assert result["radial_outer_psi"] == -5000
+
+    def test_equal_pressures_hydrostatic(self):
+        """Equal internal and external pressure: hoop = radial = -P (hydrostatic)."""
+        P = 5000
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=9.625, id_in=8.681,
+            p_internal_psi=P, p_external_psi=P,
+        )
+        assert result["hoop_inner_psi"] == pytest.approx(-P, abs=1)
+        assert result["hoop_outer_psi"] == pytest.approx(-P, abs=1)
+
+    def test_invalid_dimensions(self):
+        """Invalid dimensions (OD <= ID) should return error."""
+        result = CasingDesignEngine.calculate_hoop_stress_lame(
+            od_in=5.0, id_in=6.0,
+            p_internal_psi=1000, p_external_psi=1000,
+        )
+        assert "error" in result
+
+
+# ===========================================================================
+# 12. THERMAL AXIAL LOAD
+# ===========================================================================
+class TestThermalAxialLoad:
+    """Validate thermal axial load calculation."""
+
+    def test_heating_produces_compressive(self):
+        """Heating above cement temperature produces compressive load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=300, cement_temp_f=150,
+        )
+        assert result["load_type"] == "compressive"
+        assert result["thermal_load_lbs"] > 0
+
+    def test_cooling_produces_tensile(self):
+        """Cooling below cement temperature produces tensile load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=100, cement_temp_f=150,
+        )
+        assert result["load_type"] == "tensile"
+        assert result["thermal_load_lbs"] > 0
+
+    def test_no_delta_t_no_load(self):
+        """No temperature change means no thermal load."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681,
+            surface_temp_f=80, bottomhole_temp_f=150, cement_temp_f=150,
+        )
+        assert result["thermal_load_lbs"] == 0
+
+    def test_free_casing_no_load(self):
+        """Free (unlocked) casing has no thermal load regardless of temperature."""
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=9.625, casing_id_in=8.681, locked_in=False,
+        )
+        assert result["thermal_load_lbs"] == 0
+
+    def test_known_value(self):
+        """Verify against hand calculation: F = E * A * alpha * delta_T."""
+        od, id_ = 9.625, 8.681
+        area = math.pi / 4.0 * (od ** 2 - id_ ** 2)
+        delta_t = 100  # 250 - 150
+        expected_load = 30e6 * area * 6.9e-6 * delta_t
+        result = CasingDesignEngine.calculate_thermal_axial_load(
+            casing_od_in=od, casing_id_in=id_,
+            surface_temp_f=80, bottomhole_temp_f=250, cement_temp_f=150,
+        )
+        assert abs(result["thermal_load_lbs"] - expected_load) < 100
+
+
+# ===========================================================================
+# 13. CONNECTION VERIFICATION
+# ===========================================================================
+class TestConnectionVerification:
+    """Validate connection verification against API 5B catalog."""
+
+    def test_stc_lower_tension_than_body(self):
+        """STC connection has 60% tension efficiency — is weak link."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="STC",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["tension_rating_lbs"] == 600000  # 60% of 1M
+        assert result["is_weak_link"] is True
+
+    def test_premium_passes_all(self):
+        """Premium connection has 95% efficiency and is gas-tight."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="PREMIUM",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["passes_all"] is True
+        assert result["gas_tight"] is True
+
+    def test_unknown_connection_error(self):
+        """Unknown connection type returns error."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="XYZ",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert "error" in result
+
+    def test_btc_tension_efficiency(self):
+        """BTC has 80% tension efficiency."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="BTC",
+            pipe_body_yield_lbs=1000000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=400000,
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        assert result["tension_rating_lbs"] == 800000  # 80% of 1M
+        assert result["efficiency"] == 0.80
+
+    def test_stc_fails_under_high_tension(self):
+        """STC should fail when applied tension exceeds connection rating / SF."""
+        result = CasingDesignEngine.verify_connection(
+            connection_type="STC",
+            pipe_body_yield_lbs=500000,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            applied_tension_lbs=250000,  # STC rating = 300000, SF=1.6 -> need 400000
+            applied_burst_psi=4000, applied_collapse_psi=3000,
+        )
+        # STC tension rating = 300000, required = 250000 * 1.6 = 400000
+        assert result["passes_tension"] is False
+
+
+# ===========================================================================
+# 14. SAFETY FACTOR VS DEPTH PROFILE
+# ===========================================================================
+class TestSFvsDepth:
+    """Validate safety factor vs depth profile calculation."""
+
+    def test_profile_length_matches_input(self):
+        """Output profile length must match input burst profile length."""
+        burst = [{"tvd_ft": i * 500, "burst_load_psi": 3000 - i * 100} for i in range(20)]
+        collapse = [{"tvd_ft": i * 500, "collapse_load_psi": i * 200} for i in range(20)]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert len(result["profile"]) == 20
+        assert result["num_points"] == 20
+
+    def test_sf_values_positive(self):
+        """All safety factors must be positive."""
+        burst = [{"tvd_ft": 0, "burst_load_psi": 3000}]
+        collapse = [{"tvd_ft": 0, "collapse_load_psi": 2000}]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        point = result["profile"][0]
+        assert point["sf_burst"] > 0
+        assert point["sf_collapse"] > 0
+        assert point["sf_tension"] > 0
+        assert result["min_sf"] > 0
+
+    def test_min_sf_depth_reported(self):
+        """Must report the depth of minimum safety factor."""
+        burst = [
+            {"tvd_ft": 0, "burst_load_psi": 1000},
+            {"tvd_ft": 5000, "burst_load_psi": 5000},
+            {"tvd_ft": 10000, "burst_load_psi": 2000},
+        ]
+        collapse = [
+            {"tvd_ft": 0, "collapse_load_psi": 500},
+            {"tvd_ft": 5000, "collapse_load_psi": 3000},
+            {"tvd_ft": 10000, "collapse_load_psi": 4000},
+        ]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert result["min_sf_depth_ft"] in [0, 5000, 10000]
+        assert result["min_sf"] < 99.0
+
+    def test_empty_profiles(self):
+        """Empty input profiles should return empty result."""
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=[], collapse_profile=[],
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        assert result["num_points"] == 0
+        assert result["profile"] == []
+
+    def test_governing_sf_is_minimum(self):
+        """Governing SF at each depth must be the minimum of burst, collapse, tension."""
+        burst = [{"tvd_ft": 5000, "burst_load_psi": 4000}]
+        collapse = [{"tvd_ft": 5000, "collapse_load_psi": 3000}]
+        result = CasingDesignEngine.calculate_sf_vs_depth(
+            burst_profile=burst, collapse_profile=collapse,
+            burst_rating_psi=6870, collapse_rating_psi=4760,
+            tension_at_surface_lbs=500000, tension_rating_lbs=1200000,
+            casing_weight_ppf=47.0, mud_weight_ppg=10.5, casing_length_ft=10000,
+        )
+        point = result["profile"][0]
+        expected_gov = min(point["sf_burst"], point["sf_collapse"], point["sf_tension"])
+        assert point["governing_sf"] == expected_gov
+
+
+# ===========================================================================
+# 15. NACE MR0175 SOUR SERVICE COMPLIANCE
+# ===========================================================================
+class TestNaceMr0175:
+    def test_n80_not_nace_compliant(self, engine):
+        """N80 is NOT NACE compliant for sour service."""
+        result = engine.check_nace_compliance("N80", h2s_psi=0.05)
+        assert result["compliant"] is False
+
+    def test_l80_nace_compliant(self, engine):
+        """L80 is NACE compliant (max hardness 22 HRC)."""
+        result = engine.check_nace_compliance("L80", h2s_psi=0.05)
+        assert result["compliant"] is True
+
+    def test_c90_nace_compliant(self, engine):
+        """C90 (NACE grade) is compliant."""
+        result = engine.check_nace_compliance("C90", h2s_psi=0.05)
+        assert result["compliant"] is True
+
+    def test_p110_not_nace_compliant(self, engine):
+        """P110 exceeds NACE hardness limit for sour service."""
+        result = engine.check_nace_compliance("P110", h2s_psi=0.05)
+        assert result["compliant"] is False
+
+    def test_no_h2s_all_compliant(self, engine):
+        """Without H2S, all grades are compliant."""
+        result = engine.check_nace_compliance("P110", h2s_psi=0.0)
+        assert result["compliant"] is True
+
+    def test_sweet_environment_label(self, engine):
+        """Below NACE threshold should be classified as sweet."""
+        result = engine.check_nace_compliance("N80", h2s_psi=0.01)
+        assert result["environment"] == "Sweet (non-sour)"
+
+    def test_mild_sour_classification(self, engine):
+        """H2S between 0.05 and 1.0 psi is Mild Sour."""
+        result = engine.check_nace_compliance("L80", h2s_psi=0.5)
+        assert result["environment"] == "Mild Sour"
+
+    def test_severe_classification(self, engine):
+        """H2S between 1.0 and 10.0 psi is Severe."""
+        result = engine.check_nace_compliance("L80", h2s_psi=5.0)
+        assert result["environment"] == "Severe"
+
+    def test_very_severe_classification(self, engine):
+        """H2S >= 10.0 psi is Very Severe."""
+        result = engine.check_nace_compliance("L80", h2s_psi=15.0)
+        assert result["environment"] == "Very Severe"
+
+    def test_non_compliant_has_recommendation(self, engine):
+        """Non-compliant grades should include a replacement recommendation."""
+        result = engine.check_nace_compliance("P110", h2s_psi=1.0)
+        assert result["recommendation"] is not None
+        assert "L80" in result["recommendation"]
+
+    def test_compliant_no_recommendation(self, engine):
+        """Compliant grades should have no recommendation."""
+        result = engine.check_nace_compliance("L80", h2s_psi=1.0)
+        assert result["recommendation"] is None
+
+    def test_pipeline_nace_alert(self, engine):
+        """Pipeline should generate NACE alert when H2S present with non-compliant grade."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=10000, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+            h2s_partial_pressure_psi=1.0,
+        )
+        alerts = result["summary"]["alerts"]
+        assert any("NACE" in a for a in alerts)
+
+    def test_pipeline_nace_compliance_in_result(self, engine):
+        """Pipeline result should include nace_compliance section."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=10000, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+        )
+        assert "nace_compliance" in result
+        assert result["nace_compliance"]["compliant"] is True

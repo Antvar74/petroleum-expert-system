@@ -147,13 +147,13 @@ class TestLateralVibrations:
         """Paslay-Dawson critical RPM must be positive."""
         assert lateral_result["critical_rpm"] > 0
 
-    def test_shorter_bha_higher_critical_rpm(self, engine):
-        """Shorter span between stabilizers => higher critical RPM."""
-        common = dict(bha_od_in=6.75, bha_id_in=2.813, bha_weight_lbft=83.0,
-                      hole_diameter_in=8.5, mud_weight_ppg=10.0)
-        long_bha = engine.calculate_critical_rpm_lateral(bha_length_ft=300, **common)
-        short_bha = engine.calculate_critical_rpm_lateral(bha_length_ft=100, **common)
-        assert short_bha["critical_rpm"] > long_bha["critical_rpm"]
+    def test_shorter_span_higher_critical_rpm(self, engine):
+        """Shorter stabilizer spacing => higher critical RPM."""
+        common = dict(bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+                      bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0)
+        long_span = engine.calculate_critical_rpm_lateral(stabilizer_spacing_ft=90, **common)
+        short_span = engine.calculate_critical_rpm_lateral(stabilizer_spacing_ft=60, **common)
+        assert short_span["critical_rpm"] > long_span["critical_rpm"]
 
     def test_whirl_severity_increases_with_inclination(self, engine, typical_bha):
         """Inclination adds sin(inc) factor to whirl severity."""
@@ -173,9 +173,31 @@ class TestLateralVibrations:
         expected = (8.5 - 6.75) / 2.0
         assert result["radial_clearance_in"] == pytest.approx(expected, abs=0.01)
 
+    def test_estimated_span_caps_at_90ft(self, engine):
+        """When no stabilizer_spacing given, L = min(bha_length, 90) — not full BHA length."""
+        result = engine.calculate_critical_rpm_lateral(
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0,
+        )
+        # With L=90 ft (capped), lateral RPM must be > 30 RPM
+        assert result["critical_rpm"] > 30
+        assert result["span_used_ft"] == 90.0
+        assert result["span_source"] == "estimated"
+
+    def test_user_provided_stabilizer_spacing(self, engine):
+        """When stabilizer_spacing_ft is given, use it directly."""
+        result = engine.calculate_critical_rpm_lateral(
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            stabilizer_spacing_ft=60.0,
+        )
+        assert result["critical_rpm"] > 50
+        assert result["span_used_ft"] == 60.0
+        assert result["span_source"] == "user"
+
     def test_critical_rpm_physical_range(self, lateral_result):
-        """Lateral critical RPM for 300 ft BHA must be in realistic range (1-500 RPM)."""
-        assert 1 <= lateral_result["critical_rpm"] <= 500
+        """Lateral critical RPM for 300 ft BHA must be in realistic range (30-500 RPM)."""
+        assert 30 <= lateral_result["critical_rpm"] <= 500
 
     def test_zero_length_returns_error(self, engine):
         """Zero BHA length must produce error."""
@@ -239,6 +261,18 @@ class TestStickSlip:
         high_wob = engine.calculate_stick_slip_severity(wob_klb=40, **common)
         assert high_wob["severity_index"] > low_wob["severity_index"]
 
+    def test_friction_torque_uses_two_thirds_radius(self, engine, typical_bha):
+        """Friction torque must use 2R/3 effective radius (centroid of uniform PDC face)."""
+        # Use low RPM so Stribeck friction ≈ static friction (mu_eff ≈ mu_s)
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=1, wob_klb=20.0, torque_ftlb=12000,
+            bit_diameter_in=8.5, bha_length_ft=typical_bha["bha_length_ft"],
+            bha_od_in=typical_bha["bha_od_in"], bha_id_in=typical_bha["bha_id_in"],
+            mud_weight_ppg=typical_bha["mud_weight_ppg"], friction_factor=0.25,
+        )
+        # T = mu * WOB * 2R/3 = 0.25 * 20000 * 2*(8.5/24)/3 = 1181 ft-lb
+        assert 1100 <= result["friction_torque_ftlb"] <= 1250
+
     def test_zero_rpm_returns_error(self, engine, typical_bha):
         """RPM = 0 should produce error dict."""
         result = engine.calculate_stick_slip_severity(
@@ -282,8 +316,26 @@ class TestMSE:
         assert total == pytest.approx(parts, rel=0.001)
 
     def test_efficiency_bounded(self, mse_result):
-        """Efficiency percentage must be in [0, 100]."""
-        assert 0 <= mse_result["efficiency_pct"] <= 100
+        """Efficiency is None without UCS (fixture has no UCS)."""
+        assert mse_result["efficiency_pct"] is None
+
+    def test_efficiency_none_without_ucs(self, engine):
+        """Without UCS, efficiency must be None (not the old hard-coded 35%)."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+        )
+        assert result["efficiency_pct"] is None
+        assert result["classification_basis"] == "absolute_mse"
+
+    def test_efficiency_calculated_with_ucs(self, engine):
+        """With UCS provided, efficiency = UCS / MSE * 100."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+            ucs_psi=55000,
+        )
+        assert result["efficiency_pct"] is not None
+        assert 30 <= result["efficiency_pct"] <= 40  # ~34.4% for these params
+        assert result["classification_basis"] == "ucs_based"
 
     def test_high_mse_classification(self, engine):
         """Extremely high MSE (low ROP, high torque) should classify as Highly Inefficient."""
@@ -295,6 +347,28 @@ class TestMSE:
         assert result["mse_total_psi"] > 100000
         assert result["classification"] == "Highly Inefficient"
         assert result["color"] == "red"
+
+    def test_ucs_based_classification_efficient(self, engine):
+        """High UCS relative to MSE should classify as Efficient."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=5000, rpm=60, rop_fph=100, bit_diameter_in=8.5,
+            ucs_psi=50000,
+        )
+        # Low MSE + high UCS = high efficiency
+        assert result["classification_basis"] == "ucs_based"
+        assert result["efficiency_pct"] > 80
+        assert result["classification"] == "Efficient"
+
+    def test_ucs_based_classification_inefficient(self, engine):
+        """Low UCS relative to MSE should classify as Highly Inefficient."""
+        result = engine.calculate_mse(
+            wob_klb=20, torque_ftlb=12000, rpm=120, rop_fph=50, bit_diameter_in=8.5,
+            ucs_psi=5000,
+        )
+        # High MSE + low UCS = low efficiency
+        assert result["classification_basis"] == "ucs_based"
+        assert result["efficiency_pct"] < 20
+        assert result["classification"] == "Highly Inefficient"
 
     def test_zero_rop_returns_error(self, engine):
         """ROP = 0 should produce an error."""
@@ -395,6 +469,21 @@ class TestVibrationMap:
         max_in_data = max(pt["stability_index"] for pt in result["map_data"])
         assert result["optimal_point"]["score"] == pytest.approx(max_in_data, abs=0.1)
 
+    def test_map_has_meaningful_range(self, engine, typical_bha):
+        """Stability index must vary by > 5 points across the map (was 2.7 with L=300 bug)."""
+        result = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=typical_bha["bha_od_in"],
+            bha_id_in=typical_bha["bha_id_in"],
+            bha_weight_lbft=typical_bha["bha_weight_lbft"],
+            bha_length_ft=typical_bha["bha_length_ft"],
+            hole_diameter_in=8.5,
+            mud_weight_ppg=typical_bha["mud_weight_ppg"],
+        )
+        scores = [pt["stability_index"] for pt in result["map_data"]]
+        score_range = max(scores) - min(scores)
+        assert score_range > 5, f"Map range too flat: {score_range:.1f} (min={min(scores):.1f}, max={max(scores):.1f})"
+
     def test_custom_ranges_respected(self, engine, typical_bha):
         """Custom WOB and RPM ranges produce correct grid size."""
         wob_list = [10, 20, 30]
@@ -456,6 +545,27 @@ class TestFullVibrationAnalysis:
         )
         assert isinstance(result["alerts"], list)
 
+    def test_multi_component_lateral_when_bha_components_provided(self, engine):
+        """When bha_components with stabilizers are given, use multi-component lateral route."""
+        bha_components = [
+            {"type": "bit", "length_ft": 1, "od": 8.5, "id_inner": 2.5, "weight_ppf": 50},
+            {"type": "motor", "length_ft": 30, "od": 6.75, "id_inner": 3.0, "weight_ppf": 83},
+            {"type": "stabilizer", "length_ft": 3, "od": 8.25, "id_inner": 2.5, "weight_ppf": 100},
+            {"type": "collar", "length_ft": 60, "od": 6.75, "id_inner": 2.813, "weight_ppf": 83},
+            {"type": "stabilizer", "length_ft": 3, "od": 8.25, "id_inner": 2.5, "weight_ppf": 100},
+            {"type": "collar", "length_ft": 90, "od": 6.75, "id_inner": 2.813, "weight_ppf": 83},
+        ]
+        result = engine.calculate_full_vibration_analysis(
+            wob_klb=20, rpm=120, rop_fph=50, torque_ftlb=10000,
+            bit_diameter_in=8.5, bha_components=bha_components,
+        )
+        lateral = result["lateral_vibrations"]
+        # Multi-component route should produce valid critical RPM
+        assert lateral.get("mode_1_critical_rpm", lateral.get("critical_rpm", 0)) > 10
+        # Should have full analysis keys
+        assert "summary" in result
+        assert "vibration_map" in result
+
     def test_near_resonance_generates_alert(self, engine):
         """Operating near axial critical RPM should trigger an alert."""
         # First, find the axial critical RPM for the default BHA
@@ -472,3 +582,352 @@ class TestFullVibrationAnalysis:
         )
         alert_text = " ".join(result["alerts"])
         assert "axial" in alert_text.lower() or "resonance" in alert_text.lower() or len(result["alerts"]) > 0
+
+
+# ===========================================================================
+# 8. REGRESSION TESTS (AUDIT-IDENTIFIED BUGS)
+# ===========================================================================
+class TestRegressionAuditFixes:
+    """Regression tests ensuring audit-identified bugs stay fixed."""
+
+    def test_lateral_rpm_never_below_30(self, engine):
+        """Lateral RPM must never be below 30 for any reasonable BHA."""
+        for length in [100, 200, 300, 500]:
+            result = engine.calculate_critical_rpm_lateral(
+                bha_length_ft=length, bha_od_in=6.75, bha_id_in=2.813,
+                bha_weight_lbft=83.0, hole_diameter_in=8.5,
+            )
+            assert result["critical_rpm"] >= 30, f"L={length}: RPM={result['critical_rpm']}"
+
+    def test_map_range_exceeds_threshold(self, engine):
+        """Stability map must discriminate -- range > 5 points (was 2.7 with bug)."""
+        result = engine.generate_vibration_map(
+            bit_diameter_in=8.5, bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300, hole_diameter_in=8.5,
+        )
+        scores = [pt["stability_index"] for pt in result["map_data"]]
+        assert max(scores) - min(scores) > 5
+
+    def test_mse_efficiency_not_hardcoded(self, engine):
+        """Efficiency must NOT be hard-coded 35%. Must vary with inputs or be None."""
+        r1 = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5, ucs_psi=5000)
+        r2 = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5, ucs_psi=50000)
+        assert r1["efficiency_pct"] != r2["efficiency_pct"]
+
+    def test_mse_efficiency_none_without_ucs(self, engine):
+        """Without UCS, efficiency must be None."""
+        result = engine.calculate_mse(wob_klb=20, torque_ftlb=10000, rpm=120, rop_fph=50, bit_diameter_in=8.5)
+        assert result["efficiency_pct"] is None
+
+    def test_friction_torque_not_r_over_3(self, engine):
+        """Friction torque must use 2R/3, not R/3."""
+        # Use low RPM so Stribeck friction ≈ static friction
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=1, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5, bha_length_ft=300,
+            bha_od_in=6.75, bha_id_in=2.813, friction_factor=0.25,
+        )
+        # R/3 gives ~590, 2R/3 gives ~1181
+        assert result["friction_torque_ftlb"] > 900
+
+
+# ===========================================================================
+# 9. STICK-SLIP WITH DRILL PIPE (COMPOSITE SPRING MODEL)
+# ===========================================================================
+class TestStickSlipWithDrillPipe:
+    """Tests for stick-slip with total drillstring depth (DP + BHA)."""
+
+    def test_deep_well_high_severity(self, engine):
+        """10,000 ft well at 60 RPM with 16,000 ft-lb torque must be Critical."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            mud_weight_ppg=10.0, friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert result["severity_index"] > 1.5, (
+            f"Expected Critical (>1.5), got {result['severity_index']}"
+        )
+        assert result["classification"] == "Critical"
+
+    def test_shallow_well_lower_severity(self, engine):
+        """Same params but at 1,000 ft should be less severe than 10,000 ft."""
+        shallow = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=1000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        deep = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert deep["severity_index"] > shallow["severity_index"]
+
+    def test_backward_compat_no_depth(self, engine):
+        """Without total_depth_ft, behavior should be the same as before (BHA-only)."""
+        old_result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+        )
+        assert "severity_index" in old_result
+        assert old_result["severity_index"] >= 0
+
+    def test_bit_stall_rpm_zero_at_critical(self, engine):
+        """At Critical severity, bit minimum RPM should be 0 (full stall)."""
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=10000,
+            dp_od_in=5.0, dp_id_in=4.276,
+        )
+        assert result["rpm_min_at_bit"] == 0, (
+            f"Bit should stall (0 RPM), got {result['rpm_min_at_bit']}"
+        )
+
+
+# ===========================================================================
+# 10. HEATMAP MSE INTEGRATION TESTS
+# ===========================================================================
+class TestHeatmapWithMSE:
+    """Tests that heatmap correctly penalizes inefficient MSE zones."""
+
+    def test_hard_rock_high_mse_not_green(self, engine):
+        """With 28,000 psi limestone, high MSE zones must NOT be Stable/green."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=16000, rop_base_fph=18,
+            ucs_psi=28000,
+        )
+        # Find cells with high MSE (>200,000 psi)
+        high_mse_cells = [
+            p for p in vib_map["map_data"]
+            if p["mse_psi"] > 200000
+        ]
+        # None of them should be "Stable"
+        stable_high_mse = [p for p in high_mse_cells if p["status"] == "Stable"]
+        assert len(stable_high_mse) == 0, (
+            f"{len(stable_high_mse)} cells are 'Stable' despite MSE>{200000} psi"
+        )
+
+    def test_mse_weight_is_significant(self, engine):
+        """MSE weight should be at least 0.25 in the stability formula."""
+        axial = {"critical_rpm_1st": 500}
+        lateral = {"critical_rpm": 400}
+        stick_slip = {"severity_index": 0.1}  # Mild
+        # Very high MSE
+        mse_bad = {"mse_total_psi": 400000, "efficiency_pct": 5.0, "classification": "Highly Inefficient"}
+        mse_good = {"mse_total_psi": 15000, "efficiency_pct": 90.0, "classification": "Efficient"}
+
+        stab_bad = engine.calculate_stability_index(axial, lateral, stick_slip, mse_bad, 120)
+        stab_good = engine.calculate_stability_index(axial, lateral, stick_slip, mse_good, 120)
+
+        # Bad MSE should significantly reduce stability (at least 15 points)
+        diff = stab_good["stability_index"] - stab_bad["stability_index"]
+        assert diff >= 15, f"MSE impact too small: only {diff:.1f} points difference"
+
+    def test_ucs_affects_mse_scoring(self, engine):
+        """When UCS is provided, MSE score should use efficiency, not absolute thresholds."""
+        axial = {"critical_rpm_1st": 500}
+        lateral = {"critical_rpm": 400}
+        stick_slip = {"severity_index": 0.1}
+        # MSE = 50,000 psi with UCS = 5,000 (10% efficiency = terrible)
+        mse_low_eff = {"mse_total_psi": 50000, "efficiency_pct": 10.0, "classification": "Highly Inefficient"}
+        # MSE = 50,000 psi with UCS = 45,000 (90% efficiency = great)
+        mse_high_eff = {"mse_total_psi": 50000, "efficiency_pct": 90.0, "classification": "Efficient"}
+
+        stab_low = engine.calculate_stability_index(axial, lateral, stick_slip, mse_low_eff, 120)
+        stab_high = engine.calculate_stability_index(axial, lateral, stick_slip, mse_high_eff, 120)
+
+        assert stab_high["stability_index"] > stab_low["stability_index"]
+
+
+# ===========================================================================
+# 11. OPTIMAL POINT WOB CONSTRAINT TESTS
+# ===========================================================================
+class TestOptimalPointConstraint:
+    """Tests that optimal WOB respects UCS-based minimum constraint."""
+
+    def test_hard_rock_wob_not_too_low(self, engine):
+        """For 28,000 psi limestone, optimal WOB must be >= 15 klb."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=16000, rop_base_fph=18,
+            ucs_psi=28000,
+        )
+        assert vib_map["optimal_point"]["wob"] >= 15, (
+            f"Optimal WOB {vib_map['optimal_point']['wob']} klb is too low for 28,000 psi rock"
+        )
+
+    def test_soft_rock_allows_low_wob(self, engine):
+        """For soft shale (5,000 psi), low WOB should be acceptable."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            torque_base_ftlb=8000, rop_base_fph=80,
+            ucs_psi=5000,
+        )
+        # Soft rock: WOB_min ≈ 5000 * 72.25 / 1,300,000 ≈ 2.8 klb
+        # So WOB=5 is physically fine
+        assert vib_map["optimal_point"]["wob"] >= 5
+
+    def test_no_ucs_no_constraint(self, engine):
+        """Without UCS, the optimizer should work as before (no constraint)."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+        )
+        assert vib_map["optimal_point"]["wob"] > 0
+        assert vib_map["optimal_point"]["rpm"] > 0
+
+    def test_optimal_includes_wob_min(self, engine):
+        """Result should report the minimum WOB constraint when UCS is provided."""
+        vib_map = engine.generate_vibration_map(
+            bit_diameter_in=8.5,
+            bha_od_in=6.75, bha_id_in=2.813,
+            bha_weight_lbft=83.0, bha_length_ft=300,
+            hole_diameter_in=8.5, mud_weight_ppg=10.0,
+            ucs_psi=28000,
+        )
+        assert "wob_min_klb" in vib_map["optimal_point"]
+        assert vib_map["optimal_point"]["wob_min_klb"] > 0
+
+
+# ===========================================================================
+# 12. STICK-SLIP WITH BHA COMPONENTS TABLE
+# ===========================================================================
+class TestStickSlipWithBHAComponents:
+    """Tests for stick-slip using detailed bha_components from BHA Editor."""
+
+    def test_long_dp_from_bha_table_is_critical(self, engine):
+        """14,665 ft DP in BHA table must produce Critical stick-slip (>1.5)."""
+        components = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 60, "weight_ppf": 83},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=components,
+        )
+        assert result["severity_index"] > 1.5, (
+            f"Expected Critical (>1.5), got {result['severity_index']}"
+        )
+        assert result["classification"] == "Critical"
+
+    def test_bha_components_overrides_total_depth(self, engine):
+        """bha_components takes priority over total_depth_ft."""
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14665, "weight_ppf": 19.5},
+        ]
+        # Pass both: bha_components (15k ft) and total_depth_ft (1000 ft)
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            total_depth_ft=1000,  # Short depth — should be overridden
+            bha_components=components,
+        )
+        # Should be Critical (using 15k ft from components, not 1000 ft)
+        assert result["severity_index"] > 1.5
+
+    def test_short_bha_only_is_mild(self, engine):
+        """BHA-only (no DP) at 120 RPM should be Mild."""
+        components = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 150, "weight_ppf": 83},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 150, "weight_ppf": 83},
+        ]
+        result = engine.calculate_stick_slip_severity(
+            surface_rpm=120, wob_klb=20, torque_ftlb=12000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=components,
+        )
+        assert result["classification"] == "Mild"
+
+    def test_more_components_lower_stiffness(self, engine):
+        """Adding DP to BHA must reduce K_eq (lower stiffness → higher severity)."""
+        bha_only = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+        ]
+        bha_plus_dp = [
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 300, "weight_ppf": 83},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 9700, "weight_ppf": 19.5},
+        ]
+        result_short = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=bha_only,
+        )
+        result_long = engine.calculate_stick_slip_severity(
+            surface_rpm=60, wob_klb=35, torque_ftlb=16000,
+            bit_diameter_in=8.5,
+            bha_length_ft=300, bha_od_in=6.75, bha_id_in=2.813,
+            friction_factor=0.25,
+            bha_components=bha_plus_dp,
+        )
+        assert result_long["severity_index"] > result_short["severity_index"]
+        assert result_long["torsional_stiffness_inlb_rad"] < result_short["torsional_stiffness_inlb_rad"]
+
+    def test_stick_slip_15000ft_vs_no_bha_components(self, engine):
+        """Proves stick-slip function DOES use bha_components when passed.
+
+        Without bha_components: falls to BHA-only fallback → Mild (~0.05-0.1)
+        With bha_components (15,000 ft): K_eq drops drastically → Critical (>>1.0)
+        """
+        common = dict(
+            surface_rpm=60, wob_klb=25, torque_ftlb=16000,
+            bit_diameter_in=8.5, bha_length_ft=300,
+            bha_od_in=6.75, bha_id_in=2.813, friction_factor=0.25,
+        )
+        # Without bha_components — BHA-only fallback
+        result_no_bha = engine.calculate_stick_slip_severity(**common)
+        assert result_no_bha["classification"] == "Mild"
+
+        # With bha_components including 14,670 ft of DP
+        bha = [
+            {"type": "collar", "od": 8.0, "id_inner": 2.813, "length_ft": 30, "weight_ppf": 147},
+            {"type": "collar", "od": 6.75, "id_inner": 2.813, "length_ft": 120, "weight_ppf": 83},
+            {"type": "hwdp", "od": 5.0, "id_inner": 3.0, "length_ft": 90, "weight_ppf": 49.3},
+            {"type": "dp", "od": 5.0, "id_inner": 4.276, "length_ft": 14670, "weight_ppf": 19.5},
+        ]
+        result_with_bha = engine.calculate_stick_slip_severity(
+            **common, bha_components=bha,
+        )
+        assert result_with_bha["severity_index"] > 1.0, (
+            f"With 15,000 ft string, severity should be Critical, got {result_with_bha['severity_index']}"
+        )
+        assert result_with_bha["classification"] in ("Severe", "Critical")

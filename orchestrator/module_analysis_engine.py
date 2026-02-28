@@ -37,6 +37,8 @@ METRIC_LABELS = {
         "Selected Grade": "Selected Grade", "SF Burst": "SF Burst",
         "SF Collapse": "SF Collapse", "SF Tension": "SF Tension",
         "Triaxial Status": "Triaxial Status", "Overall Status": "Overall Status",
+        "Governing Burst": "Governing Burst", "Governing Collapse": "Governing Collapse",
+        "Temp Derate": "Temp Derate",
     },
     "es": {
         "Hookload": "Carga en Gancho", "Torque": "Torque", "Max Side Force": "Fuerza Lateral Máx",
@@ -61,6 +63,8 @@ METRIC_LABELS = {
         "Selected Grade": "Grado Seleccionado", "SF Burst": "FS Estallido",
         "SF Collapse": "FS Colapso", "SF Tension": "FS Tensión",
         "Triaxial Status": "Estado Triaxial", "Overall Status": "Estado General",
+        "Governing Burst": "Burst Gobernante", "Governing Collapse": "Collapse Gobernante",
+        "Temp Derate": "Factor Temp.",
     },
 }
 
@@ -87,70 +91,70 @@ class ModuleAnalysisEngine:
     async def analyze_torque_drag(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze T&D results using well_engineer agent."""
         problem = self._build_td_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "torque_drag", result_data, well_name, language, provider)
 
     async def analyze_hydraulics(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Hydraulics/ECD results using mud_engineer agent."""
         problem = self._build_hyd_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("mud_engineer", problem, context, provider=provider)
         return self._package(analysis, "hydraulics", result_data, well_name, language, provider)
 
     async def analyze_stuck_pipe(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Stuck Pipe results using drilling_engineer agent."""
         problem = self._build_sp_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("drilling_engineer", problem, context, provider=provider)
         return self._package(analysis, "stuck_pipe", result_data, well_name, language, provider)
 
     async def analyze_well_control(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Well Control results using drilling_engineer agent."""
         problem = self._build_wc_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("drilling_engineer", problem, context, provider=provider)
         return self._package(analysis, "well_control", result_data, well_name, language, provider)
 
     async def analyze_wellbore_cleanup(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Wellbore Cleanup results using mud_engineer agent."""
         problem = self._build_cu_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("mud_engineer", problem, context, provider=provider)
         return self._package(analysis, "wellbore_cleanup", result_data, well_name, language, provider)
 
     async def analyze_packer_forces(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Packer Forces results using well_engineer agent."""
         problem = self._build_pf_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "packer_forces", result_data, well_name, language, provider)
 
     async def analyze_workover_hydraulics(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Workover Hydraulics results using well_engineer agent."""
         problem = self._build_wh_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "workover_hydraulics", result_data, well_name, language, provider)
 
     async def analyze_sand_control(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Sand Control results using well_engineer agent."""
         problem = self._build_sc_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "sand_control", result_data, well_name, language, provider)
 
     async def analyze_cementing(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Cementing results using cementing_engineer agent."""
         problem = self._build_cem_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("cementing_engineer", problem, context, provider=provider)
         return self._package(analysis, "cementing", result_data, well_name, language, provider)
 
     async def analyze_casing_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Casing Design results using well_engineer agent."""
         problem = self._build_csg_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "casing_design", result_data, well_name, language, provider)
 
@@ -174,35 +178,35 @@ class ModuleAnalysisEngine:
 
         # Fallback: generic analysis using well_engineer
         problem = self._build_generic_problem(module, result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, module, result_data, well_name, language, provider)
 
     async def analyze_completion_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Completion Design results using well_engineer agent."""
+        """Analyze Completion Design results using completion_engineer agent."""
         problem = self._build_cd_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("completion_engineer", problem, context, provider=provider)
         return self._package(analysis, "completion_design", result_data, well_name, language, provider)
 
     async def analyze_shot_efficiency(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Shot Efficiency results using well_engineer agent."""
+        """Analyze Shot Efficiency results using completion_engineer agent."""
         problem = self._build_se_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("completion_engineer", problem, context, provider=provider)
         return self._package(analysis, "shot_efficiency", result_data, well_name, language, provider)
 
     async def analyze_vibrations(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Vibrations results using optimization_engineer agent."""
         problem = self._build_vb_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("optimization_engineer", problem, context, provider=provider)
         return self._package(analysis, "vibrations", result_data, well_name, language, provider)
 
     async def analyze_daily_report(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
         """Analyze Daily Drilling Report for operational efficiency, trends, and recommendations."""
         problem = self._build_ddr_problem(result_data, well_name, params, language)
-        context = {"well_data": {"name": well_name, **params}}
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "daily_report", result_data, well_name, language, provider)
 
@@ -585,23 +589,89 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
     def _build_csg_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
         summary = result_data.get("summary", {})
         alerts = summary.get("alerts", [])
-        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Casing Design Module — Well: {well_name}
+        burst_scenarios = result_data.get("burst_scenarios", {})
+        collapse_scenarios = result_data.get("collapse_scenarios", {})
+        wear_data = result_data.get("wear_allowance", {})
+        connection = result_data.get("connection_check", {})
+        biaxial = result_data.get("biaxial_correction", {})
+        triaxial = result_data.get("triaxial_vme", {})
 
-Casing: {params.get('casing_od_in', 'N/A')}" OD, {params.get('casing_weight_ppf', 'N/A')} ppf
-TVD: {params.get('tvd_ft', 'N/A')} ft | MW: {params.get('mud_weight_ppg', 'N/A')} ppg
+        # Build scenario summary table
+        burst_lines = ""
+        for name, sc in burst_scenarios.get("scenarios", {}).items():
+            gov = " << GOVERNING" if name == burst_scenarios.get("governing_scenario") else ""
+            burst_lines += f"  {name}: {sc.get('max_burst_psi', 'N/A')} psi{gov}\n"
 
-LOADS:
-- Max Burst: {summary.get('max_burst_load_psi', 'N/A')} psi
-- Max Collapse: {summary.get('max_collapse_load_psi', 'N/A')} psi
-- Total Tension: {summary.get('total_tension_lbs', 'N/A')} lbs
+        collapse_lines = ""
+        for name, sc in collapse_scenarios.get("scenarios", {}).items():
+            gov = " << GOVERNING" if name == collapse_scenarios.get("governing_scenario") else ""
+            collapse_lines += f"  {name}: {sc.get('max_collapse_psi', 'N/A')} psi{gov}\n"
 
-RATINGS ({summary.get('selected_grade', 'N/A')}):
-- Burst: {summary.get('burst_rating_psi', 'N/A')} psi | SF: {summary.get('sf_burst', 'N/A')}
-- Collapse: {summary.get('collapse_rating_psi', 'N/A')} psi ({summary.get('collapse_zone', 'N/A')}) | SF: {summary.get('sf_collapse', 'N/A')}
-- Tension: {summary.get('tension_rating_lbs', 'N/A')} lbs | SF: {summary.get('sf_tension', 'N/A')}
+        # Wear/corrosion summary
+        wear_status = "Not applied"
+        if wear_data and wear_data.get("remaining_wall_pct", 100) < 100:
+            wear_status = (f"Remaining wall: {wear_data.get('remaining_wall_pct', 100):.1f}% "
+                           f"({wear_data.get('remaining_wall_in', 'N/A')}\")\n"
+                           f"  Wear loss: {wear_data.get('wear_loss_in', 0):.4f}\" | "
+                           f"Corrosion loss: {wear_data.get('corrosion_loss_in', 0):.4f}\"\n"
+                           f"  Burst reduction: {wear_data.get('burst_reduction_pct', 0):.1f}% | "
+                           f"Collapse reduction: {wear_data.get('collapse_reduction_pct', 0):.1f}%")
 
-TRIAXIAL VME: {summary.get('triaxial_status', 'N/A')} (Utilization: {summary.get('triaxial_utilization_pct', 'N/A')}%)
-OVERALL: {summary.get('overall_status', 'N/A')}
+        # Connection summary
+        conn_status = "Not evaluated"
+        if connection:
+            conn_status = (f"Type: {connection.get('connection_type', 'N/A')} | "
+                           f"Status: {connection.get('status', 'N/A')}\n"
+                           f"  Tension eff: {connection.get('tension_efficiency', 'N/A')} | "
+                           f"Weak link: {connection.get('weak_link_pct', 'N/A')}%")
+
+        # Temperature derating
+        temp_status = f"Derate factor: {summary.get('temp_derate_factor', 1.0):.3f}"
+        if summary.get('temp_derate_factor', 1.0) < 1.0:
+            temp_status += f" | Effective yield: {summary.get('effective_yield_psi', 'N/A')} psi (at {params.get('bottomhole_temp_f', 'N/A')} F)"
+
+        return f"""{self._get_language_prefix(language)}COMPREHENSIVE CASING DESIGN ENGINEERING REPORT — Well: {well_name}
+
+Generate a formal engineering report with numbered sections covering:
+1. Executive Summary (pass/fail, critical findings)
+2. Design Basis (casing specs, well conditions, design factors)
+3. Load Analysis (all burst and collapse scenarios, governing loads)
+4. Strength Analysis (ratings, biaxial/triaxial corrections, safety factors)
+5. Connection Integrity
+6. Wear & Corrosion Assessment
+7. Temperature Effects
+8. Recommendations & Action Items
+
+CASING SPECIFICATION:
+  {params.get('casing_od_in', 'N/A')}" OD x {params.get('casing_weight_ppf', 'N/A')} ppf | Grade: {summary.get('selected_grade', 'N/A')}
+  ID: {params.get('casing_id_in', 'N/A')}" | Wall: {params.get('wall_thickness_in', 'N/A')}"
+
+WELL CONDITIONS:
+  TVD: {params.get('tvd_ft', 'N/A')} ft | MW: {params.get('mud_weight_ppg', 'N/A')} ppg | Pp: {params.get('pore_pressure_ppg', 'N/A')} ppg
+  Cement TOC: {params.get('cement_top_tvd_ft', 'N/A')} ft | BHT: {params.get('bottomhole_temp_f', 'N/A')} F
+  Evacuation: {summary.get('governing_collapse_scenario', 'N/A')}
+
+BURST SCENARIOS:
+{burst_lines or '  No scenarios computed'}
+  Governing burst: {burst_scenarios.get('governing_burst_psi', 'N/A')} psi
+
+COLLAPSE SCENARIOS:
+{collapse_lines or '  No scenarios computed'}
+  Governing collapse: {collapse_scenarios.get('governing_collapse_psi', 'N/A')} psi
+
+DESIGN LOADS vs RATINGS:
+  Burst:    Load={summary.get('max_burst_load_psi', 'N/A')} psi | Rating={summary.get('burst_rating_psi', 'N/A')} psi | SF={summary.get('sf_burst', 'N/A')} (min {params.get('sf_burst', 1.10)})
+  Collapse: Load={summary.get('max_collapse_load_psi', 'N/A')} psi | Rating={summary.get('collapse_rating_psi', 'N/A')} psi ({summary.get('collapse_zone', 'N/A')}) | SF={summary.get('sf_collapse', 'N/A')} (min {params.get('sf_collapse', 1.00)})
+  Tension:  Load={summary.get('total_tension_lbs', 'N/A')} lbs | Rating={summary.get('tension_rating_lbs', 'N/A')} lbs | SF={summary.get('sf_tension', 'N/A')} (min {params.get('sf_tension', 1.60)})
+
+BIAXIAL CORRECTION: {biaxial.get('status', 'N/A')} — Corrected collapse: {biaxial.get('corrected_collapse_psi', 'N/A')} psi (reduction: {biaxial.get('reduction_pct', 0):.1f}%)
+TRIAXIAL VME: {triaxial.get('status', 'N/A')} — Utilization: {triaxial.get('utilization_pct', 'N/A')}%
+
+CONNECTION: {conn_status}
+WEAR & CORROSION: {wear_status}
+TEMPERATURE: {temp_status}
+
+OVERALL DESIGN STATUS: {summary.get('overall_status', 'N/A')}
 
 ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
@@ -781,12 +851,17 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
         elif module == "casing_design":
             summary = result_data.get("summary", {})
+            burst_sc = result_data.get("burst_scenarios", {})
+            collapse_sc = result_data.get("collapse_scenarios", {})
             return [
                 {"label": self._ml("Selected Grade", language), "value": summary.get("selected_grade", "N/A"), "unit": ""},
                 {"label": self._ml("SF Burst", language), "value": summary.get("sf_burst", 0), "unit": ""},
                 {"label": self._ml("SF Collapse", language), "value": summary.get("sf_collapse", 0), "unit": ""},
                 {"label": self._ml("SF Tension", language), "value": summary.get("sf_tension", 0), "unit": ""},
+                {"label": self._ml("Governing Burst", language), "value": burst_sc.get("governing_scenario", "N/A"), "unit": ""},
+                {"label": self._ml("Governing Collapse", language), "value": collapse_sc.get("governing_scenario", "N/A"), "unit": ""},
                 {"label": self._ml("Triaxial Status", language), "value": summary.get("triaxial_status", "N/A"), "unit": ""},
+                {"label": self._ml("Temp Derate", language), "value": summary.get("temp_derate_factor", 1.0), "unit": ""},
                 {"label": self._ml("Overall Status", language), "value": summary.get("overall_status", "N/A"), "unit": ""},
             ]
 

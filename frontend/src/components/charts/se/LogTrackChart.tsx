@@ -1,5 +1,6 @@
 /**
- * LogTrackChart.tsx — Multi-curve log display (GR, Porosity, Sw, Vsh vs depth).
+ * LogTrackChart.tsx — Multi-curve vertical log display (GR, Porosity, Sw, Vsh vs depth).
+ * Industry-standard orientation: depth on Y-axis increasing downward, curves plotted horizontally.
  */
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
@@ -15,7 +16,7 @@ interface LogTrackChartProps {
   height?: number;
 }
 
-const LogTrackChart: React.FC<LogTrackChartProps> = ({ processedLogs, cutoffs, height = 420 }) => {
+const LogTrackChart: React.FC<LogTrackChartProps> = ({ processedLogs, cutoffs, height = 600 }) => {
   if (!processedLogs?.length) return null;
 
   const data = processedLogs.map(d => ({
@@ -27,28 +28,28 @@ const LogTrackChart: React.FC<LogTrackChartProps> = ({ processedLogs, cutoffs, h
 
   return (
     <ChartContainer
-      title="Log Track — φ, Sw, Vsh vs Profundidad"
+      title="Log Track Vertical — φ, Sw, Vsh vs Profundidad"
       icon={BarChart3}
       height={height}
       badge={{ text: `${processedLogs.length} pts`, color: 'bg-blue-500/20 text-blue-400' }}
     >
-      <LineChart data={data} margin={{ ...CHART_DEFAULTS.margin, left: 5, bottom: 30 }}>
+      <LineChart layout="vertical" data={data} margin={{ ...CHART_DEFAULTS.margin, left: 5, bottom: 30 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />
-        <XAxis dataKey="depth" stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 10 }}
-          label={{ value: 'MD (ft)', position: 'bottom', fill: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
-        <YAxis stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 10 }}
+        <YAxis type="category" dataKey="depth" reversed stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 10 }}
+          label={{ value: 'MD (ft)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
+        <XAxis type="number" stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 10 }}
           domain={[0, 100]}
-          label={{ value: '%', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
+          label={{ value: '%', position: 'bottom', fill: CHART_DEFAULTS.axisColor, fontSize: 11 }} />
         <Tooltip content={<DarkTooltip />} />
         <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
         {cutoffs && (
           <>
-            <ReferenceLine y={cutoffs.phi_min * 100} stroke="#22c55e" strokeDasharray="4 4"
-              label={{ value: `φ min ${cutoffs.phi_min * 100}%`, fill: '#22c55e', fontSize: 9, position: 'right' }} />
-            <ReferenceLine y={cutoffs.sw_max * 100} stroke="#3b82f6" strokeDasharray="4 4"
-              label={{ value: `Sw max ${cutoffs.sw_max * 100}%`, fill: '#3b82f6', fontSize: 9, position: 'right' }} />
-            <ReferenceLine y={cutoffs.vsh_max * 100} stroke="#f97316" strokeDasharray="4 4"
-              label={{ value: `Vsh max ${cutoffs.vsh_max * 100}%`, fill: '#f97316', fontSize: 9, position: 'right' }} />
+            <ReferenceLine x={cutoffs.phi_min * 100} stroke="#22c55e" strokeDasharray="4 4"
+              label={{ value: `φ min ${cutoffs.phi_min * 100}%`, fill: '#22c55e', fontSize: 9, position: 'top' }} />
+            <ReferenceLine x={cutoffs.sw_max * 100} stroke="#3b82f6" strokeDasharray="4 4"
+              label={{ value: `Sw max ${cutoffs.sw_max * 100}%`, fill: '#3b82f6', fontSize: 9, position: 'top' }} />
+            <ReferenceLine x={cutoffs.vsh_max * 100} stroke="#f97316" strokeDasharray="4 4"
+              label={{ value: `Vsh max ${cutoffs.vsh_max * 100}%`, fill: '#f97316', fontSize: 9, position: 'top' }} />
           </>
         )}
         <Line type="monotone" dataKey="phi" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} name="φ %" />

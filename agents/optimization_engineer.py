@@ -117,14 +117,16 @@ class OptimizationEngineerAgent(BaseAgent):
 
         # MSE check
         mse = current.get("mse", {})
-        if mse.get("is_founder_point", False):
+        mse_total = mse.get("mse_total_psi", 0) or 0
+        mse_eff = mse.get("efficiency_pct") or 0
+        if mse_total > 100000:
             recommendations.append(
-                "⚠️ Punto de founder detectado: MSE excesivo. "
+                "⚠️ MSE excesivo: posible founder point. "
                 "Reducir WOB y/o cambiar broca."
             )
-        elif mse.get("efficiency_pct", 100) < 30:
+        elif mse_eff > 0 and mse_eff < 30:
             recommendations.append(
-                f"MSE eficiencia baja ({mse['efficiency_pct']}%): "
+                f"MSE eficiencia baja ({mse_eff:.0f}%): "
                 f"verificar estado de la broca"
             )
 
@@ -141,8 +143,8 @@ class OptimizationEngineerAgent(BaseAgent):
 
         return {
             "current_stability_index": stability_now,
-            "current_mse_psi": mse.get("mse_total_psi", 0),
-            "current_mse_efficiency": mse.get("efficiency_pct", 0),
+            "current_mse_psi": mse_total,
+            "current_mse_efficiency": mse_eff,
             "optimal_wob_klb": opt_wob,
             "optimal_rpm": opt_rpm,
             "optimal_stability_score": optimal.get("score", 0),
@@ -271,14 +273,12 @@ class OptimizationEngineerAgent(BaseAgent):
         Returns:
             Dict with shot_efficiency, completion_design, synergy_summary
         """
-        engine_se = ShotEfficiencyEngine()
-
         # Step 1: Run shot efficiency
-        se_result = engine_se.calculate_full_shot_efficiency(
+        se_result = ShotEfficiencyEngine.calculate_full_shot_efficiency(
             log_entries,
             archie_params=archie_params,
             matrix_params=matrix_params,
-            cutoff_params=cutoff_params,
+            cutoffs=cutoff_params,
             perf_params=perf_params,
         )
 
@@ -377,9 +377,9 @@ class OptimizationEngineerAgent(BaseAgent):
             )
             mse_values.append({
                 "depth_ft": pt.get("depth_ft", 0),
-                "mse_psi": result.get("mse_total_psi", 0),
-                "efficiency_pct": result.get("efficiency_pct", 0),
-                "is_founder": result.get("is_founder_point", False),
+                "mse_psi": result.get("mse_total_psi", 0) or 0,
+                "efficiency_pct": result.get("efficiency_pct") or 0,
+                "is_founder": (result.get("mse_total_psi", 0) or 0) > 100000,
             })
 
         # Linear regression for trend
@@ -456,10 +456,12 @@ class OptimizationEngineerAgent(BaseAgent):
             "Alto — posible daño a cortadores"
         )
 
+        mse_eff = mse.get("efficiency_pct") or 0
+        mse_total = mse.get("mse_total_psi", 0) or 0
         quick_recs = []
-        if mse.get("is_founder_point", False):
+        if mse_total > 100000:
             quick_recs.append("FOUNDER POINT: Reducir WOB inmediatamente")
-        if mse.get("efficiency_pct", 100) < 20:
+        if mse_eff > 0 and mse_eff < 20:
             quick_recs.append("Eficiencia crítica: verificar broca y formación")
         if doc_in_per_rev < 0.01:
             quick_recs.append("DOC muy bajo: aumentar WOB o reducir RPM")
@@ -467,12 +469,12 @@ class OptimizationEngineerAgent(BaseAgent):
             quick_recs.append("✅ Parámetros dentro de rango aceptable")
 
         return {
-            "mse_total_psi": mse.get("mse_total_psi", 0),
-            "mse_efficiency_pct": mse.get("efficiency_pct", 0),
-            "is_founder_point": mse.get("is_founder_point", False),
+            "mse_total_psi": mse_total,
+            "mse_efficiency_pct": mse_eff,
+            "is_founder_point": mse_total > 100000,
             "doc_in_per_rev": round(doc_in_per_rev, 4),
             "doc_status": doc_status,
-            "status": "OK" if not mse.get("is_founder_point") and mse.get("efficiency_pct", 0) > 20 else "WARNING",
+            "status": "OK" if mse_total <= 100000 and (mse_eff == 0 or mse_eff > 20) else "WARNING",
             "quick_recommendations": quick_recs,
         }
 
@@ -523,7 +525,7 @@ class OptimizationEngineerAgent(BaseAgent):
             f"DATOS DEL MOTOR DE CÁLCULO:\n"
             f"- Estabilidad actual: {engine_data['current_stability_index']:.1f}/100\n"
             f"- MSE: {engine_data['current_mse_psi']:.0f} psi "
-            f"(eficiencia: {engine_data['current_mse_efficiency']:.0f}%)\n"
+            f"(eficiencia: {engine_data['current_mse_efficiency'] or 'N/A'}%)\n"
             f"- Stick-Slip: {engine_data['stick_slip_class']} "
             f"(severidad: {engine_data['stick_slip_severity']:.2f})\n"
             f"- Punto óptimo: WOB={engine_data['optimal_wob_klb']:.0f} klb, "

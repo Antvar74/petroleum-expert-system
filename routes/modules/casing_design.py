@@ -19,6 +19,23 @@ router = APIRouter(tags=["casing-design"])
 module_analyzer = ModuleAnalysisEngine()
 
 
+@router.get("/casing-design/catalog")
+async def list_catalog_ods():
+    """List all available casing OD sizes in the catalog."""
+    from orchestrator.casing_design_engine.constants import CASING_CATALOG
+    ods = sorted([float(k) for k in CASING_CATALOG.keys()])
+    return {"available_ods": ods, "count": len(ods)}
+
+
+@router.get("/casing-design/catalog/{od_in}")
+async def get_catalog_by_od(od_in: float, grade: str = None):
+    """Get all casing options for a specific OD, optionally filtered by grade."""
+    result = CasingDesignEngine.lookup_casing_catalog(od_in, grade_filter=grade)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
 @router.post("/wells/{well_id}/casing-design")
 def calculate_casing_design(well_id: int, data: CasingDesignCalculateRequest, db: Session = Depends(get_db)):
     """Run casing design calculations."""
@@ -44,6 +61,16 @@ def calculate_casing_design(well_id: int, data: CasingDesignCalculateRequest, db
         sf_burst=data.sf_burst,
         sf_collapse=data.sf_collapse,
         sf_tension=data.sf_tension,
+        connection_type=data.connection_type,
+        wear_pct=data.wear_pct,
+        corrosion_rate_in_yr=data.corrosion_rate_in_yr,
+        design_life_years=data.design_life_years,
+        bottomhole_temp_f=data.bottomhole_temp_f,
+        tubing_pressure_psi=data.tubing_pressure_psi,
+        internal_fluid_density_ppg=data.internal_fluid_density_ppg,
+        evacuation_level_ft=data.evacuation_level_ft,
+        h2s_partial_pressure_psi=data.h2s_partial_pressure_psi,
+        co2_partial_pressure_psi=data.co2_partial_pressure_psi,
     )
 
     csg_result = CasingDesignResult(
