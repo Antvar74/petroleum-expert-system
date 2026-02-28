@@ -380,6 +380,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <GradeSelectionTable gradeSelection={result.grade_selection} />
             </div>
 
+            {/* Multi-Scenario Envelope */}
+            <ScenarioEnvelope
+              burstScenarios={result.burst_scenarios}
+              collapseScenarios={result.collapse_scenarios}
+              burstRating={result.summary?.burst_rating_psi || 0}
+              collapseRating={result.biaxial_correction?.corrected_collapse_psi || result.summary?.collapse_rating_psi || 0}
+            />
+
             {/* SF vs Depth Chart */}
             {result?.sf_vs_depth && (
               <SFvsDepthChart
