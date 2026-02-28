@@ -9,6 +9,8 @@ import BiaxialEllipse from './charts/csg/BiaxialEllipse';
 import CasingProgramSchematic from './charts/csg/CasingProgramSchematic';
 import GradeSelectionTable from './charts/csg/GradeSelectionTable';
 import SFvsDepthChart from './charts/csg/SFvsDepthChart';
+import ScenarioEnvelope from './charts/csg/ScenarioEnvelope';
+import CasingCatalogSelector from './CasingCatalogSelector';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -60,6 +62,16 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     setParams(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleCatalogSelect = (entry: { od: number; id: number; wall: number; weight: number }) => {
+    setParams(prev => ({
+      ...prev,
+      casing_od_in: entry.od,
+      casing_id_in: entry.id,
+      wall_thickness_in: entry.wall,
+      casing_weight_ppf: entry.weight,
+    }));
+  };
+
   const calculate = useCallback(async () => {
     setLoading(true);
     try {
@@ -105,6 +117,11 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
         {activeTab === 'input' && (
           <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6">
+              <CasingCatalogSelector
+                onSelect={handleCatalogSelect}
+                currentOd={params.casing_od_in}
+              />
+
               <div>
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.casing')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
