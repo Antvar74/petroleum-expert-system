@@ -93,6 +93,7 @@ def calculate_collapse_load(
     cement_top_tvd_ft: float = 0.0,
     cement_density_ppg: float = 16.0,
     evacuation_level_ft: float = 0.0,
+    internal_fluid_density_ppg: float = 0.0,
     num_points: int = 20,
 ) -> Dict[str, Any]:
     """
@@ -121,6 +122,9 @@ def calculate_collapse_load(
     else:
         effective_evac = evacuation_level_ft
 
+    # Resolve internal fluid density: 0 = use mud weight
+    int_fluid_ppg = internal_fluid_density_ppg if internal_fluid_density_ppg > 0 else mud_weight_ppg
+
     for i in range(num_points):
         depth = i * step
 
@@ -138,8 +142,8 @@ def calculate_collapse_load(
         if depth <= effective_evac:
             p_internal = 0.0  # empty above fluid level
         else:
-            # Below fluid level: mud weight inside
-            p_internal = mud_weight_ppg * 0.052 * (depth - effective_evac)
+            # Below fluid level: internal fluid inside
+            p_internal = int_fluid_ppg * 0.052 * (depth - effective_evac)
 
         collapse_load = p_external - p_internal
 

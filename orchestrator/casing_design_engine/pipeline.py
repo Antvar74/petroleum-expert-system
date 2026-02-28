@@ -92,6 +92,7 @@ def calculate_full_casing_design(
         pore_pressure_ppg=pore_pressure_ppg,
         cement_top_tvd_ft=cement_top_tvd_ft,
         cement_density_ppg=cement_density_ppg,
+        internal_fluid_density_ppg=internal_fluid_density_ppg,
     )
 
     # Single collapse with effective evacuation
@@ -101,6 +102,7 @@ def calculate_full_casing_design(
         cement_top_tvd_ft=cement_top_tvd_ft,
         cement_density_ppg=cement_density_ppg,
         evacuation_level_ft=effective_evacuation,
+        internal_fluid_density_ppg=internal_fluid_density_ppg,
     )
 
     # 3. Separated tension scenarios

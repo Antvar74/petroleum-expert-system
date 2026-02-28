@@ -140,6 +140,17 @@ class TestCollapseLoad:
         assert result["max_collapse_load_psi"] < 100
         assert "No Evacuation" in result["scenario"]
 
+    def test_internal_fluid_density_reduces_collapse(self, engine):
+        """Custom internal fluid density (lighter than mud) should increase collapse load."""
+        base = dict(tvd_ft=10000, mud_weight_ppg=13.0, pore_pressure_ppg=12.0,
+                    evacuation_level_ft=5000, cement_top_tvd_ft=0.0)
+        # With mud inside (default)
+        result_mud = engine.calculate_collapse_load(**base)
+        # With lighter brine inside (8.6 ppg)
+        result_brine = engine.calculate_collapse_load(**base, internal_fluid_density_ppg=8.6)
+        # Lighter fluid = higher collapse differential below fluid level
+        assert result_brine["max_collapse_load_psi"] > result_mud["max_collapse_load_psi"]
+
     def test_full_evacuation_scenario_label(self, engine, typical_well):
         """Full evacuation (evac=0 or evac=TVD) should be labeled 'Full Evacuation'."""
         result = engine.calculate_collapse_load(

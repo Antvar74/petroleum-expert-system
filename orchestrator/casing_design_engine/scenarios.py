@@ -135,6 +135,7 @@ def calculate_collapse_scenarios(
     partial_evacuation_ft: float = 0.0,
     depleted_pressure_ppg: float = 0.0,
     cement_slurry_density_ppg: float = 16.5,
+    internal_fluid_density_ppg: float = 0.0,
     num_points: int = 20,
 ) -> Dict[str, Any]:
     """
@@ -151,6 +152,9 @@ def calculate_collapse_scenarios(
 
     scenarios = {}
     step = tvd_ft / max(num_points - 1, 1)
+
+    # Resolve internal fluid density: 0 = use mud weight
+    int_fluid_ppg = internal_fluid_density_ppg if internal_fluid_density_ppg > 0 else mud_weight_ppg
 
     # External pressure helper
     def p_external(depth):
@@ -177,7 +181,7 @@ def calculate_collapse_scenarios(
     for i in range(num_points):
         d = i * step
         p_ext = p_external(d)
-        p_int = 0.0 if d <= evac_ft else mud_weight_ppg * 0.052 * (d - evac_ft)
+        p_int = 0.0 if d <= evac_ft else int_fluid_ppg * 0.052 * (d - evac_ft)
         profile_pe.append({"tvd_ft": round(d, 0), "collapse_load_psi": round(p_ext - p_int, 0)})
     scenarios["partial_evacuation"] = {
         "profile": profile_pe,
