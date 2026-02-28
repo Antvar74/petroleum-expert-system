@@ -278,10 +278,15 @@ def calculate_full_casing_design(
         sf_burst_min=sf_burst, sf_collapse_min=sf_collapse, sf_tension_min=sf_tension,
     )
 
-    # 14. SF vs depth profile
+    # 14. SF vs depth profile (use governing scenario profiles for consistency)
+    governing_burst_name = burst_scenarios.get("governing_scenario", "gas_to_surface")
+    governing_burst_profile = burst_scenarios.get("scenarios", {}).get(
+        governing_burst_name, {}
+    ).get("profile", [])
+
     sf_vs_depth = calculate_sf_vs_depth(
-        burst_profile=burst_load.get("profile", []),
-        collapse_profile=collapse_load.get("profile", []),
+        burst_profile=governing_burst_profile or burst_load.get("profile", []),
+        collapse_profile=governing_collapse_profile or collapse_load.get("profile", []),
         burst_rating_psi=burst_rating_design,
         collapse_rating_psi=effective_collapse_rating,
         tension_at_surface_lbs=total_tension,

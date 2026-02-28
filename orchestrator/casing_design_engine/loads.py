@@ -110,6 +110,12 @@ def calculate_collapse_load(
     profile = []
     step = tvd_ft / max(num_points - 1, 1)
 
+    # Resolve evacuation: 0 or negative means full evacuation (empty casing)
+    if evacuation_level_ft <= 0:
+        effective_evac = tvd_ft  # fluid level at TD = empty casing
+    else:
+        effective_evac = evacuation_level_ft
+
     for i in range(num_points):
         depth = i * step
 
@@ -123,11 +129,12 @@ def calculate_collapse_load(
             )
 
         # Internal pressure (evacuation scenario)
-        if depth <= evacuation_level_ft:
+        # fluid level = effective_evac: above it casing is empty, below it has mud
+        if depth <= effective_evac:
             p_internal = 0.0  # empty above fluid level
         else:
-            # Below evacuation level: mud weight inside
-            p_internal = mud_weight_ppg * 0.052 * (depth - evacuation_level_ft)
+            # Below fluid level: mud weight inside
+            p_internal = mud_weight_ppg * 0.052 * (depth - effective_evac)
 
         collapse_load = p_external - p_internal
 
@@ -145,7 +152,7 @@ def calculate_collapse_load(
         "profile": profile,
         "max_collapse_load_psi": round(max_collapse, 0),
         "max_collapse_depth_ft": round(max_collapse_depth, 0),
-        "scenario": "Full Evacuation" if evacuation_level_ft <= 0 else f"Partial Evacuation to {evacuation_level_ft} ft",
+        "scenario": "Full Evacuation" if effective_evac >= tvd_ft else f"Partial Evacuation to {effective_evac:.0f} ft",
     }
 
 
