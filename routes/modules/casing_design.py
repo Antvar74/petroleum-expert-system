@@ -19,6 +19,23 @@ router = APIRouter(tags=["casing-design"])
 module_analyzer = ModuleAnalysisEngine()
 
 
+@router.get("/casing-design/catalog")
+async def list_catalog_ods():
+    """List all available casing OD sizes in the catalog."""
+    from orchestrator.casing_design_engine.constants import CASING_CATALOG
+    ods = sorted([float(k) for k in CASING_CATALOG.keys()])
+    return {"available_ods": ods, "count": len(ods)}
+
+
+@router.get("/casing-design/catalog/{od_in}")
+async def get_catalog_by_od(od_in: float, grade: str = None):
+    """Get all casing options for a specific OD, optionally filtered by grade."""
+    result = CasingDesignEngine.lookup_casing_catalog(od_in, grade_filter=grade)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
 @router.post("/wells/{well_id}/casing-design")
 def calculate_casing_design(well_id: int, data: CasingDesignCalculateRequest, db: Session = Depends(get_db)):
     """Run casing design calculations."""
