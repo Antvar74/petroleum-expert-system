@@ -119,6 +119,236 @@ API_5C3_CASING_13375_68_N80 = {
     },
 }
 
+# ── Expanded API 5C3 benchmarks: all 7 catalog OD sizes ──────
+
+# 4-1/2" OD
+API_5C3_CASING_4500_9_J55 = {
+    "reference": "API TR 5C3, 4-1/2 9.5# J55 (D/t=21.95, Plastic)",
+    "description": "Burst and collapse for 4-1/2 inch J55 casing",
+    "od": 4.500,
+    "wall_thickness": 0.205,
+    "yield_psi": 55000,
+    "grade": "J55",
+    "expected": {
+        "burst_psi": {"value": 4385, "tolerance_pct": 2},
+        "collapse_psi": {"value": 3313, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_4500_13_P110 = {
+    "reference": "API TR 5C3, 4-1/2 13.5# P110 (D/t=15.52, Plastic)",
+    "description": "Burst and collapse for 4-1/2 inch P110 casing",
+    "od": 4.500,
+    "wall_thickness": 0.290,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 12406, "tolerance_pct": 2},
+        "collapse_psi": {"value": 10686, "tolerance_pct": 5},
+    },
+}
+
+# 5-1/2" OD
+API_5C3_CASING_5500_17_N80 = {
+    "reference": "API TR 5C3, 5-1/2 17# N80 (D/t=18.09, Plastic)",
+    "description": "Burst and collapse for 5-1/2 inch N80 casing",
+    "od": 5.500,
+    "wall_thickness": 0.304,
+    "yield_psi": 80000,
+    "grade": "N80",
+    "expected": {
+        "burst_psi": {"value": 7738, "tolerance_pct": 2},
+        "collapse_psi": {"value": 6285, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_5500_23_P110 = {
+    "reference": "API TR 5C3, 5-1/2 23# P110 (D/t=13.25, Plastic)",
+    "description": "Burst and collapse for 5-1/2 inch P110 casing",
+    "od": 5.500,
+    "wall_thickness": 0.415,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 14525, "tolerance_pct": 2},
+        "collapse_psi": {"value": 14539, "tolerance_pct": 5},
+    },
+}
+
+# 7" OD
+API_5C3_CASING_7_23_L80 = {
+    "reference": "API TR 5C3, 7 23# L80 (D/t=22.08, Plastic)",
+    "description": "Burst and collapse for 7 inch L80 casing",
+    "od": 7.000,
+    "wall_thickness": 0.317,
+    "yield_psi": 80000,
+    "grade": "L80",
+    "expected": {
+        "burst_psi": {"value": 6340, "tolerance_pct": 2},
+        "collapse_psi": {"value": 3832, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_7_26_N80 = {
+    "reference": "API TR 5C3, 7 26# N80 (D/t=19.34, Plastic)",
+    "description": "Burst and collapse for 7 inch N80 casing",
+    "od": 7.000,
+    "wall_thickness": 0.362,
+    "yield_psi": 80000,
+    "grade": "N80",
+    "expected": {
+        "burst_psi": {"value": 7240, "tolerance_pct": 2},
+        "collapse_psi": {"value": 5411, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_7_38_P110 = {
+    "reference": "API TR 5C3, 7 38# P110 (D/t=12.96, Plastic)",
+    "description": "Burst and collapse for 7 inch P110 casing",
+    "od": 7.000,
+    "wall_thickness": 0.540,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 14850, "tolerance_pct": 2},
+        "collapse_psi": {"value": 15129, "tolerance_pct": 5},
+    },
+}
+
+# 9-5/8" OD
+API_5C3_CASING_9625_40_J55 = {
+    "reference": "API TR 5C3, 9-5/8 40# J55 (D/t=24.37, Plastic)",
+    "description": "Burst and collapse for 9-5/8 inch J55 casing",
+    "od": 9.625,
+    "wall_thickness": 0.395,
+    "yield_psi": 55000,
+    "grade": "J55",
+    "expected": {
+        "burst_psi": {"value": 3950, "tolerance_pct": 2},
+        "collapse_psi": {"value": 2570, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_9625_43_N80 = {
+    "reference": "API TR 5C3, 9-5/8 43.5# N80 (D/t=22.13, Plastic)",
+    "description": "Burst and collapse for 9-5/8 inch N80 casing",
+    "od": 9.625,
+    "wall_thickness": 0.435,
+    "yield_psi": 80000,
+    "grade": "N80",
+    "expected": {
+        "burst_psi": {"value": 6327, "tolerance_pct": 2},
+        "collapse_psi": {"value": 3810, "tolerance_pct": 5},
+    },
+}
+
+# 10-3/4" OD
+API_5C3_CASING_10750_40_J55 = {
+    "reference": "API TR 5C3, 10-3/4 40.5# J55 (D/t=30.71, Transition)",
+    "description": "Burst and collapse for 10-3/4 inch J55 casing",
+    "od": 10.750,
+    "wall_thickness": 0.350,
+    "yield_psi": 55000,
+    "grade": "J55",
+    "expected": {
+        "burst_psi": {"value": 3134, "tolerance_pct": 2},
+        "collapse_psi": {"value": 1584, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_10750_51_N80 = {
+    "reference": "API TR 5C3, 10-3/4 51# N80 (D/t=23.89, Transition)",
+    "description": "Burst and collapse for 10-3/4 inch N80 casing",
+    "od": 10.750,
+    "wall_thickness": 0.450,
+    "yield_psi": 80000,
+    "grade": "N80",
+    "expected": {
+        "burst_psi": {"value": 5860, "tolerance_pct": 2},
+        "collapse_psi": {"value": 3217, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_10750_55_P110 = {
+    "reference": "API TR 5C3, 10-3/4 55.5# P110 (D/t=21.72, Transition)",
+    "description": "Burst and collapse for 10-3/4 inch P110 casing",
+    "od": 10.750,
+    "wall_thickness": 0.495,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 8864, "tolerance_pct": 2},
+        "collapse_psi": {"value": 4612, "tolerance_pct": 5},
+    },
+}
+
+# 13-3/8" OD
+API_5C3_CASING_13375_54_J55 = {
+    "reference": "API TR 5C3, 13-3/8 54.5# J55 (D/t=35.20, Transition)",
+    "description": "Burst and collapse for 13-3/8 inch J55 casing",
+    "od": 13.375,
+    "wall_thickness": 0.380,
+    "yield_psi": 55000,
+    "grade": "J55",
+    "expected": {
+        "burst_psi": {"value": 2735, "tolerance_pct": 2},
+        "collapse_psi": {"value": 1130, "tolerance_pct": 5},
+    },
+}
+
+API_5C3_CASING_13375_72_P110 = {
+    "reference": "API TR 5C3, 13-3/8 72# P110 (D/t=26.02, Transition)",
+    "description": "Burst and collapse for 13-3/8 inch P110 casing",
+    "od": 13.375,
+    "wall_thickness": 0.514,
+    "yield_psi": 110000,
+    "grade": "P110",
+    "expected": {
+        "burst_psi": {"value": 7398, "tolerance_pct": 2},
+        "collapse_psi": {"value": 2881, "tolerance_pct": 5},
+    },
+}
+
+# 20" OD
+API_5C3_CASING_20000_94_J55 = {
+    "reference": "API TR 5C3, 20 94# J55 (D/t=45.66, Elastic)",
+    "description": "Burst and collapse for 20 inch J55 casing",
+    "od": 20.000,
+    "wall_thickness": 0.438,
+    "yield_psi": 55000,
+    "grade": "J55",
+    "expected": {
+        "burst_psi": {"value": 2108, "tolerance_pct": 2},
+        "collapse_psi": {"value": 515, "tolerance_pct": 5},
+    },
+}
+
+# ── Aggregate list of ALL API 5C3 casing benchmarks ──────────
+ALL_API_5C3_BENCHMARKS = [
+    # Original 5 benchmarks
+    API_5C3_CASING_9_625_N80,
+    API_5C3_CASING_7_29_P110,
+    API_5C3_CASING_7_32_C90,
+    API_5C3_CASING_9625_53_P110,
+    API_5C3_CASING_13375_68_N80,
+    # Expanded 15 benchmarks (all 7 OD sizes)
+    API_5C3_CASING_4500_9_J55,
+    API_5C3_CASING_4500_13_P110,
+    API_5C3_CASING_5500_17_N80,
+    API_5C3_CASING_5500_23_P110,
+    API_5C3_CASING_7_23_L80,
+    API_5C3_CASING_7_26_N80,
+    API_5C3_CASING_7_38_P110,
+    API_5C3_CASING_9625_40_J55,
+    API_5C3_CASING_9625_43_N80,
+    API_5C3_CASING_10750_40_J55,
+    API_5C3_CASING_10750_51_N80,
+    API_5C3_CASING_10750_55_P110,
+    API_5C3_CASING_13375_54_J55,
+    API_5C3_CASING_13375_72_P110,
+    API_5C3_CASING_20000_94_J55,
+]
+
 
 # ──────────────────────────────────────────────────────────────
 # HYDRAULICS — API RP 13D (Drilling Fluid Rheology)
