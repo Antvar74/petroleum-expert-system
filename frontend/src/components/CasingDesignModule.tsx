@@ -37,7 +37,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     connection_type: 'BTC' as string,
     wear_pct: 0, corrosion_rate_in_yr: 0, design_life_years: 20,
     bottomhole_temp_f: 200, tubing_pressure_psi: 0,
-    internal_fluid_density_ppg: 0, evacuation_level_ft: -1,
+    internal_fluid_density_ppg: 0, evacuation_level_ft: 0,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,7 +171,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 <h3 className="text-lg font-bold mb-3">Collapse &amp; Thermal</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'evacuation_level_ft', label: 'Nivel Evacuación (ft)', step: '100', title: '-1 = Evacuación total, 0 = Sin evacuación, >0 = Parcial' },
+                    { key: 'evacuation_level_ft', label: 'Nivel Evacuación (ft)', step: '100', title: '-1 = Sin evacuación (lleno de lodo), 0 = Evacuación total (vacío), >0 = Parcial' },
                     { key: 'bottomhole_temp_f', label: 'Temp. Fondo (°F)', step: '10' },
                     { key: 'tubing_pressure_psi', label: 'Presión Tubing (psi)', step: '100' },
                     { key: 'internal_fluid_density_ppg', label: 'Densidad Fluido Int. (ppg)', step: '0.1' },

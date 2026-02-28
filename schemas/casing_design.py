@@ -39,7 +39,7 @@ class CasingDesignCalculateRequest(BaseModel):
     bottomhole_temp_f: float = Field(default=200.0, description="Bottomhole temperature (°F)")
     tubing_pressure_psi: float = Field(default=0.0, description="Tubing head pressure for leak scenario (psi)")
     internal_fluid_density_ppg: float = Field(default=0.0, description="Internal fluid density (ppg), 0 = use mud weight")
-    evacuation_level_ft: float = Field(default=-1.0, description="Evacuation fluid level (ft). -1=full evacuation, 0=no evacuation, >0=partial")
+    evacuation_level_ft: float = Field(default=0.0, description="Evacuation fluid level (ft). -1=no evacuation (full of mud), 0=full evacuation (empty), >0=partial")
 
 
 class CombinationStringRequest(BaseModel):

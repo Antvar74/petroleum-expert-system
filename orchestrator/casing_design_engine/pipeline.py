@@ -47,7 +47,7 @@ def calculate_full_casing_design(
     bottomhole_temp_f: float = 200.0,
     tubing_pressure_psi: float = 0.0,
     internal_fluid_density_ppg: float = 0.0,
-    evacuation_level_ft: float = -1.0,
+    evacuation_level_ft: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Run complete casing design analysis with multi-scenario loads,
@@ -61,11 +61,11 @@ def calculate_full_casing_design(
     """
     alerts = []
 
-    # Resolve evacuation level
-    if evacuation_level_ft < 0:
-        effective_evacuation = tvd_ft
-    else:
-        effective_evacuation = evacuation_level_ft
+    # Resolve evacuation level:
+    #   -1  → no evacuation (casing full of mud, collapse ≈ 0)
+    #    0  → full evacuation (casing empty, worst-case collapse)
+    #   >0  → partial evacuation (empty above that depth, fluid below)
+    effective_evacuation = evacuation_level_ft
 
     # 1. Multi-scenario burst
     burst_scenarios = calculate_burst_scenarios(
@@ -129,9 +129,10 @@ def calculate_full_casing_design(
         tension_load = tension_stuck
         tension_governing = "Stuck Pipe (Overpull)"
 
-    # 4. Governing loads from multi-scenario
+    # 4. Governing loads — collapse uses the user's evacuation scenario,
+    #    multi-scenario envelope is still available for reference
     max_burst = burst_scenarios.get("governing_burst_psi", burst_load.get("max_burst_load_psi", 0))
-    max_collapse = collapse_scenarios.get("governing_collapse_psi", collapse_load.get("max_collapse_load_psi", 0))
+    max_collapse = collapse_load.get("max_collapse_load_psi", 0)
     total_tension = tension_load.get("total_tension_lbs", 0)
 
     # 5. Grade selection
@@ -202,14 +203,11 @@ def calculate_full_casing_design(
         yield_strength_psi=effective_yield,
     )
 
-    # 10. Depth-varying biaxial profile
-    governing_collapse_name = collapse_scenarios.get("governing_scenario", "full_evacuation")
-    governing_collapse_profile = collapse_scenarios.get("scenarios", {}).get(
-        governing_collapse_name, {}
-    ).get("profile", [])
+    # 10. Depth-varying biaxial profile (use user's evacuation scenario)
+    user_collapse_profile = collapse_load.get("profile", [])
 
     biaxial_depth = calculate_biaxial_profile(
-        collapse_profile=governing_collapse_profile,
+        collapse_profile=user_collapse_profile,
         collapse_rating_psi=collapse_rating_design,
         casing_weight_ppf=casing_weight_ppf,
         casing_length_ft=casing_length_ft,
@@ -286,7 +284,7 @@ def calculate_full_casing_design(
 
     sf_vs_depth = calculate_sf_vs_depth(
         burst_profile=governing_burst_profile or burst_load.get("profile", []),
-        collapse_profile=governing_collapse_profile or collapse_load.get("profile", []),
+        collapse_profile=user_collapse_profile,
         burst_rating_psi=burst_rating_design,
         collapse_rating_psi=effective_collapse_rating,
         tension_at_surface_lbs=total_tension,
@@ -338,7 +336,7 @@ def calculate_full_casing_design(
         "overall_status": safety_factors["overall_status"],
         "alerts": alerts,
         "governing_burst_scenario": burst_scenarios.get("governing_scenario", ""),
-        "governing_collapse_scenario": collapse_scenarios.get("governing_scenario", ""),
+        "governing_collapse_scenario": collapse_load.get("scenario", collapse_scenarios.get("governing_scenario", "")),
         "tension_governing_scenario": tension_governing,
         "effective_yield_psi": effective_yield,
         "temp_derate_factor": temp_derate["derate_factor"],
