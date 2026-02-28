@@ -41,6 +41,10 @@ class CasingDesignCalculateRequest(BaseModel):
     internal_fluid_density_ppg: float = Field(default=0.0, description="Internal fluid density (ppg), 0 = use mud weight")
     evacuation_level_ft: float = Field(default=0.0, description="Evacuation fluid level (ft). -1=no evacuation (full of mud), 0=full evacuation (empty), >0=partial")
 
+    # Sour service (NACE MR0175)
+    h2s_partial_pressure_psi: float = Field(default=0.0, description="H2S partial pressure (psi). >0.05 triggers NACE MR0175 check")
+    co2_partial_pressure_psi: float = Field(default=0.0, description="CO2 partial pressure (psi)")
+
 
 class CombinationStringRequest(BaseModel):
     """Body for ``POST /casing-design/combination-string``."""

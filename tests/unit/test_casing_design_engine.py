@@ -826,3 +826,81 @@ class TestSFvsDepth:
         point = result["profile"][0]
         expected_gov = min(point["sf_burst"], point["sf_collapse"], point["sf_tension"])
         assert point["governing_sf"] == expected_gov
+
+
+# ===========================================================================
+# 15. NACE MR0175 SOUR SERVICE COMPLIANCE
+# ===========================================================================
+class TestNaceMr0175:
+    def test_n80_not_nace_compliant(self, engine):
+        """N80 is NOT NACE compliant for sour service."""
+        result = engine.check_nace_compliance("N80", h2s_psi=0.05)
+        assert result["compliant"] is False
+
+    def test_l80_nace_compliant(self, engine):
+        """L80 is NACE compliant (max hardness 22 HRC)."""
+        result = engine.check_nace_compliance("L80", h2s_psi=0.05)
+        assert result["compliant"] is True
+
+    def test_c90_nace_compliant(self, engine):
+        """C90 (NACE grade) is compliant."""
+        result = engine.check_nace_compliance("C90", h2s_psi=0.05)
+        assert result["compliant"] is True
+
+    def test_p110_not_nace_compliant(self, engine):
+        """P110 exceeds NACE hardness limit for sour service."""
+        result = engine.check_nace_compliance("P110", h2s_psi=0.05)
+        assert result["compliant"] is False
+
+    def test_no_h2s_all_compliant(self, engine):
+        """Without H2S, all grades are compliant."""
+        result = engine.check_nace_compliance("P110", h2s_psi=0.0)
+        assert result["compliant"] is True
+
+    def test_sweet_environment_label(self, engine):
+        """Below NACE threshold should be classified as sweet."""
+        result = engine.check_nace_compliance("N80", h2s_psi=0.01)
+        assert result["environment"] == "Sweet (non-sour)"
+
+    def test_mild_sour_classification(self, engine):
+        """H2S between 0.05 and 1.0 psi is Mild Sour."""
+        result = engine.check_nace_compliance("L80", h2s_psi=0.5)
+        assert result["environment"] == "Mild Sour"
+
+    def test_severe_classification(self, engine):
+        """H2S between 1.0 and 10.0 psi is Severe."""
+        result = engine.check_nace_compliance("L80", h2s_psi=5.0)
+        assert result["environment"] == "Severe"
+
+    def test_very_severe_classification(self, engine):
+        """H2S >= 10.0 psi is Very Severe."""
+        result = engine.check_nace_compliance("L80", h2s_psi=15.0)
+        assert result["environment"] == "Very Severe"
+
+    def test_non_compliant_has_recommendation(self, engine):
+        """Non-compliant grades should include a replacement recommendation."""
+        result = engine.check_nace_compliance("P110", h2s_psi=1.0)
+        assert result["recommendation"] is not None
+        assert "L80" in result["recommendation"]
+
+    def test_compliant_no_recommendation(self, engine):
+        """Compliant grades should have no recommendation."""
+        result = engine.check_nace_compliance("L80", h2s_psi=1.0)
+        assert result["recommendation"] is None
+
+    def test_pipeline_nace_alert(self, engine):
+        """Pipeline should generate NACE alert when H2S present with non-compliant grade."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=10000, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+            h2s_partial_pressure_psi=1.0,
+        )
+        alerts = result["summary"]["alerts"]
+        assert any("NACE" in a for a in alerts)
+
+    def test_pipeline_nace_compliance_in_result(self, engine):
+        """Pipeline result should include nace_compliance section."""
+        result = engine.calculate_full_casing_design(
+            tvd_ft=10000, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+        )
+        assert "nace_compliance" in result
+        assert result["nace_compliance"]["compliant"] is True

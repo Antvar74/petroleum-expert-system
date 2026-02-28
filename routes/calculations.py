@@ -265,6 +265,8 @@ def standalone_casing_design(data: CasingDesignCalculateRequest):
         tubing_pressure_psi=data.tubing_pressure_psi,
         internal_fluid_density_ppg=data.internal_fluid_density_ppg,
         evacuation_level_ft=data.evacuation_level_ft,
+        h2s_partial_pressure_psi=data.h2s_partial_pressure_psi,
+        co2_partial_pressure_psi=data.co2_partial_pressure_psi,
     )
     return result
 

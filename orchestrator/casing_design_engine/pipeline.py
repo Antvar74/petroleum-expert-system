@@ -20,6 +20,7 @@ from .safety_factors import calculate_safety_factors, calculate_sf_vs_depth
 from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
 from .connections import verify_connection
 from .wear import apply_wear_allowance
+from .nace import check_nace_compliance
 
 
 def calculate_full_casing_design(
@@ -48,6 +49,8 @@ def calculate_full_casing_design(
     tubing_pressure_psi: float = 0.0,
     internal_fluid_density_ppg: float = 0.0,
     evacuation_level_ft: float = 0.0,
+    h2s_partial_pressure_psi: float = 0.0,
+    co2_partial_pressure_psi: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Run complete casing design analysis with multi-scenario loads,
@@ -164,6 +167,15 @@ def calculate_full_casing_design(
             f"Temperature derating: yield reduced from {selected_yield:,.0f} to "
             f"{effective_yield:,.0f} psi ({temp_derate['derate_factor']:.2%}) at {bottomhole_temp_f}\u00b0F"
         )
+
+    # 6b. NACE MR0175 compliance check
+    nace_check = check_nace_compliance(
+        selected_grade, h2s_psi=h2s_partial_pressure_psi,
+        co2_psi=co2_partial_pressure_psi, temperature_f=bottomhole_temp_f,
+    )
+    if not nace_check["compliant"]:
+        alerts.append(f"NACE MR0175: {selected_grade} NOT compliant for sour service "
+                      f"(H2S={h2s_partial_pressure_psi} psi). {nace_check['recommendation']}")
 
     # 7. Burst & collapse ratings with effective yield
     burst_rating = calculate_burst_rating(
@@ -367,6 +379,7 @@ def calculate_full_casing_design(
         "connection": connection,
         "wear": wear_result,
         "temperature_derating": temp_derate,
+        "nace_compliance": nace_check,
     }
 
 

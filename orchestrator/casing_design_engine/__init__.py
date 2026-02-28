@@ -13,6 +13,7 @@ from .safety_factors import calculate_safety_factors, calculate_sf_vs_depth
 from .scenarios import calculate_burst_scenarios, calculate_collapse_scenarios
 from .running_loads import calculate_running_loads, calculate_thermal_axial_load
 from .wear import apply_wear_allowance
+from .nace import check_nace_compliance
 from .pipeline import calculate_full_casing_design, generate_recommendations
 from .connections import verify_connection, CONNECTION_CATALOG
 
@@ -60,6 +61,9 @@ class CasingDesignEngine:
 
     # wear
     apply_wear_allowance = staticmethod(apply_wear_allowance)
+
+    # NACE MR0175
+    check_nace_compliance = staticmethod(check_nace_compliance)
 
     # pipeline
     calculate_full_casing_design = staticmethod(calculate_full_casing_design)
