@@ -23,9 +23,13 @@ interface CasingDesignModuleProps {
   wellName?: string;
 }
 
+const CHART_IDS = ['sf-vs-depth', 'biaxial-ellipse', 'scenario-envelope', 'tension-profile'] as const;
+type ChartImages = Partial<Record<typeof CHART_IDS[number], string>>;
+
 const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellName = '' }) => {
   const [activeTab, setActiveTab] = useState('input');
   const [loading, setLoading] = useState(false);
+  const [chartImages, setChartImages] = useState<ChartImages>({});
 
   const [params, setParams] = useState({
     casing_od_in: 9.625, casing_id_in: 8.681, wall_thickness_in: 0.472,
@@ -96,6 +100,22 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     }));
   };
 
+  const captureChartImages = async (): Promise<ChartImages> => {
+    const html2canvas = (await import('html2canvas')).default;
+    const images: ChartImages = {};
+    for (const id of CHART_IDS) {
+      const el = document.querySelector(`[data-chart-id="${id}"]`);
+      if (!el) continue;
+      const canvas = await html2canvas(el as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#0c0e12',
+      });
+      images[id] = canvas.toDataURL('image/png');
+    }
+    return images;
+  };
+
   const calculate = useCallback(async () => {
     setLoading(true);
     setUserSelectedGrade(null);
@@ -112,7 +132,9 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     setLoading(false);
   }, [wellId, params, addToast]);
 
-  const handleRunAnalysis = () => {
+  const handleRunAnalysis = async () => {
+    const captured = await captureChartImages();
+    setChartImages(captured);
     runAnalysis(result || {}, params);
   };
 
@@ -411,8 +433,12 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <BurstCollapseEnvelope burstLoad={result.burst_load} collapseLoad={result.collapse_load}
                 burstRating={activeBurstRating} collapseRating={activeCollapseRating} />
               <SafetyFactorTrack safetyFactors={activeSF} />
-              <TensionProfile tensionLoad={result.tension_load} />
-              <BiaxialEllipse biaxial={activeBiaxial} />
+              <div data-chart-id="tension-profile">
+                <TensionProfile tensionProfile={result.tension_profile} tensionLoad={result.tension_load} />
+              </div>
+              <div data-chart-id="biaxial-ellipse">
+                <BiaxialEllipse biaxial={activeBiaxial} stateLine={result.biaxial_state_line} />
+              </div>
               <CasingProgramSchematic summary={result.summary} params={params} />
               <GradeSelectionTable
                 gradeSelection={result.grade_selection}
@@ -422,21 +448,25 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             </div>
 
             {/* Multi-Scenario Envelope */}
-            <ScenarioEnvelope
-              burstScenarios={result.burst_scenarios}
-              collapseScenarios={result.collapse_scenarios}
-              burstRating={activeBurstRating || 0}
-              collapseRating={activeCollapseRating || result.summary?.collapse_rating_psi || 0}
-            />
+            <div data-chart-id="scenario-envelope">
+              <ScenarioEnvelope
+                burstScenarios={result.burst_scenarios}
+                collapseScenarios={result.collapse_scenarios}
+                burstRating={activeBurstRating || 0}
+                collapseRating={activeCollapseRating || result.summary?.collapse_rating_psi || 0}
+              />
+            </div>
 
             {/* SF vs Depth Chart */}
             {result?.sf_vs_depth && (
-              <SFvsDepthChart
-                sfVsDepth={result.sf_vs_depth as any}
-                sfBurstMin={params.sf_burst}
-                sfCollapseMin={params.sf_collapse}
-                sfTensionMin={params.sf_tension}
-              />
+              <div data-chart-id="sf-vs-depth">
+                <SFvsDepthChart
+                  sfVsDepth={result.sf_vs_depth as any}
+                  sfBurstMin={params.sf_burst}
+                  sfCollapseMin={params.sf_collapse}
+                  sfTensionMin={params.sf_tension}
+                />
+              </div>
             )}
 
             {/* AI Analysis */}
@@ -453,6 +483,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               provider={provider}
               onProviderChange={setProvider}
               availableProviders={availableProviders}
+              chartImages={chartImages}
             />
           </motion.div>
         )}
