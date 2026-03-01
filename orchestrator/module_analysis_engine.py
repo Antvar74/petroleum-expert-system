@@ -632,15 +632,25 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
         return f"""{self._get_language_prefix(language)}COMPREHENSIVE CASING DESIGN ENGINEERING REPORT — Well: {well_name}
 
-Generate a formal engineering report with numbered sections covering:
-1. Executive Summary (pass/fail, critical findings)
-2. Design Basis (casing specs, well conditions, design factors)
-3. Load Analysis (all burst and collapse scenarios, governing loads)
-4. Strength Analysis (ratings, biaxial/triaxial corrections, safety factors)
-5. Connection Integrity
-6. Wear & Corrosion Assessment
-7. Temperature Effects
-8. Recommendations & Action Items
+Generate a formal engineering report using these EXACT section markers (include the brackets):
+
+[EXECUTIVE_SUMMARY]
+Brief pass/fail status, critical findings, and design adequacy statement.
+
+[SF_VS_DEPTH_ANALYSIS]
+Interpret the Safety Factor vs Depth profile. Identify the critical depth where each SF (burst, collapse, tension) is minimum. Flag any zones where SF drops below design limits. Reference the governing load scenario.
+
+[BIAXIAL_ANALYSIS]
+Interpret the biaxial ellipse (API 5C3 von Mises yield criterion). Is the operating state line inside the yield envelope? How much margin exists? Discuss the collapse reduction factor and its engineering significance.
+
+[SCENARIO_ENVELOPE_ANALYSIS]
+Interpret the multi-scenario burst/collapse envelope. Which burst scenario governs? Which collapse scenario governs? Where are they closest to casing ratings? Discuss the design margin for each governing case.
+
+[TENSION_PROFILE_ANALYSIS]
+Interpret the tension vs depth profile. Where is maximum tension (surface)? What is the margin to pipe body yield? Discuss shock load and bending contributions. Is the connection the weak link?
+
+[RECOMMENDATIONS]
+Action items, recommendations, and any suggested design changes.
 
 CASING SPECIFICATION:
   {params.get('casing_od_in', 'N/A')}" OD x {params.get('casing_weight_ppf', 'N/A')} ppf | Grade: {summary.get('selected_grade', 'N/A')}
