@@ -97,20 +97,23 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 
     setIsGeneratingPDF(true);
     try {
-      el.style.display = 'block';
-      // Wait for browser to complete DOM reflow before capture
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Element is always rendered offscreen (position: fixed, left: -9999px)
+      // so html2canvas always has a laid-out element with proper dimensions
       const filename = `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`;
       const opt = {
         margin: 10,
         filename,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 794 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       };
-      // Use output('blob') + manual download for reliability (save() silently fails in some browsers)
       // @ts-ignore - html2pdf types are loose
       const blob: Blob = await html2pdf().set(opt).from(el).outputPdf('blob');
+      if (!blob || blob.size < 1024) {
+        console.error('PDF blob too small:', blob?.size, 'bytes');
+        addToast(t('ai.pdfError'), 'error');
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -118,13 +121,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       addToast(t('ai.pdfSaved'), 'success');
     } catch (err) {
       console.error('PDF generation error:', err);
       addToast(t('ai.pdfError'), 'error');
     } finally {
-      if (reportRef.current) reportRef.current.style.display = 'none';
       setIsGeneratingPDF(false);
     }
   };
@@ -141,20 +143,16 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 
     setIsGeneratingPDF(true);
     try {
-      el.style.display = 'block';
-      // Wait for browser to complete DOM reflow before capture
-      await new Promise(resolve => setTimeout(resolve, 200));
       const opt = {
         margin: 10,
         filename: `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 794 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       };
 
       // @ts-ignore - html2pdf types are loose
-      const pdfBlob = await html2pdf().set(opt).from(el).output('blob');
-      el.style.display = 'none';
+      const pdfBlob = await html2pdf().set(opt).from(el).outputPdf('blob');
 
       const file = new File(
         [pdfBlob],
@@ -176,7 +174,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         console.error('Share error:', err);
       }
     } finally {
-      if (reportRef.current) reportRef.current.style.display = 'none';
       setIsGeneratingPDF(false);
     }
   };

@@ -105,14 +105,28 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     const images: ChartImages = {};
     for (const id of CHART_IDS) {
       const el = document.querySelector(`[data-chart-id="${id}"]`);
-      if (!el) continue;
-      const canvas = await html2canvas(el as HTMLElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0c0e12',
-      });
-      images[id] = canvas.toDataURL('image/png');
+      if (!el) {
+        console.warn(`[ChartCapture] Element not found: data-chart-id="${id}"`);
+        continue;
+      }
+      try {
+        const canvas = await html2canvas(el as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#0c0e12',
+        });
+        const dataUrl = canvas.toDataURL('image/png');
+        if (dataUrl.length > 100) {
+          images[id] = dataUrl;
+          console.log(`[ChartCapture] Captured ${id}: ${(dataUrl.length / 1024).toFixed(0)} KB`);
+        } else {
+          console.warn(`[ChartCapture] Empty capture for ${id}`);
+        }
+      } catch (err) {
+        console.error(`[ChartCapture] Failed to capture ${id}:`, err);
+      }
     }
+    console.log(`[ChartCapture] Total captured: ${Object.keys(images).length}/${CHART_IDS.length}`);
     return images;
   };
 

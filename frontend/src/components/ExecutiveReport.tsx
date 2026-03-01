@@ -53,7 +53,7 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
     const sections = parseMarkerSections(analysisText || '');
 
     return (
-      <div ref={ref} style={{ display: 'none' }} className="executive-report">
+      <div ref={ref} style={{ position: 'fixed', left: '-9999px', top: 0, width: '794px', zIndex: -1 }} className="executive-report">
         {/* Header */}
         <div className="executive-report-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -110,7 +110,7 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
               )}
 
               {/* Chart Image */}
-              {chartImg && (
+              {chartImg ? (
                 <div className="executive-chart-container">
                   <img
                     src={chartImg}
@@ -121,7 +121,11 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
                     Figure {section.figureNum}. {section.figureTitle}
                   </div>
                 </div>
-              )}
+              ) : section.chartKey ? (
+                <div className="executive-chart-container" style={{ padding: '20px', border: '1px dashed #cbd5e1', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
+                  [Figure {section.figureNum}: {section.figureTitle} — chart not available]
+                </div>
+              ) : null}
 
               {/* Analysis Text */}
               <div className="executive-markdown-content">
