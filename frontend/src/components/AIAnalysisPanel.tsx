@@ -31,6 +31,7 @@ interface AIAnalysisPanelProps {
   provider: Provider;
   onProviderChange: (provider: Provider) => void;
   availableProviders: ProviderOption[];
+  chartImages?: Record<string, string>;
 }
 
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
@@ -47,6 +48,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   provider,
   onProviderChange,
   availableProviders,
+  chartImages,
 }) => {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
@@ -338,6 +340,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         confidence={confidence}
         keyMetrics={keyMetrics}
         analysisText={analysis || ''}
+        chartImages={chartImages}
       />
     </motion.div>
   );

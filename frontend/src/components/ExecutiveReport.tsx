@@ -17,6 +17,7 @@ interface ExecutiveReportProps {
   confidence: string;
   keyMetrics: KeyMetric[];
   analysisText: string;
+  chartImages?: Record<string, string>;
 }
 
 /**
@@ -24,7 +25,7 @@ interface ExecutiveReportProps {
  * White background, professional layout, designed for A4 printing.
  */
 const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
-  ({ moduleName, wellName, agentRole, keyMetrics, analysisText }, ref) => {
+  ({ moduleName, wellName, agentRole, keyMetrics, analysisText, chartImages }, ref) => {
     const { t } = useTranslation();
     const { language } = useLanguage();
     const locale = language === 'es' ? 'es-MX' : 'en-US';
