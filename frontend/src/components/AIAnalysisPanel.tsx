@@ -96,6 +96,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     setIsGeneratingPDF(true);
     try {
       el.style.display = 'block';
+      // Wait for browser to complete DOM reflow before capture
+      await new Promise(resolve => setTimeout(resolve, 200));
       const opt = {
         margin: 10,
         filename: `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`,
@@ -105,8 +107,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       };
       // @ts-ignore - html2pdf types are loose
       await html2pdf().set(opt).from(el).save();
+      addToast(t('ai.pdfSaved'), 'success');
     } catch (err) {
       console.error('PDF generation error:', err);
+      addToast(t('ai.pdfError'), 'error');
     } finally {
       if (reportRef.current) reportRef.current.style.display = 'none';
       setIsGeneratingPDF(false);
@@ -126,6 +130,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     setIsGeneratingPDF(true);
     try {
       el.style.display = 'block';
+      // Wait for browser to complete DOM reflow before capture
+      await new Promise(resolve => setTimeout(resolve, 200));
       const opt = {
         margin: 10,
         filename: `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`,
