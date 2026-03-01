@@ -160,32 +160,35 @@ function formatNumber(val: number, locale: string = 'en-US'): string {
 function parseMarkerSections(text: string): ChartSection[] {
   if (!text) return [{ marker: '', title: 'Analysis', content: 'No analysis available.' }];
 
+  // Normalize markers: LLMs often wrap them in bold/italic markdown like **[MARKER]** or *[MARKER]*
+  const normalized = text.replace(/\*{1,3}\[([A-Z_]+)\]\*{1,3}/g, '[$1]');
+
   // Try marker-based parsing first
   const markerRegex = /\[([A-Z_]+)\]/g;
   const markers: Array<{ tag: string; index: number }> = [];
   let m;
-  while ((m = markerRegex.exec(text)) !== null) {
+  while ((m = markerRegex.exec(normalized)) !== null) {
     markers.push({ tag: m[1], index: m.index });
   }
 
   if (markers.length === 0) {
     // Fallback: use legacy parser for non-marker analysis
-    return parseLegacySections(text);
+    return parseLegacySections(normalized);
   }
 
   const sections: ChartSection[] = [];
 
   // Content before first marker
   if (markers[0].index > 0) {
-    const pre = text.substring(0, markers[0].index).trim();
+    const pre = normalized.substring(0, markers[0].index).trim();
     if (pre) sections.push({ marker: '', title: '', content: pre });
   }
 
   for (let i = 0; i < markers.length; i++) {
     const tag = markers[i].tag;
     const contentStart = markers[i].index + tag.length + 2; // +2 for [ and ]
-    const contentEnd = i + 1 < markers.length ? markers[i + 1].index : text.length;
-    const content = text.substring(contentStart, contentEnd).trim();
+    const contentEnd = i + 1 < markers.length ? markers[i + 1].index : normalized.length;
+    const content = normalized.substring(contentStart, contentEnd).trim();
 
     const chartInfo = CHART_SECTIONS[tag];
     const title = tag.replace(/_/g, ' ');

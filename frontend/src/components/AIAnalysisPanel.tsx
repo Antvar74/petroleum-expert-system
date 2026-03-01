@@ -99,16 +99,26 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     try {
       el.style.display = 'block';
       // Wait for browser to complete DOM reflow before capture
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const filename = `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`;
       const opt = {
         margin: 10,
-        filename: `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`,
+        filename,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       };
+      // Use output('blob') + manual download for reliability (save() silently fails in some browsers)
       // @ts-ignore - html2pdf types are loose
-      await html2pdf().set(opt).from(el).save();
+      const blob: Blob = await html2pdf().set(opt).from(el).outputPdf('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       addToast(t('ai.pdfSaved'), 'success');
     } catch (err) {
       console.error('PDF generation error:', err);
