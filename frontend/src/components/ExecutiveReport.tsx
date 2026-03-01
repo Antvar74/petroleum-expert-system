@@ -20,6 +20,22 @@ interface ExecutiveReportProps {
   chartImages?: Record<string, string>;
 }
 
+const CHART_SECTIONS: Record<string, { chartKey: string; figureNum: number; figureTitle: string }> = {
+  'SF_VS_DEPTH_ANALYSIS': { chartKey: 'sf-vs-depth', figureNum: 1, figureTitle: 'Safety Factor vs Depth' },
+  'BIAXIAL_ANALYSIS': { chartKey: 'biaxial-ellipse', figureNum: 2, figureTitle: 'Biaxial Ellipse API 5C3' },
+  'SCENARIO_ENVELOPE_ANALYSIS': { chartKey: 'scenario-envelope', figureNum: 3, figureTitle: 'Multi-Scenario Envelope' },
+  'TENSION_PROFILE_ANALYSIS': { chartKey: 'tension-profile', figureNum: 4, figureTitle: 'Tension vs Depth Profile' },
+};
+
+interface ChartSection {
+  marker: string;
+  title: string;
+  content: string;
+  chartKey?: string;
+  figureNum?: number;
+  figureTitle?: string;
+}
+
 /**
  * Executive Report — Hidden layout captured by html2pdf.js for PDF generation.
  * White background, professional layout, designed for A4 printing.
@@ -33,8 +49,8 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
     const dateStr = now.toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
     const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
-    // Parse analysis text into sections
-    const sections = parseAnalysisSections(analysisText || '');
+    // Parse analysis text into sections (marker-based for casing, legacy fallback for others)
+    const sections = parseMarkerSections(analysisText || '');
 
     return (
       <div ref={ref} style={{ display: 'none' }} className="executive-report">
@@ -76,20 +92,38 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
           </>
         )}
 
-        {/* Analysis Sections */}
+        {/* Analysis Sections with Charts */}
         {sections.map((section, idx) => {
-          let sectionClass = 'executive-section';
-          if (section.type === 'summary') sectionClass += ' summary';
-          if (section.type === 'alert') sectionClass += ' alert';
-          if (section.type === 'recommendation') sectionClass += ' recommendation';
+          const chartImg = section.chartKey && chartImages?.[section.chartKey];
 
           return (
-            <div key={idx} className={sectionClass}>
+            <div key={idx} className="executive-section" style={{
+              pageBreakInside: section.chartKey ? 'avoid' : 'auto',
+            }}>
               {section.title && (
                 <div className="executive-section-title" style={{ paddingBottom: '6px', marginBottom: '10px' }}>
-                  {section.title}
+                  {section.marker === 'EXECUTIVE_SUMMARY' ? '1. EXECUTIVE SUMMARY' :
+                   section.marker === 'RECOMMENDATIONS' ? '6. RECOMMENDATIONS' :
+                   section.figureNum ? `${section.figureNum + 1}. ${section.title}` :
+                   section.title}
                 </div>
               )}
+
+              {/* Chart Image */}
+              {chartImg && (
+                <div className="executive-chart-container">
+                  <img
+                    src={chartImg}
+                    alt={section.figureTitle || ''}
+                    className="executive-chart-image"
+                  />
+                  <div className="executive-chart-caption">
+                    Figure {section.figureNum}. {section.figureTitle}
+                  </div>
+                </div>
+              )}
+
+              {/* Analysis Text */}
               <div className="executive-markdown-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {section.content}
@@ -123,14 +157,54 @@ function formatNumber(val: number, locale: string = 'en-US'): string {
   return val.toFixed(1);
 }
 
-interface ParsedSection {
-  title: string;
-  content: string;
-  type: 'summary' | 'alert' | 'recommendation' | 'default';
+function parseMarkerSections(text: string): ChartSection[] {
+  if (!text) return [{ marker: '', title: 'Analysis', content: 'No analysis available.' }];
+
+  // Try marker-based parsing first
+  const markerRegex = /\[([A-Z_]+)\]/g;
+  const markers: Array<{ tag: string; index: number }> = [];
+  let m;
+  while ((m = markerRegex.exec(text)) !== null) {
+    markers.push({ tag: m[1], index: m.index });
+  }
+
+  if (markers.length === 0) {
+    // Fallback: use legacy parser for non-marker analysis
+    return parseLegacySections(text);
+  }
+
+  const sections: ChartSection[] = [];
+
+  // Content before first marker
+  if (markers[0].index > 0) {
+    const pre = text.substring(0, markers[0].index).trim();
+    if (pre) sections.push({ marker: '', title: '', content: pre });
+  }
+
+  for (let i = 0; i < markers.length; i++) {
+    const tag = markers[i].tag;
+    const contentStart = markers[i].index + tag.length + 2; // +2 for [ and ]
+    const contentEnd = i + 1 < markers.length ? markers[i + 1].index : text.length;
+    const content = text.substring(contentStart, contentEnd).trim();
+
+    const chartInfo = CHART_SECTIONS[tag];
+    const title = tag.replace(/_/g, ' ');
+
+    sections.push({
+      marker: tag,
+      title,
+      content,
+      chartKey: chartInfo?.chartKey,
+      figureNum: chartInfo?.figureNum,
+      figureTitle: chartInfo?.figureTitle,
+    });
+  }
+
+  return sections;
 }
 
-function parseAnalysisSections(text: string): ParsedSection[] {
-  if (!text) return [{ title: '', content: 'No analysis available.', type: 'default' }];
+function parseLegacySections(text: string): ChartSection[] {
+  if (!text) return [{ marker: '', title: '', content: 'No analysis available.' }];
 
   // Try to split by numbered headers like "1. EXECUTIVE SUMMARY" or "## EXECUTIVE SUMMARY"
   const headerPatterns = [
@@ -141,17 +215,14 @@ function parseAnalysisSections(text: string): ParsedSection[] {
     /(?:^|\n)\s*\d+\.\s*(CONCLUSI[OÓ]N GERENCIAL|MANAGERIAL CONCLUSION)/i,
   ];
 
-  const sectionTypes: Array<ParsedSection['type']> = ['summary', 'default', 'alert', 'recommendation', 'default'];
-
   // Find all header positions
-  const positions: Array<{ start: number; title: string; type: ParsedSection['type'] }> = [];
-  headerPatterns.forEach((pat, idx) => {
+  const positions: Array<{ start: number; title: string }> = [];
+  headerPatterns.forEach((pat) => {
     const match = text.match(pat);
     if (match && match.index !== undefined) {
       positions.push({
         start: match.index,
         title: match[1],
-        type: sectionTypes[idx],
       });
     }
   });
@@ -164,11 +235,7 @@ function parseAnalysisSections(text: string): ParsedSection[] {
     // Only add if not already captured by numbered patterns
     const alreadyCaptured = positions.some(p => Math.abs(p.start - mdMatch!.index!) < 10);
     if (!alreadyCaptured && title.length > 3) {
-      let type: ParsedSection['type'] = 'default';
-      if (/resumen|summary|ejecutivo/i.test(title)) type = 'summary';
-      if (/alerta|alert|riesgo|risk/i.test(title)) type = 'alert';
-      if (/recomendaci|recommendation/i.test(title)) type = 'recommendation';
-      positions.push({ start: mdMatch.index!, title, type });
+      positions.push({ start: mdMatch.index!, title });
     }
   }
 
@@ -177,17 +244,17 @@ function parseAnalysisSections(text: string): ParsedSection[] {
 
   if (positions.length === 0) {
     // No headers found — return as single section
-    return [{ title: '', content: text.trim(), type: 'default' }];
+    return [{ marker: '', title: '', content: text.trim() }];
   }
 
   // Extract sections
-  const sections: ParsedSection[] = [];
+  const sections: ChartSection[] = [];
 
   // If there's content before the first header
   if (positions[0].start > 0) {
     const preContent = text.substring(0, positions[0].start).trim();
     if (preContent) {
-      sections.push({ title: '', content: preContent, type: 'default' });
+      sections.push({ marker: '', title: '', content: preContent });
     }
   }
 
@@ -200,13 +267,13 @@ function parseAnalysisSections(text: string): ParsedSection[] {
     const cleanContent = content.replace(/^[-*=]{3,}\s*/gm, '').trim();
 
     sections.push({
+      marker: '',
       title: positions[i].title,
       content: cleanContent,
-      type: positions[i].type,
     });
   }
 
-  return sections.length > 0 ? sections : [{ title: '', content: text.trim(), type: 'default' }];
+  return sections.length > 0 ? sections : [{ marker: '', title: '', content: text.trim() }];
 }
 
 export default ExecutiveReport;
