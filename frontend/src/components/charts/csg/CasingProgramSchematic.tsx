@@ -5,6 +5,7 @@
 import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { Columns } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface WeightRec {
   ppf: number;
@@ -20,6 +21,7 @@ interface CasingProgramSchematicProps {
 }
 
 const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary, params, weightRecommendation, height = 380 }) => {
+  const { t } = useTranslation();
   if (!summary && !params) return null;
 
   const grade = summary?.selected_grade || '—';
@@ -38,7 +40,7 @@ const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary
   const cementTopY = topY + ((cementTop / (tvd || 1)) * (bottomY - topY));
 
   return (
-    <ChartContainer title="Esquema de Casing" icon={Columns} height={height} isFluid>
+    <ChartContainer title={t('casingDesign.chartTitles.casingSchematic')} icon={Columns} height={height} isFluid>
       <div className="flex flex-col h-full">
         <svg viewBox={`0 0 ${w} ${h}`} className="flex-1" preserveAspectRatio="xMidYMid meet">
           {/* Surface */}

@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLin
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface SafetyFactorTrackProps {
   safetyFactors: { results: Record<string, { safety_factor: number; minimum_sf: number; passes: boolean }> } | null;
@@ -14,6 +15,7 @@ interface SafetyFactorTrackProps {
 }
 
 const SafetyFactorTrack: React.FC<SafetyFactorTrackProps> = ({ safetyFactors, height = 300 }) => {
+  const { t } = useTranslation();
   if (!safetyFactors?.results) return null;
 
   const results = safetyFactors.results;
@@ -32,7 +34,7 @@ const SafetyFactorTrack: React.FC<SafetyFactorTrackProps> = ({ safetyFactors, he
 
   return (
     <ChartContainer
-      title="Factores de Seguridad"
+      title={t('casingDesign.chartTitles.safetyFactors')}
       icon={CheckCircle}
       height={height}
       badge={{ text: allPass ? 'ALL PASS' : 'FAIL', color: allPass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' }}

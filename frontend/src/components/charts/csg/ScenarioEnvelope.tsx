@@ -9,6 +9,7 @@ import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Refe
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { Layers } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /* ---------- color & label maps ---------- */
 const BURST_COLORS: Record<string, string> = {
@@ -61,6 +62,7 @@ const ScenarioEnvelope: React.FC<ScenarioEnvelopeProps> = ({
   collapseRating,
   height = 480,
 }) => {
+  const { t } = useTranslation();
   // Build unified depth array and per-scenario data keys
   const { data, burstKeys, collapseKeys } = useMemo(() => {
     const depthSet = new Set<number>();
@@ -133,7 +135,7 @@ const ScenarioEnvelope: React.FC<ScenarioEnvelopeProps> = ({
     : '';
 
   return (
-    <ChartContainer title="Envolvente Multi-Escenario" icon={Layers} height={height}>
+    <ChartContainer title={t('casingDesign.chartTitles.multiScenarioEnvelope')} icon={Layers} height={height}>
       <ComposedChart
         data={data}
         layout="vertical"

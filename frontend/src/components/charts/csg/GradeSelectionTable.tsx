@@ -6,6 +6,7 @@
 import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { List } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CandidateRow {
   grade: string;
@@ -57,6 +58,7 @@ const GRADE_COLORS: Record<string, string> = {
 const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({
   gradeSelection, height = 350, onGradeSelect, userSelectedGrade,
 }) => {
+  const { t } = useTranslation();
   if (!gradeSelection) return null;
 
   const autoSelected = gradeSelection.selected_grade;
@@ -65,7 +67,7 @@ const GradeSelectionTable: React.FC<GradeSelectionTableProps> = ({
   const evaluated = gradeSelection.all_candidates || gradeSelection.evaluated_grades || [];
 
   return (
-    <ChartContainer title="Selección de Grado" icon={List} height={height} isFluid>
+    <ChartContainer title={t('casingDesign.chartTitles.gradeSelection')} icon={List} height={height} isFluid>
       <div className="flex flex-col h-full overflow-auto">
         {/* Active grade highlight */}
         <div className={`flex items-center gap-3 mb-4 p-3 rounded-xl border ${

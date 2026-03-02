@@ -7,6 +7,7 @@ import { ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Refe
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface BurstCollapseEnvelopeProps {
   burstLoad: { profile?: Array<{ tvd_ft: number; burst_load_psi: number }> } | null;
@@ -19,6 +20,7 @@ interface BurstCollapseEnvelopeProps {
 const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
   burstLoad, collapseLoad, burstRating, collapseRating, height = 400,
 }) => {
+  const { t } = useTranslation();
   if (!burstLoad?.profile?.length && !collapseLoad?.profile?.length) return null;
 
   // Merge burst and collapse profiles by depth
@@ -39,7 +41,7 @@ const BurstCollapseEnvelope: React.FC<BurstCollapseEnvelopeProps> = ({
   }));
 
   return (
-    <ChartContainer title="Envolvente Burst / Collapse" icon={Shield} height={height}>
+    <ChartContainer title={t('casingDesign.chartTitles.burstCollapseEnvelope')} icon={Shield} height={height}>
       <ComposedChart data={data} layout="vertical" margin={{ ...CHART_DEFAULTS.margin, left: 50, right: 30, bottom: 40 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />
         <XAxis
