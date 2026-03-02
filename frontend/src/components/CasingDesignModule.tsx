@@ -150,29 +150,29 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const handleRunAnalysis = async () => {
     const captured = await captureChartImages();
     setChartImages(captured);
-    // When user has manually selected a grade, the agent must see that grade's data —
-    // not the pipeline's original result (which may show a different auto-selected grade).
-    let resultForAnalysis = result || {};
-    if (userSelectedGrade && activeGradeData) {
-      resultForAnalysis = {
-        ...result,
-        biaxial_correction: activeGradeData.biaxial_correction ?? result?.biaxial_correction,
-        triaxial_vme: activeGradeData.triaxial_vme ?? result?.triaxial_vme,
-        safety_factors: activeGradeData.safety_factors ?? result?.safety_factors,
-        summary: {
-          ...result?.summary,
-          selected_grade: userSelectedGrade,
-          sf_burst: activeGradeData.safety_factors?.results?.burst?.safety_factor ?? result?.summary?.sf_burst,
-          sf_collapse: activeGradeData.safety_factors?.results?.collapse?.safety_factor ?? result?.summary?.sf_collapse,
-          sf_tension: activeGradeData.safety_factors?.results?.tension?.safety_factor ?? result?.summary?.sf_tension,
-          overall_status: activeGradeData.safety_factors?.overall_status ?? result?.summary?.overall_status,
-          burst_rating_psi: activeGradeData.burst_rating_design_psi ?? result?.summary?.burst_rating_psi,
-          collapse_rating_psi: activeGradeData.collapse_rating_biaxial_psi ?? result?.summary?.collapse_rating_psi,
-          tension_rating_lbs: activeGradeData.tension_rating_lbs ?? result?.summary?.tension_rating_lbs,
-          effective_yield_psi: activeGradeData.effective_yield_psi ?? result?.summary?.effective_yield_psi,
-        },
-      };
-    }
+    // The agent must receive the SAME data that was rendered in the charts.
+    // activeBiaxial/activeSF/activeTriaxial are what the charts use — whether from an
+    // explicit grade override or from the highest-yield fallback when no grade passes.
+    // Without this, the chart images (Q125 fallback) would contradict the analysis text
+    // (pipeline L80-equivalent biaxial), producing an incoherent report.
+    const resultForAnalysis = result ? {
+      ...result,
+      biaxial_correction: activeBiaxial ?? result.biaxial_correction,
+      triaxial_vme: activeTriaxial ?? result.triaxial_vme,
+      safety_factors: activeSF ?? result.safety_factors,
+      summary: {
+        ...result.summary,
+        selected_grade: activeGradeName ?? result.summary?.selected_grade,
+        sf_burst: activeSF?.results?.burst?.safety_factor ?? result.summary?.sf_burst,
+        sf_collapse: activeSF?.results?.collapse?.safety_factor ?? result.summary?.sf_collapse,
+        sf_tension: activeSF?.results?.tension?.safety_factor ?? result.summary?.sf_tension,
+        overall_status: activeSF?.overall_status ?? result.summary?.overall_status,
+        burst_rating_psi: activeBurstRating ?? result.summary?.burst_rating_psi,
+        collapse_rating_psi: activeCollapseRating ?? result.summary?.collapse_rating_psi,
+        tension_rating_lbs: activeGradeData?.tension_rating_lbs ?? result.summary?.tension_rating_lbs,
+        effective_yield_psi: activeGradeData?.effective_yield_psi ?? result.summary?.effective_yield_psi,
+      },
+    } : {};
     runAnalysis(resultForAnalysis, params);
   };
 
