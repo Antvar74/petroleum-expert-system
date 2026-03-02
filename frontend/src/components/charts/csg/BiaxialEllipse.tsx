@@ -9,6 +9,7 @@
 import React, { useMemo } from 'react';
 import ChartContainer from '../ChartContainer';
 import { CircleDot } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface BiaxialStatePoint {
   tvd_ft: number;
@@ -35,6 +36,7 @@ const BiaxialEllipse: React.FC<BiaxialEllipseProps> = ({
   stateLine,
   height = 350,
 }) => {
+  const { t } = useTranslation();
   if (!biaxial) return null;
 
   const originalCollapse = biaxial.original_collapse_psi || 0;
@@ -109,7 +111,7 @@ const BiaxialEllipse: React.FC<BiaxialEllipseProps> = ({
   const ticks = [-1.0, -0.5, 0, 0.5, 1.0];
 
   return (
-    <ChartContainer title="Biaxial Ellipse API 5C3" icon={CircleDot} height={height} isFluid>
+    <ChartContainer title={t('casingDesign.chartTitles.biaxialEllipse')} icon={CircleDot} height={height} isFluid>
       <div className="flex flex-col h-full">
         <svg viewBox={`0 0 ${w} ${h}`} className="flex-1" preserveAspectRatio="xMidYMid meet">
           {/* Grid */}
@@ -159,7 +161,7 @@ const BiaxialEllipse: React.FC<BiaxialEllipseProps> = ({
                   opacity={showLabel ? 0.9 : 0.4} />
                 {isFirst && (
                   <text x={sx + 8} y={sy + 4} fill="#ef4444" fontSize={9} fontWeight="bold">
-                    Surface
+                    {t('casingDesign.surface')}
                   </text>
                 )}
                 {isLast && statePoints.length > 1 && (
@@ -211,22 +213,22 @@ const BiaxialEllipse: React.FC<BiaxialEllipseProps> = ({
           {/* Legend */}
           <text x={w - margin.right - 5} y={margin.top + 12}
             fill="rgba(255,255,255,0.3)" fontSize={9} textAnchor="end">
-            API 5C3 Yield Envelope
+            {t('casingDesign.yieldEnvelope')}
           </text>
         </svg>
 
         {/* Data summary */}
         <div className="grid grid-cols-3 gap-3 text-xs border-t border-white/10 pt-3 pb-4">
           <div className="text-center">
-            <div className="text-gray-500">Collapse Original</div>
+            <div className="text-gray-500">{t('casingDesign.originalCollapse')}</div>
             <div className="font-mono font-bold text-white">{originalCollapse.toLocaleString()} psi</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500">Collapse Corregido</div>
+            <div className="text-gray-500">{t('casingDesign.correctedCollapse')}</div>
             <div className="font-mono font-bold text-yellow-400">{correctedCollapse.toLocaleString()} psi</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500">Factor Reducción</div>
+            <div className="text-gray-500">{t('casingDesign.reductionFactor')}</div>
             <div className="font-mono font-bold text-indigo-400">{reductionFactor.toFixed(3)}</div>
           </div>
         </div>

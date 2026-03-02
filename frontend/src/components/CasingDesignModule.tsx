@@ -238,14 +238,14 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.casing')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'casing_od_in', label: 'OD (in)', step: '0.125' },
-                    { key: 'casing_id_in', label: 'ID (in)', step: '0.001' },
-                    { key: 'wall_thickness_in', label: 'Espesor Pared (in)', step: '0.001' },
-                    { key: 'casing_weight_ppf', label: 'Peso (lb/ft)', step: '1' },
-                    { key: 'casing_length_ft', label: 'Longitud (ft)', step: '100' },
-                    { key: 'tvd_ft', label: 'TVD (ft)', step: '100' },
-                    { key: 'bending_dls', label: 'DLS Flexión (°/100ft)', step: '0.5' },
-                    { key: 'overpull_lbs', label: 'Overpull (lbs)', step: '5000' },
+                    { key: 'casing_od_in', label: t('casingDesign.od'), step: '0.125' },
+                    { key: 'casing_id_in', label: t('casingDesign.id'), step: '0.001' },
+                    { key: 'wall_thickness_in', label: t('casingDesign.wallThickness'), step: '0.001' },
+                    { key: 'casing_weight_ppf', label: t('casingDesign.weight'), step: '1' },
+                    { key: 'casing_length_ft', label: t('casingDesign.length'), step: '100' },
+                    { key: 'tvd_ft', label: t('casingDesign.tvd'), step: '100' },
+                    { key: 'bending_dls', label: t('casingDesign.bendingDLS'), step: '0.5' },
+                    { key: 'overpull_lbs', label: t('casingDesign.overpull'), step: '5000' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -261,12 +261,12 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.wellConditions')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'mud_weight_ppg', label: 'Peso Lodo (ppg)', step: '0.1' },
-                    { key: 'pore_pressure_ppg', label: 'P. Poro (ppg)', step: '0.1' },
-                    { key: 'fracture_gradient_ppg', label: 'Grad. Fractura (ppg)', step: '0.1' },
-                    { key: 'gas_gradient_ppg', label: 'Grad. Gas (ppg)', step: '0.01' },
-                    { key: 'cement_top_tvd_ft', label: 'TOC TVD (ft)', step: '100' },
-                    { key: 'cement_density_ppg', label: 'Densidad Cemento (ppg)', step: '0.1' },
+                    { key: 'mud_weight_ppg', label: t('casingDesign.mudWeight'), step: '0.1' },
+                    { key: 'pore_pressure_ppg', label: t('casingDesign.porePressure'), step: '0.1' },
+                    { key: 'fracture_gradient_ppg', label: t('casingDesign.fracGradient'), step: '0.1' },
+                    { key: 'gas_gradient_ppg', label: t('casingDesign.gasGradient'), step: '0.01' },
+                    { key: 'cement_top_tvd_ft', label: t('casingDesign.tocTVD'), step: '100' },
+                    { key: 'cement_density_ppg', label: t('casingDesign.cementDensity'), step: '0.1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -282,9 +282,9 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.safetyFactors')}</h3>
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { key: 'sf_burst', label: 'SF Burst', step: '0.05' },
-                    { key: 'sf_collapse', label: 'SF Collapse', step: '0.05' },
-                    { key: 'sf_tension', label: 'SF Tension', step: '0.1' },
+                    { key: 'sf_burst', label: t('casingDesign.sfBurst'), step: '0.05' },
+                    { key: 'sf_collapse', label: t('casingDesign.sfCollapse'), step: '0.05' },
+                    { key: 'sf_tension', label: t('casingDesign.sfTension'), step: '0.1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -297,13 +297,13 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Collapse &amp; Thermal</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.collapseThermal')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { key: 'evacuation_level_ft', label: 'Nivel Evacuación (ft)', step: '100', title: '-1 = Sin evacuación (lleno de lodo), 0 = Evacuación total (vacío), >0 = Parcial' },
-                    { key: 'bottomhole_temp_f', label: 'Temp. Fondo (°F)', step: '10' },
-                    { key: 'tubing_pressure_psi', label: 'Presión Tubing (psi)', step: '100' },
-                    { key: 'internal_fluid_density_ppg', label: 'Densidad Fluido Int. (ppg)', step: '0.1' },
+                    { key: 'evacuation_level_ft', label: t('casingDesign.evacuationLevel'), step: '100', title: '-1 = Sin evacuación (lleno de lodo), 0 = Evacuación total (vacío), >0 = Parcial' },
+                    { key: 'bottomhole_temp_f', label: t('casingDesign.bottomholeTemp'), step: '10' },
+                    { key: 'tubing_pressure_psi', label: t('casingDesign.tubingPressure'), step: '100' },
+                    { key: 'internal_fluid_density_ppg', label: t('casingDesign.internalFluidDensity'), step: '0.1' },
                   ].map(({ key, label, step, title }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400" title={title}>{label}</label>
@@ -316,11 +316,11 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Sour Service (NACE MR0175)</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.sourService')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs text-gray-400" title="H2S partial pressure &gt; 0.05 psi activates NACE MR0175 — excluye N-80, P-110, Q-125">
-                      H₂S Presión Parcial (psi)
+                      {t('casingDesign.h2sPartialPressure')}
                     </label>
                     <input type="number" step="0.01" min="0"
                       value={params.h2s_partial_pressure_psi}
@@ -331,17 +331,17 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                           : 'border-white/10 focus:border-indigo-500'
                       }`} />
                     {params.h2s_partial_pressure_psi > 0.05 && (
-                      <p className="text-xs text-yellow-400">⚠ Sour service — N-80, P-110, Q-125 excluidos</p>
+                      <p className="text-xs text-yellow-400">{t('casingDesign.sourServiceWarning')}</p>
                     )}
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-bold mb-3">Connection &amp; Wear</h3>
+                <h3 className="text-lg font-bold mb-3">{t('casingDesign.sections.connectionWear')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Tipo Conexión</label>
+                    <label className="text-xs text-gray-400">{t('casingDesign.connectionType')}</label>
                     <select value={params.connection_type}
                       onChange={e => updateParamString('connection_type', e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
@@ -352,9 +352,9 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                     </select>
                   </div>
                   {[
-                    { key: 'wear_pct', label: 'Desgaste (%)', step: '1' },
-                    { key: 'corrosion_rate_in_yr', label: 'Corrosión (in/yr)', step: '0.001' },
-                    { key: 'design_life_years', label: 'Vida Diseño (años)', step: '1' },
+                    { key: 'wear_pct', label: t('casingDesign.wearPct'), step: '1' },
+                    { key: 'corrosion_rate_in_yr', label: t('casingDesign.corrosionRate'), step: '0.001' },
+                    { key: 'design_life_years', label: t('casingDesign.designLife'), step: '1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -392,22 +392,22 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 </div>
                 <div className="text-sm text-gray-400">
                   {t('casingDesign.selectedGrade')}: <span className={`font-bold ${isGradeOverride ? 'text-yellow-400' : 'text-indigo-400'}`}>{activeGradeName}</span>
-                  {isGradeOverride && <span className="ml-2 text-yellow-400 text-xs">(manual)</span>}
-                  {' | '}Triaxial VME: <span className={activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{activeTriaxial?.status}</span>
+                  {isGradeOverride && <span className="ml-2 text-yellow-400 text-xs">({t('casingDesign.manual')})</span>}
+                  {' | '}{t('casingDesign.triaxialVMELabel')}: <span className={activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{activeTriaxial?.status}</span>
                 </div>
                 {gradeFailsAll && (
                   <div className="mt-2 space-y-0.5 text-xs">
                     <div className="text-red-400 font-semibold">
-                      ✗ ACTUAL: {activeGradeName} {params.casing_weight_ppf} ppf
-                      {failingCriteria ? ` — FALLA ${failingCriteria}` : ' — NO cumple criterios de diseño'}
+                      ✗ {t('casingDesign.gradeBanner.actual')}: {activeGradeName} {params.casing_weight_ppf} ppf
+                      {failingCriteria ? ` — ${t('casingDesign.gradeBanner.fails')} ${failingCriteria}` : ` — ${t('casingDesign.gradeBanner.failsNoCriteria')}`}
                     </div>
                     {weightRecommendation ? (
                       <div className="text-yellow-400 font-semibold">
-                        → ALTERNATIVA: {weightRecommendation.description} — cumple todos los criterios
+                        → {t('casingDesign.gradeBanner.alternative')}: {weightRecommendation.description} — {t('casingDesign.gradeBanner.meetsAllCriteria')}
                       </div>
                     ) : (
                       <div className="text-orange-400">
-                        Ninguna combinación disponible — considerar OD mayor o reducir cargas de diseño
+                        {t('casingDesign.gradeBanner.noAlternative')}
                       </div>
                     )}
                   </div>
@@ -418,7 +418,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             {/* Governing Scenarios */}
             {result.summary?.governing_burst_scenario && (
               <div className="glass-panel p-3 rounded-xl border border-white/5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                <span className="text-gray-400">Governing:</span>
+                <span className="text-gray-400">{t('casingDesign.governing')}:</span>
                 <span className="text-red-400">Burst: {result.summary.governing_burst_scenario}</span>
                 <span className="text-blue-400">Collapse: {result.summary.governing_collapse_scenario}</span>
                 <span className="text-indigo-400">Tension: {result.summary.tension_governing_scenario}</span>
@@ -437,7 +437,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                       SF = {sf.safety_factor}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Load: {sf.load_psi || sf.load_lbs} | Rating: {sf.rating_psi || sf.rating_lbs} | Min: {sf.minimum_sf}
+                      {t('casingDesign.load')}: {sf.load_psi || sf.load_lbs} | {t('casingDesign.rating')}: {sf.rating_psi || sf.rating_lbs} | {t('casingDesign.min')}: {sf.minimum_sf}
                     </div>
                     <div className={`text-xs mt-1 ${sf.passes ? 'text-green-500' : 'text-red-500'}`}>{sf.status}</div>
                   </div>
@@ -454,7 +454,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                       SF = {sfVme.safety_factor}
                     </div>
                     <div className="text-xs text-gray-500">
-                      σ_VME: {sfVme.vme_stress_psi?.toLocaleString()} psi | Min: {sfVme.minimum_sf}
+                      σ_VME: {sfVme.vme_stress_psi?.toLocaleString()} psi | {t('casingDesign.min')}: {sfVme.minimum_sf}
                     </div>
                     <div className={`text-xs mt-1 ${sfVme.passes ? 'text-green-500' : 'text-red-500'}`}>{sfVme.status}</div>
                   </div>
@@ -467,21 +467,21 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.designLoads')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">Max Burst:</span><span className="font-mono">{result.summary?.max_burst_load_psi} psi @ {result.burst_load?.max_burst_depth_ft} ft</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.maxBurst')}:</span><span className="font-mono">{result.summary?.max_burst_load_psi} psi @ {result.burst_load?.max_burst_depth_ft} ft</span></div>
                   {result.burst_load?.profile?.[0] && (
                     <div className="ml-2 space-y-0.5 text-xs border-l border-white/10 pl-2 text-gray-500">
-                      <div className="flex justify-between"><span>Pp:</span><span className="font-mono">{params.pore_pressure_ppg} ppg</span></div>
-                      <div className="flex justify-between"><span>Gas Grad.:</span><span className="font-mono">{params.gas_gradient_ppg} ppg</span></div>
-                      <div className="flex justify-between"><span>Pi (sup):</span><span className="font-mono">{result.burst_load.profile[0].p_internal_psi?.toLocaleString()} psi</span></div>
-                      <div className="flex justify-between"><span>Pe (sup):</span><span className="font-mono">{result.burst_load.profile[0].p_external_psi?.toLocaleString()} psi</span></div>
+                      <div className="flex justify-between"><span>{t('casingDesign.porePressureAbbr')}:</span><span className="font-mono">{params.pore_pressure_ppg} ppg</span></div>
+                      <div className="flex justify-between"><span>{t('casingDesign.gasGradLabel')}:</span><span className="font-mono">{params.gas_gradient_ppg} ppg</span></div>
+                      <div className="flex justify-between"><span>{t('casingDesign.internalPressureSurface')}:</span><span className="font-mono">{result.burst_load.profile[0].p_internal_psi?.toLocaleString()} psi</span></div>
+                      <div className="flex justify-between"><span>{t('casingDesign.externalPressureSurface')}:</span><span className="font-mono">{result.burst_load.profile[0].p_external_psi?.toLocaleString()} psi</span></div>
                     </div>
                   )}
-                  <div className="flex justify-between"><span className="text-gray-400">Max Collapse:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Tensión Total:</span><span className="font-mono">{result.summary?.total_tension_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Zone:</span><span className="font-mono text-indigo-400">{activeCollapseZone}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.maxCollapse')}:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.totalTension')}:</span><span className="font-mono">{result.summary?.total_tension_lbs?.toLocaleString()} lbs</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.collapseZone')}:</span><span className="font-mono text-indigo-400">{activeCollapseZone}</span></div>
                   {result.connection && (
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Connection:</span>
+                      <span className="text-gray-400">{t('casingDesign.connection')}:</span>
                       <span className={`font-mono ${
                         result.connection.connection_status === 'PASS' ? 'text-green-400' :
                         result.connection.connection_status === 'WARNING' ? 'text-yellow-400' :
@@ -499,34 +499,34 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.tensionComponents')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">Peso Aire:</span><span className="font-mono">{result.tension_load?.air_weight_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">BF:</span><span className="font-mono">{result.tension_load?.buoyancy_factor}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Peso Flotado:</span><span className="font-mono">{result.tension_load?.buoyant_weight_lbs?.toLocaleString()} lbs</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.airWeight')}:</span><span className="font-mono">{result.tension_load?.air_weight_lbs?.toLocaleString()} lbs</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.bf')}:</span><span className="font-mono">{result.tension_load?.buoyancy_factor}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.buoyantWeight')}:</span><span className="font-mono">{result.tension_load?.buoyant_weight_lbs?.toLocaleString()} lbs</span></div>
                   <div className="border-t border-white/10 pt-2 mt-1">
                     <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                      Escenarios de Tensión
+                      {t('casingDesign.tensionScenarios')}
                     </div>
                     {/* Running scenario */}
                     <div className={`flex justify-between items-center mb-0.5 ${result.tension_scenarios?.governing === 'Running (Shock)' ? 'text-white' : 'text-gray-500'}`}>
                       <span className="flex items-center gap-1">
                         {result.tension_scenarios?.governing === 'Running (Shock)' && <span className="text-indigo-400 text-[10px] font-bold">▶</span>}
-                        <span>Running (Shock + Bending):</span>
+                        <span>{t('casingDesign.runningScenario')}:</span>
                       </span>
                       <span className="font-mono">{result.tension_scenarios?.running?.total_tension_lbs?.toLocaleString()} lbs</span>
                     </div>
                     <div className="text-[10px] text-gray-600 pl-3 mb-2">
-                      Shock: {result.tension_scenarios?.running?.shock_load_lbs?.toLocaleString()} · Bending: {result.tension_scenarios?.running?.bending_load_lbs?.toLocaleString()}
+                      {t('casingDesign.shock')}: {result.tension_scenarios?.running?.shock_load_lbs?.toLocaleString()} · {t('casingDesign.bending')}: {result.tension_scenarios?.running?.bending_load_lbs?.toLocaleString()}
                     </div>
                     {/* Stuck pipe scenario */}
                     <div className={`flex justify-between items-center mb-0.5 ${result.tension_scenarios?.governing === 'Stuck Pipe (Overpull)' ? 'text-white' : 'text-gray-500'}`}>
                       <span className="flex items-center gap-1">
                         {result.tension_scenarios?.governing === 'Stuck Pipe (Overpull)' && <span className="text-indigo-400 text-[10px] font-bold">▶</span>}
-                        <span>Stuck Pipe (Overpull):</span>
+                        <span>{t('casingDesign.stuckPipeScenario')}:</span>
                       </span>
                       <span className="font-mono">{result.tension_scenarios?.stuck_pipe?.total_tension_lbs?.toLocaleString()} lbs</span>
                     </div>
                     <div className="text-[10px] text-gray-600 pl-3">
-                      Overpull: {result.tension_scenarios?.stuck_pipe?.overpull_lbs?.toLocaleString()} lbs
+                      {t('casingDesign.overpull')}: {result.tension_scenarios?.stuck_pipe?.overpull_lbs?.toLocaleString()} lbs
                     </div>
                   </div>
                 </div>
@@ -538,12 +538,12 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.biaxialCorrection')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Original:</span><span className="font-mono">{activeBiaxial?.original_collapse_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Collapse Corregido:</span><span className="font-mono text-yellow-400">{activeBiaxial?.corrected_collapse_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Factor Reducción:</span><span className="font-mono">{activeBiaxial?.reduction_factor}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.originalCollapse')}:</span><span className="font-mono">{activeBiaxial?.original_collapse_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.correctedCollapse')}:</span><span className="font-mono text-yellow-400">{activeBiaxial?.corrected_collapse_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.reductionFactor')}:</span><span className="font-mono">{activeBiaxial?.reduction_factor}</span></div>
                   {activeTempDerate?.derate_factor < 1.0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Temp Derate:</span>
+                      <span className="text-gray-400">{t('casingDesign.tempDerate')}:</span>
                       <span className="font-mono text-yellow-400">
                         {(activeTempDerate.derate_factor * 100).toFixed(1)}% at {activeTempDerate.temperature_f}°F
                       </span>
@@ -554,10 +554,10 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.triaxialTitle')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-400">VME Stress:</span><span className="font-mono">{activeTriaxial?.vme_stress_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Admisible:</span><span className="font-mono">{activeTriaxial?.allowable_psi} psi</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Utilización:</span><span className={`font-mono font-bold ${activeTriaxial?.utilization_pct > 90 ? 'text-red-400' : 'text-green-400'}`}>{activeTriaxial?.utilization_pct}%</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Status:</span><span className={`font-mono font-bold ${activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>{activeTriaxial?.status}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.vmeStress')}:</span><span className="font-mono">{activeTriaxial?.vme_stress_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.allowable')}:</span><span className="font-mono">{activeTriaxial?.allowable_psi} psi</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.utilization')}:</span><span className={`font-mono font-bold ${activeTriaxial?.utilization_pct > 90 ? 'text-red-400' : 'text-green-400'}`}>{activeTriaxial?.utilization_pct}%</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">{t('casingDesign.status')}:</span><span className={`font-mono font-bold ${activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>{activeTriaxial?.status}</span></div>
                 </div>
               </div>
             </div>
@@ -569,7 +569,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               );
               if (biaxialDeratingPct != null && biaxialDeratingPct > 20) {
                 filteredAlerts.push(
-                  `Significant biaxial derating: collapse reduced by ${biaxialDeratingPct.toFixed(0)}%`
+                  t('casingDesign.biaxialDeratingAlert', { pct: biaxialDeratingPct.toFixed(0) })
                 );
               }
               if (filteredAlerts.length === 0) return null;

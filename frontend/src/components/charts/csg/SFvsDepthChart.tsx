@@ -3,6 +3,7 @@ import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ReferenceLine, ReferenceArea, ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 
 interface SFvsDepthChartProps {
   sfVsDepth: {
@@ -29,6 +30,7 @@ export default function SFvsDepthChart({
   sfTensionMin = 1.6,
   height = 400,
 }: SFvsDepthChartProps) {
+  const { t } = useTranslation();
   const data = useMemo(() => {
     if (!sfVsDepth?.profile) return [];
     return sfVsDepth.profile
@@ -44,7 +46,7 @@ export default function SFvsDepthChart({
   if (!data.length) {
     return (
       <div className="glass-card p-4 flex items-center justify-center" style={{ height }}>
-        <span className="text-gray-500 text-sm">No SF vs Depth data</span>
+        <span className="text-gray-500 text-sm">{t('casingDesign.noSFData')}</span>
       </div>
     );
   }
@@ -52,7 +54,7 @@ export default function SFvsDepthChart({
   return (
     <div className="glass-card p-4">
       <h4 className="text-sm font-semibold text-gray-300 mb-3">
-        Safety Factor vs Depth
+        {t('casingDesign.chartTitles.sfVsDepth')}
       </h4>
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} layout="vertical">
@@ -68,7 +70,7 @@ export default function SFvsDepthChart({
           />
           <Legend />
           <ReferenceArea x1={0} x2={1.0} fill="#ef4444" fillOpacity={0.06}
-            label={{ value: 'Failure Zone', fill: '#ef4444', fontSize: 9, position: 'insideTopLeft' }} />
+            label={{ value: t('casingDesign.failureZone'), fill: '#ef4444', fontSize: 9, position: 'insideTopLeft' }} />
           <ReferenceLine x={sfBurstMin} stroke="#EF4444" strokeDasharray="5 5" label={{ value: `SF Burst min=${sfBurstMin}`, fill: '#EF4444', fontSize: 10 }} />
           <ReferenceLine x={sfCollapseMin} stroke="#3B82F6" strokeDasharray="5 5" />
           <ReferenceLine x={sfTensionMin} stroke="#8B5CF6" strokeDasharray="5 5" />
@@ -79,9 +81,9 @@ export default function SFvsDepthChart({
       </ResponsiveContainer>
       {sfVsDepth?.min_sf != null && (
         <div className="mt-2 text-xs text-center text-gray-400">
-          Min SF: <span className={sfVsDepth.min_sf < 1 ? 'text-red-400 font-bold' : 'text-green-400'}>
+          {t('casingDesign.minSF')}: <span className={sfVsDepth.min_sf < 1 ? 'text-red-400 font-bold' : 'text-green-400'}>
             {sfVsDepth.min_sf.toFixed(2)}
-          </span> at {sfVsDepth.min_sf_depth_ft?.toFixed(0)} ft
+          </span> {t('casingDesign.at')} {sfVsDepth.min_sf_depth_ft?.toFixed(0)} ft
         </div>
       )}
     </div>

@@ -1153,7 +1153,10 @@
     "sections": {
       "casing": "Casing",
       "wellConditions": "Condiciones de Pozo",
-      "safetyFactors": "Factores de Seguridad Diseño"
+      "safetyFactors": "Factores de Seguridad Diseño",
+      "collapseThermal": "Collapse y Térmica",
+      "sourService": "Servicio Ácido (NACE MR0175)",
+      "connectionWear": "Conexión y Desgaste"
     },
     "od": "OD (in)",
     "id": "ID (in)",
@@ -1166,7 +1169,7 @@
     "mudWeight": "Peso Lodo (ppg)",
     "porePressure": "P. Poro (ppg)",
     "fracGradient": "Grad. Fractura (ppg)",
-    "gasGradient": "Grad. Gas (psi/ft)",
+    "gasGradient": "Grad. Gas (ppg)",
     "tocTVD": "TOC TVD (ft)",
     "cementDensity": "Densidad Cemento (ppg)",
     "sfBurst": "SF Burst",
@@ -1195,7 +1198,55 @@
     "allowable": "Admisible",
     "utilization": "Utilización",
     "designAlerts": "Alertas de Diseño",
-    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el diseño."
+    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el diseño.",
+    "evacuationLevel": "Nivel Evacuación (ft)",
+    "bottomholeTemp": "Temp. Fondo (°F)",
+    "tubingPressure": "Presión Tubing (psi)",
+    "internalFluidDensity": "Densidad Fluido Int. (ppg)",
+    "h2sPartialPressure": "H₂S Presión Parcial (psi)",
+    "sourServiceWarning": "⚠ Servicio ácido — N-80, P-110, Q-125 excluidos",
+    "connectionType": "Tipo Conexión",
+    "wearPct": "Desgaste (%)",
+    "corrosionRate": "Corrosión (in/yr)",
+    "designLife": "Vida Diseño (años)",
+    "manual": "manual",
+    "triaxialVMELabel": "VME Triaxial",
+    "governing": "Escenario Gobernante",
+    "connection": "Conexión",
+    "tempDerate": "Degradación Térmica",
+    "status": "Estado",
+    "tensionScenarios": "Escenarios de Tensión",
+    "runningScenario": "Corriendo (Shock + Flexión)",
+    "stuckPipeScenario": "Tubería Pegada (Sobretiro)",
+    "shock": "Shock",
+    "load": "Carga",
+    "rating": "Capacidad",
+    "min": "Mín",
+    "biaxialDeratingAlert": "Derating biaxial significativo: colapso reducido en {{pct}}%",
+    "gradeBanner": {
+      "actual": "ACTUAL",
+      "fails": "FALLA",
+      "failsNoCriteria": "NO cumple criterios de diseño",
+      "alternative": "ALTERNATIVA",
+      "meetsAllCriteria": "cumple todos los criterios",
+      "noAlternative": "Ninguna combinación disponible — considerar OD mayor o reducir cargas de diseño"
+    },
+    "porePressureAbbr": "Pp",
+    "gasGradLabel": "Grad. Gas.",
+    "internalPressureSurface": "Pi (sup)",
+    "externalPressureSurface": "Pe (sup)",
+    "surface": "Superficie",
+    "noSFData": "Sin datos de SF vs Profundidad",
+    "minSF": "SF Mín",
+    "at": "a",
+    "failureZone": "Zona de Falla",
+    "yieldEnvelope": "Envolvente de Fluencia API 5C3",
+    "chartTitles": {
+      "biaxialEllipse": "Elipse Biaxial API 5C3",
+      "tensionLoadProfile": "Perfil de Carga de Tensión",
+      "tensionVsDepth": "Tensión vs Profundidad",
+      "sfVsDepth": "Factor de Seguridad vs Profundidad"
+    }
   },
   "eventWizard": {
     "title": "Asistente de Análisis de Eventos",
@@ -1443,6 +1494,6 @@
     "passwordMismatch": "Las contraseñas no coinciden",
     "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
     "genericError": "Ocurrió un error. Por favor intenta de nuevo.",
-    "footer": "PetroExpert \u00a9 2025 \u2014 Todos los derechos reservados"
+    "footer": "PetroExpert © 2025 — Todos los derechos reservados"
   }
 }
