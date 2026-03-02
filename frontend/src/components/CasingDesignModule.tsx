@@ -23,7 +23,7 @@ interface CasingDesignModuleProps {
   wellName?: string;
 }
 
-const CHART_IDS = ['sf-vs-depth', 'biaxial-ellipse', 'scenario-envelope', 'tension-profile'] as const;
+const CHART_IDS = ['sf-vs-depth', 'biaxial-ellipse', 'scenario-envelope', 'tension-bar', 'tension-depth'] as const;
 type ChartImages = Partial<Record<typeof CHART_IDS[number], string>>;
 
 const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellName = '' }) => {
@@ -36,7 +36,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     casing_weight_ppf: 47.0, casing_length_ft: 10000,
     tvd_ft: 9500, mud_weight_ppg: 10.5,
     pore_pressure_ppg: 9.0, fracture_gradient_ppg: 16.5,
-    gas_gradient_psi_ft: 0.1,
+    gas_gradient_ppg: 0.1,
     cement_top_tvd_ft: 5000, cement_density_ppg: 16.0,
     bending_dls: 3.0, overpull_lbs: 50000,
     sf_burst: 1.10, sf_collapse: 1.00, sf_tension: 1.60,
@@ -44,6 +44,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
     wear_pct: 0, corrosion_rate_in_yr: 0, design_life_years: 20,
     bottomhole_temp_f: 200, tubing_pressure_psi: 0,
     internal_fluid_density_ppg: 0, evacuation_level_ft: 0,
+    h2s_partial_pressure_psi: 0,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,11 +112,11 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
       }
       try {
         const canvas = await html2canvas(el as HTMLElement, {
-          scale: 2,
+          scale: 1.5,
           useCORS: true,
-          backgroundColor: '#0c0e12',
+          backgroundColor: '#111827',
         });
-        const dataUrl = canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         if (dataUrl.length > 100) {
           images[id] = dataUrl;
           console.log(`[ChartCapture] Captured ${id}: ${(dataUrl.length / 1024).toFixed(0)} KB`);
@@ -167,6 +168,18 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const activeGradeName = userSelectedGrade || activeCandidate?.grade || result?.summary?.selected_grade;
   const activeBurstRating = activeGradeData?.burst_rating_design_psi ?? result?.burst_rating?.burst_rating_psi;
   const activeCollapseRating = activeGradeData?.collapse_rating_biaxial_psi ?? result?.biaxial_correction?.corrected_collapse_psi;
+  // FIX-CAS-012: detect when no grade at current weight passes all criteria
+  const gradeFailsAll = Boolean(
+    result?.grade_selection?.selected_grade?.startsWith('None') && !userSelectedGrade
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const weightRecommendation: Record<string, any> | null = result?.grade_selection?.weight_recommendation ?? null;
+  // FIX-CAS-012 R3: list which criteria fail, for ACTUAL/ALTERNATIVA banner
+  const failingCriteria: string = Object.entries(activeSF?.results ?? {})
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter(([, sf]) => !(sf as any).passes)
+    .map(([name]) => name.charAt(0).toUpperCase() + name.slice(1))
+    .join(', ');
 
   return (
     <div className="space-y-6">
@@ -224,7 +237,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                     { key: 'mud_weight_ppg', label: 'Peso Lodo (ppg)', step: '0.1' },
                     { key: 'pore_pressure_ppg', label: 'P. Poro (ppg)', step: '0.1' },
                     { key: 'fracture_gradient_ppg', label: 'Grad. Fractura (ppg)', step: '0.1' },
-                    { key: 'gas_gradient_psi_ft', label: 'Grad. Gas (psi/ft)', step: '0.01' },
+                    { key: 'gas_gradient_ppg', label: 'Grad. Gas (ppg)', step: '0.01' },
                     { key: 'cement_top_tvd_ft', label: 'TOC TVD (ft)', step: '100' },
                     { key: 'cement_density_ppg', label: 'Densidad Cemento (ppg)', step: '0.1' },
                   ].map(({ key, label, step }) => (
@@ -272,6 +285,28 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-3">Sour Service (NACE MR0175)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400" title="H2S partial pressure &gt; 0.05 psi activates NACE MR0175 — excluye N-80, P-110, Q-125">
+                      H₂S Presión Parcial (psi)
+                    </label>
+                    <input type="number" step="0.01" min="0"
+                      value={params.h2s_partial_pressure_psi}
+                      onChange={e => updateParam('h2s_partial_pressure_psi', e.target.value)}
+                      className={`w-full bg-white/5 border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                        params.h2s_partial_pressure_psi > 0.05
+                          ? 'border-yellow-500/50 focus:border-yellow-400'
+                          : 'border-white/10 focus:border-indigo-500'
+                      }`} />
+                    {params.h2s_partial_pressure_psi > 0.05 && (
+                      <p className="text-xs text-yellow-400">⚠ Sour service — N-80, P-110, Q-125 excluidos</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -333,6 +368,23 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   {isGradeOverride && <span className="ml-2 text-yellow-400 text-xs">(manual)</span>}
                   {' | '}Triaxial VME: <span className={activeTriaxial?.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>{activeTriaxial?.status}</span>
                 </div>
+                {gradeFailsAll && (
+                  <div className="mt-2 space-y-0.5 text-xs">
+                    <div className="text-red-400 font-semibold">
+                      ✗ ACTUAL: {activeGradeName} {params.casing_weight_ppf} ppf
+                      {failingCriteria ? ` — FALLA ${failingCriteria}` : ' — NO cumple criterios de diseño'}
+                    </div>
+                    {weightRecommendation ? (
+                      <div className="text-yellow-400 font-semibold">
+                        → ALTERNATIVA: {weightRecommendation.description} — cumple todos los criterios
+                      </div>
+                    ) : (
+                      <div className="text-orange-400">
+                        Ninguna combinación disponible — considerar OD mayor o reducir cargas de diseño
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -347,7 +399,7 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
             )}
 
             {/* Safety Factor Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {['burst', 'collapse', 'tension'].map(criterion => {
                 const sf = activeSF?.results?.[criterion];
                 if (!sf) return null;
@@ -364,6 +416,23 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   </div>
                 );
               })}
+              {/* VME Safety Factor — 4th criterion (API TR 5C3) */}
+              {(() => {
+                const sfVme = activeSF?.results?.vme;
+                if (!sfVme) return null;
+                return (
+                  <div key="vme" className={`glass-panel p-4 rounded-xl border ${sfVme.passes ? 'border-green-500/20' : 'border-red-500/20'}`}>
+                    <div className="text-xs text-gray-500 mb-1 uppercase">VME</div>
+                    <div className={`text-2xl font-bold ${sfVme.passes ? 'text-green-400' : 'text-red-400'}`}>
+                      SF = {sfVme.safety_factor}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      σ_VME: {sfVme.vme_stress_psi?.toLocaleString()} psi | Min: {sfVme.minimum_sf}
+                    </div>
+                    <div className={`text-xs mt-1 ${sfVme.passes ? 'text-green-500' : 'text-red-500'}`}>{sfVme.status}</div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Load Details */}
@@ -372,15 +441,29 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                 <h3 className="text-lg font-bold mb-3">{t('casingDesign.designLoads')}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-400">Max Burst:</span><span className="font-mono">{result.summary?.max_burst_load_psi} psi @ {result.burst_load?.max_burst_depth_ft} ft</span></div>
+                  {result.burst_load?.profile?.[0] && (
+                    <div className="ml-2 space-y-0.5 text-xs border-l border-white/10 pl-2 text-gray-500">
+                      <div className="flex justify-between"><span>Pp:</span><span className="font-mono">{params.pore_pressure_ppg} ppg</span></div>
+                      <div className="flex justify-between"><span>Gas Grad.:</span><span className="font-mono">{params.gas_gradient_ppg} ppg</span></div>
+                      <div className="flex justify-between"><span>Pi (sup):</span><span className="font-mono">{result.burst_load.profile[0].p_internal_psi?.toLocaleString()} psi</span></div>
+                      <div className="flex justify-between"><span>Pe (sup):</span><span className="font-mono">{result.burst_load.profile[0].p_external_psi?.toLocaleString()} psi</span></div>
+                    </div>
+                  )}
                   <div className="flex justify-between"><span className="text-gray-400">Max Collapse:</span><span className="font-mono">{result.summary?.max_collapse_load_psi} psi @ {result.collapse_load?.max_collapse_depth_ft} ft</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Tensión Total:</span><span className="font-mono">{result.summary?.total_tension_lbs?.toLocaleString()} lbs</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Collapse Zone:</span><span className="font-mono text-indigo-400">{activeCollapseZone}</span></div>
                   {result.connection && (
                     <div className="flex justify-between">
                       <span className="text-gray-400">Connection:</span>
-                      <span className={`font-mono ${result.connection.passes_all ? 'text-green-400' : 'text-red-400'}`}>
-                        {result.connection.connection_type} — {result.connection.passes_all ? 'PASS' : 'FAIL'}
-                        {result.connection.is_weak_link && <span className="text-yellow-400 ml-1">&#9888; Weak link</span>}
+                      <span className={`font-mono ${
+                        result.connection.connection_status === 'PASS' ? 'text-green-400' :
+                        result.connection.connection_status === 'WARNING' ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {result.connection.connection_type} — {result.connection.connection_status ?? (result.connection.passes_all ? 'PASS' : 'FAIL')}
+                        {result.connection.connection_status === 'WARNING' && (
+                          <span className="ml-1 text-xs">({(result.connection.efficiency * 100).toFixed(0)}% eff.)</span>
+                        )}
                       </span>
                     </div>
                   )}
@@ -447,13 +530,11 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               <BurstCollapseEnvelope burstLoad={result.burst_load} collapseLoad={result.collapse_load}
                 burstRating={activeBurstRating} collapseRating={activeCollapseRating} />
               <SafetyFactorTrack safetyFactors={activeSF} />
-              <div data-chart-id="tension-profile">
-                <TensionProfile tensionProfile={result.tension_profile} tensionLoad={result.tension_load} />
-              </div>
+              <TensionProfile tensionProfile={result.tension_profile} tensionLoad={result.tension_load} />
               <div data-chart-id="biaxial-ellipse">
                 <BiaxialEllipse biaxial={activeBiaxial} stateLine={result.biaxial_state_line} />
               </div>
-              <CasingProgramSchematic summary={result.summary} params={params} />
+              <CasingProgramSchematic summary={result.summary} params={params} weightRecommendation={weightRecommendation as { ppf: number; grade: string; description: string } | null} />
               <GradeSelectionTable
                 gradeSelection={result.grade_selection}
                 onGradeSelect={setUserSelectedGrade}

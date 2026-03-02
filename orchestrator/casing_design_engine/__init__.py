@@ -5,7 +5,7 @@ All existing imports continue to work unchanged:
     from orchestrator.casing_design_engine import CasingDesignEngine
 """
 from .constants import CASING_GRADES, CASING_CATALOG, DEFAULT_SF
-from .loads import calculate_burst_load, calculate_collapse_load, calculate_tension_load
+from .loads import calculate_burst_load, calculate_collapse_load, calculate_tension_load, calculate_tension_profile
 from .ratings import calculate_burst_rating, calculate_collapse_rating, derate_for_temperature
 from .corrections import calculate_biaxial_correction, calculate_biaxial_profile, calculate_triaxial_vme, calculate_hoop_stress_lame
 from .grade_selection import select_casing_grade, lookup_casing_catalog, design_combination_string
@@ -30,6 +30,7 @@ class CasingDesignEngine:
     calculate_burst_load = staticmethod(calculate_burst_load)
     calculate_collapse_load = staticmethod(calculate_collapse_load)
     calculate_tension_load = staticmethod(calculate_tension_load)
+    calculate_tension_profile = staticmethod(calculate_tension_profile)
 
     # ratings
     calculate_burst_rating = staticmethod(calculate_burst_rating)

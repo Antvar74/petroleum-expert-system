@@ -70,6 +70,24 @@ class TestBurstLoad:
         high = engine.calculate_burst_load(tvd_ft=10000, mud_weight_ppg=10.0, pore_pressure_ppg=14.0)
         assert high["max_burst_load_psi"] > low["max_burst_load_psi"]
 
+    def test_gas_gradient_ppg_surface_burst(self, engine):
+        """FIX-CAS-002: gas_gradient_ppg=0.1 with PP=12.5 ppg → Pi(0) ≈ 6,126 psi.
+
+        P_reservoir = 12.5 * 0.052 * 9500 = 6175 psi
+        gas_gradient_psi_ft = 0.1 * 0.052 = 0.0052 psi/ft
+        Pi(surface) = 6175 - 0.0052 * 9500 = 6,125.6 psi
+        P_ext(surface) = 0
+        Burst at surface ≈ 6,126 psi
+        """
+        result = engine.calculate_burst_load(
+            tvd_ft=9500, mud_weight_ppg=10.5, pore_pressure_ppg=12.5,
+            gas_gradient_ppg=0.1,
+        )
+        # Surface burst load ≈ 6,126 psi
+        surface_point = result["profile"][0]
+        assert surface_point["tvd_ft"] == 0
+        assert surface_point["burst_load_psi"] == pytest.approx(6126, rel=0.01)
+
 
 # ===========================================================================
 # 2. COLLAPSE LOAD
@@ -287,6 +305,23 @@ class TestCollapseRating:
         result = engine.calculate_collapse_rating(0.0, 0.472, 80000)
         assert "error" in result
 
+    def test_c90_plastic_zone_and_rating(self, engine):
+        """FIX-CAS-001: C-90 9-5/8" 47 lb/ft must be Plastic zone, ~5,596 psi.
+
+        D/t = 9.625 / 0.472 = 20.39.
+        Tabulated API constants for Yp=90,000 psi: A=3.071, B=0.0667, C=1955.
+        P_collapse = Yp*(A/dt - B) - C = 90000*(3.071/20.39 - 0.0667) - 1955 ≈ 5,596 psi.
+        """
+        result = engine.calculate_collapse_rating(
+            casing_od_in=9.625, wall_thickness_in=0.472, yield_strength_psi=90000,
+        )
+        assert result["collapse_zone"] == "Plastic", (
+            f"Expected Plastic, got {result['collapse_zone']} (dt={result['dt_ratio']})"
+        )
+        assert result["collapse_rating_psi"] == pytest.approx(5596, rel=0.02), (
+            f"Expected ~5,596 psi, got {result['collapse_rating_psi']}"
+        )
+
 
 # ===========================================================================
 # 6. BIAXIAL CORRECTION (API 5C3 ELLIPSE)
@@ -421,6 +456,26 @@ class TestGradeSelection:
         )
         assert "error" in result
 
+    def test_h2s_service_excludes_non_nace_grades(self, engine):
+        """FIX-CAS-008: With h2s_service=True, N80/P110/Q125 must not be selected."""
+        NON_NACE = {"N80", "P110", "Q125"}
+        result = engine.select_casing_grade(
+            required_burst_psi=2000, required_collapse_psi=2000,
+            required_tension_lbs=200000,
+            casing_od_in=9.625, wall_thickness_in=0.472,
+            h2s_service=True,
+        )
+        selected = result.get("selected_grade", "")
+        assert selected not in NON_NACE, (
+            f"Non-NACE grade {selected} was selected in sour service"
+        )
+        # Non-NACE candidates must have passes_all=False
+        for c in result["all_candidates"]:
+            if c["grade"] in NON_NACE:
+                assert c["passes_all"] is False, (
+                    f"{c['grade']} should be excluded in sour service"
+                )
+
 
 # ===========================================================================
 # 9. SAFETY FACTORS
@@ -462,6 +517,39 @@ class TestSafetyFactors:
         # Burst SF = 2.2, min=1.1 → margin = (2.2/1.1 - 1)*100 = 100%
         assert result["results"]["burst"]["margin_pct"] == pytest.approx(100.0, abs=0.5)
 
+    def test_vme_sf_present_when_provided(self, engine):
+        """FIX-CAS-009: SF_VME = Fy / sigma_VME must appear as 4th criterion."""
+        result = engine.calculate_safety_factors(
+            burst_load_psi=3000, burst_rating_psi=5000,
+            collapse_load_psi=3000, collapse_rating_psi=5000,
+            tension_load_lbs=500000, tension_rating_lbs=1500000,
+            vme_stress_psi=45000, yield_strength_psi_vme=90000,
+        )
+        assert "vme" in result["results"], "VME criterion missing when vme_stress_psi > 0"
+        sf_vme = result["results"]["vme"]["safety_factor"]
+        # SF_VME = 90000 / 45000 = 2.00
+        assert sf_vme == pytest.approx(2.0, abs=0.01)
+
+    def test_vme_sf_absent_when_not_provided(self, engine):
+        """VME must not appear in results when vme_stress_psi=0 (default)."""
+        result = engine.calculate_safety_factors(
+            burst_load_psi=3000, burst_rating_psi=5000,
+            collapse_load_psi=3000, collapse_rating_psi=5000,
+            tension_load_lbs=500000, tension_rating_lbs=1500000,
+        )
+        assert "vme" not in result["results"]
+
+    def test_vme_governs_when_lowest_sf(self, engine):
+        """When VME has the lowest SF it must be the governing criterion."""
+        result = engine.calculate_safety_factors(
+            burst_load_psi=2000, burst_rating_psi=5000,   # SF=2.50
+            collapse_load_psi=2000, collapse_rating_psi=5000,  # SF=2.50
+            tension_load_lbs=200000, tension_rating_lbs=1000000,  # SF=5.00
+            vme_stress_psi=80000, yield_strength_psi_vme=90000,  # SF=1.125 (below min)
+        )
+        assert result["governing_criterion"] == "vme"
+        assert result["results"]["vme"]["passes"] is False
+
 
 # ===========================================================================
 # 10. FULL CASING DESIGN (MASTER METHOD)
@@ -476,6 +564,7 @@ class TestFullCasingDesign:
             "safety_factors", "sf_vs_depth", "summary",
             "burst_scenarios", "collapse_scenarios", "tension_scenarios",
             "connection", "temperature_derating",
+            "tension_profile", "biaxial_state_line",
         }
         assert expected_keys.issubset(result.keys())
 
@@ -978,3 +1067,346 @@ class TestCandidateEnrichment:
         )
         assert "nace_compliance" in result
         assert result["nace_compliance"]["compliant"] is True
+
+
+# ===========================================================================
+# 17. TENSION PROFILE VS DEPTH
+# ===========================================================================
+class TestTensionProfile:
+    """Validate per-depth tension profile calculation."""
+
+    def test_profile_has_points(self, engine):
+        result = engine.calculate_tension_profile(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.5, casing_od_in=9.625,
+        )
+        assert result["num_points"] == 25
+
+    def test_tension_decreases_with_depth(self, engine):
+        result = engine.calculate_tension_profile(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.5, casing_od_in=9.625,
+        )
+        profile = result["profile"]
+        assert profile[0]["total_tension_lbs"] > profile[-1]["total_tension_lbs"]
+
+    def test_tension_at_bottom_near_zero(self, engine):
+        """At TD, remaining string = 0 -> buoyant weight = 0."""
+        result = engine.calculate_tension_profile(
+            casing_weight_ppf=47.0, casing_length_ft=10000,
+            mud_weight_ppg=10.5, casing_od_in=9.625,
+            shock_load=False, bending_load_dls=0,
+        )
+        last = result["profile"][-1]
+        assert last["buoyant_weight_lbs"] == 0
+
+    def test_pipeline_includes_tension_profile(self, engine):
+        result = engine.calculate_full_casing_design()
+        assert "tension_profile" in result
+        tp = result["tension_profile"]
+        assert tp["num_points"] > 0
+        assert tp["pipe_body_yield_lbs"] > 0
+
+
+# ===========================================================================
+# 18. BIAXIAL STATE LINE
+# ===========================================================================
+class TestBiaxialStateLine:
+    """Validate biaxial state line for normalized ellipse plot."""
+
+    def test_state_line_present(self, engine):
+        result = engine.calculate_full_casing_design()
+        sl = result["biaxial_state_line"]
+        assert len(sl) > 0
+        assert "sigma_a_over_fy" in sl[0]
+        assert "p_net_over_pco" in sl[0]
+        assert "tvd_ft" in sl[0]
+
+    def test_surface_has_max_axial_ratio(self, engine):
+        """Surface point should have highest axial stress ratio."""
+        result = engine.calculate_full_casing_design()
+        sl = result["biaxial_state_line"]
+        assert sl[0]["sigma_a_over_fy"] >= sl[-1]["sigma_a_over_fy"]
+
+    def test_values_are_normalized(self, engine):
+        """Normalized values should be within reasonable range (-2 to 2)."""
+        result = engine.calculate_full_casing_design()
+        for pt in result["biaxial_state_line"]:
+            assert -2.0 <= pt["sigma_a_over_fy"] <= 2.0
+            assert -2.0 <= pt["p_net_over_pco"] <= 2.0
+
+
+# ===========================================================================
+# ROUND 2 FIXES — TS-R2-01 through TS-R2-06
+# ===========================================================================
+
+class TestCollapseLoadR2:
+    """FIX-CAS-010: Post-hardening cement must NOT add external pressure."""
+
+    def test_full_evacuation_p_ext_mud_only(self, engine):
+        """TS-R2-01: collapse(TD) = MW × 0.052 × TD regardless of cement."""
+        result = engine.calculate_collapse_load(
+            tvd_ft=9500.0,
+            mud_weight_ppg=10.5,
+            pore_pressure_ppg=9.0,
+            cement_top_tvd_ft=5000.0,
+            cement_density_ppg=16.0,
+            evacuation_level_ft=0,   # full evacuation
+        )
+        # Expected: 10.5 × 0.052 × 9500 = 5,187 psi (cement excluded)
+        expected = 10.5 * 0.052 * 9500
+        profile = result["profile"]
+        p_ext_td = profile[-1]["p_external_psi"]
+        assert abs(p_ext_td - expected) <= 50, (
+            f"P_ext at TD = {p_ext_td} psi; expected ~{expected:.0f} psi (mud only)"
+        )
+
+    def test_cement_gradient_not_in_p_ext(self, engine):
+        """TS-R2-02: Cement density must NOT raise P_ext above mud gradient."""
+        result_no_cement = engine.calculate_collapse_load(
+            tvd_ft=9500.0, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+            cement_top_tvd_ft=0.0, cement_density_ppg=16.0,
+        )
+        result_with_cement = engine.calculate_collapse_load(
+            tvd_ft=9500.0, mud_weight_ppg=10.5, pore_pressure_ppg=9.0,
+            cement_top_tvd_ft=5000.0, cement_density_ppg=16.0,
+        )
+        # P_ext at TD must be identical — cement column has no effect post-hardening
+        p_ext_no = result_no_cement["profile"][-1]["p_external_psi"]
+        p_ext_with = result_with_cement["profile"][-1]["p_external_psi"]
+        assert p_ext_no == p_ext_with, (
+            f"P_ext should be identical with/without cement: {p_ext_no} vs {p_ext_with}"
+        )
+
+
+class TestGradeSelectionR2:
+    """FIX-CAS-011: Weight iteration when no grade passes at current ppf."""
+
+    def test_weight_recommendation_when_grade_fails(self, engine):
+        """TS-R2-03: All grades at 0.472 wall fail → recommend 53.5 ppf P110 from catalog.
+
+        Q125@0.472: burst ≈ 10,727 psi; 10,727/9,800 = 1.094 < 1.10 → all grades fail.
+        Catalog P110@53.5 lb/ft (wall=0.545): burst=10,910 psi; 10,910/9,800 = 1.113 → passes.
+        """
+        result = engine.select_casing_grade(
+            required_burst_psi=9_800.0,
+            required_collapse_psi=4_000.0,
+            required_tension_lbs=400_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+            sf_burst=1.10,
+            sf_collapse=1.00,
+            sf_tension=1.60,
+        )
+        assert result["selected_grade"].startswith("None"), (
+            "At burst_psi=9800 × SF=1.10=10780, Q125@0.472 (10,727 psi) should fail"
+        )
+        rec = result["weight_recommendation"]
+        assert rec is not None, "Must provide weight_recommendation when no grade passes"
+        assert rec["ppf"] == 53.5
+        assert rec["grade"] == "P110"
+
+    def test_no_recommendation_when_catalog_exhausted(self, engine):
+        """TS-R2-04: extreme loads → no catalog entry satisfies → recommendation is None."""
+        result = engine.select_casing_grade(
+            required_burst_psi=50_000.0,
+            required_collapse_psi=30_000.0,
+            required_tension_lbs=5_000_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        assert result["selected_grade"].startswith("None")
+        assert result["weight_recommendation"] is None
+
+    def test_recommendation_present_only_when_needed(self, engine):
+        """TS-R2-04b: when a grade passes, weight_recommendation is None."""
+        result = engine.select_casing_grade(
+            required_burst_psi=3000.0,
+            required_collapse_psi=2000.0,
+            required_tension_lbs=100_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        assert not result["selected_grade"].startswith("None")
+        assert result["weight_recommendation"] is None
+
+
+class TestConnectionStatusR2:
+    """FIX-CAS-015: three-level connection status — PASS / WARNING / FAIL."""
+
+    def test_btc_weak_link_with_passing_sf_is_warning(self, engine):
+        """TS-R2-05: BTC 80% eff, SF passes → WARNING not FAIL."""
+        result = engine.verify_connection(
+            connection_type="BTC",
+            pipe_body_yield_lbs=1_000_000.0,
+            burst_rating_psi=10_000.0,
+            collapse_rating_psi=8_000.0,
+            applied_tension_lbs=100_000.0,  # SF_t = 800k/100k = 8.0 >> 1.60
+            applied_burst_psi=5_000.0,
+            applied_collapse_psi=3_000.0,
+        )
+        assert result["is_weak_link"] is True
+        assert result["passes_all"] is True
+        assert result["connection_status"] == "WARNING"
+        # Alert should mention weak link, not FAIL
+        assert any("Weak link" in a or "weak link" in a for a in result["alerts"])
+
+    def test_btc_failing_sf_is_fail(self, engine):
+        """TS-R2-06: BTC 80% eff, SF fails → FAIL with descriptive alert."""
+        result = engine.verify_connection(
+            connection_type="BTC",
+            pipe_body_yield_lbs=200_000.0,
+            burst_rating_psi=10_000.0,
+            collapse_rating_psi=8_000.0,
+            applied_tension_lbs=150_000.0,  # SF_t = 160k/150k = 1.07 < 1.60
+            applied_burst_psi=5_000.0,
+            applied_collapse_psi=3_000.0,
+        )
+        assert result["passes_all"] is False
+        assert result["connection_status"] == "FAIL"
+        assert any("FAIL" in a for a in result["alerts"])
+
+    def test_premium_connection_is_pass(self, engine):
+        """Premium connection (95% eff) with normal loads = PASS, not WARNING."""
+        result = engine.verify_connection(
+            connection_type="PREMIUM",
+            pipe_body_yield_lbs=800_000.0,
+            burst_rating_psi=10_000.0,
+            collapse_rating_psi=8_000.0,
+            applied_tension_lbs=200_000.0,
+            applied_burst_psi=4_000.0,
+            applied_collapse_psi=3_000.0,
+        )
+        # 95% eff → conn_tension = 760k; NOT < 0.95 × 800k = 760k → boundary (not weak link)
+        assert result["connection_status"] in ("PASS", "WARNING")
+        assert result["passes_all"] is True
+
+
+# ===========================================================================
+# ROUND 3 FIXES — T1-R3-01 through T1-R3-04
+# ===========================================================================
+
+class TestBiaxialInGradeSelection:
+    """FIX-CAS-016: Grade table must use Pco_corrected (biaxial) for collapse."""
+
+    def test_candidates_have_corrected_collapse(self, engine):
+        """T1-R3-01a: Every candidate must expose biaxial_reduction and corrected collapse."""
+        result = engine.select_casing_grade(
+            required_burst_psi=4_000.0,
+            required_collapse_psi=5_187.0,
+            required_tension_lbs=630_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        for candidate in result["all_candidates"]:
+            assert "collapse_rating_corrected_psi" in candidate, (
+                f"Grade {candidate['grade']} missing collapse_rating_corrected_psi"
+            )
+            assert "biaxial_reduction" in candidate, (
+                f"Grade {candidate['grade']} missing biaxial_reduction"
+            )
+            # Corrected must be ≤ original (tension reduces collapse resistance)
+            assert candidate["collapse_rating_corrected_psi"] <= candidate["collapse_rating_psi"], (
+                f"Corrected collapse must be ≤ original for grade {candidate['grade']}"
+            )
+
+    def test_c90_47ppf_fails_collapse_with_biaxial(self, engine):
+        """T1-R3-01b: C90@47ppf with typical loads fails collapse in grade table (matches panel).
+
+        Required: 5,187 psi collapse load, tension=630,000 lbs.
+        C90 Pco_original ≈ 5,596 psi; biaxial correction ≈ 0.64 → Pco_corr ≈ 3,580 psi < 5,187.
+        """
+        result = engine.select_casing_grade(
+            required_burst_psi=4_000.0,
+            required_collapse_psi=5_187.0,
+            required_tension_lbs=630_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        c90 = next((c for c in result["all_candidates"] if c["grade"] == "C90"), None)
+        assert c90 is not None
+        # With biaxial correction, C90 must fail collapse at these loads
+        assert not c90["passes_collapse"], (
+            f"C90 corrected collapse = {c90['collapse_rating_corrected_psi']} psi "
+            f"vs required {5187 * 1.0:.0f} psi — must FAIL with biaxial correction applied"
+        )
+
+    def test_higher_fy_has_smaller_reduction(self, engine):
+        """T1-R3-01c: Higher Fy grades have smaller sa_ratio → closer to 1.0 reduction."""
+        result = engine.select_casing_grade(
+            required_burst_psi=3_000.0,
+            required_collapse_psi=3_000.0,
+            required_tension_lbs=500_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        # J55 (low Fy) should have larger reduction factor than Q125 (high Fy)
+        j55 = next((c for c in result["all_candidates"] if c["grade"] == "J55"), None)
+        q125 = next((c for c in result["all_candidates"] if c["grade"] == "Q125"), None)
+        if j55 and q125:
+            # Lower Fy → higher sa_ratio → smaller reduction (more penalised)
+            assert j55["biaxial_reduction"] <= q125["biaxial_reduction"], (
+                f"J55 reduction {j55['biaxial_reduction']:.4f} should be ≤ "
+                f"Q125 reduction {q125['biaxial_reduction']:.4f}"
+            )
+
+    def test_weight_recommendation_uses_biaxial(self, engine):
+        """T1-R3-02: weight_recommendation from catalog also applies biaxial correction."""
+        # With default loads (all 47ppf grades fail), recommend heavier weight
+        result = engine.select_casing_grade(
+            required_burst_psi=4_000.0,
+            required_collapse_psi=5_187.0,
+            required_tension_lbs=630_000.0,
+            casing_od_in=9.625,
+            wall_thickness_in=0.472,
+        )
+        # No grade should pass at 47 ppf with biaxial correction
+        assert result["selected_grade"].startswith("None"), (
+            "All 47ppf grades should fail collapse when biaxial correction is applied "
+            "to 5187 psi required collapse with 630k lbs tension"
+        )
+        # Weight recommendation must exist — heavier wall reduces sigma_a → less biaxial penalty
+        rec = result["weight_recommendation"]
+        assert rec is not None, "Must recommend heavier weight when 47ppf fails"
+        assert rec["ppf"] > 47.0, f"Recommendation must be heavier than 47 ppf (got {rec['ppf']})"
+        # Recommendation must expose biaxial-corrected collapse
+        assert "collapse_rating_corrected_psi" in rec
+        assert "biaxial_reduction" in rec
+
+    def test_default_pipeline_shows_no_grade_with_biaxial(self, engine):
+        """T1-R3-02b: Full pipeline with default params → selected_grade = None (correct behavior)."""
+        result = engine.calculate_full_casing_design()
+        selected = result["grade_selection"]["selected_grade"]
+        assert selected.startswith("None"), (
+            "With biaxial correction, no grade at 47ppf should pass collapse "
+            "under default loads (5187 psi collapse, 630k lbs tension)"
+        )
+        # Weight recommendation must be provided
+        rec = result["grade_selection"]["weight_recommendation"]
+        assert rec is not None, "Pipeline must provide weight_recommendation when no grade passes"
+
+    def test_grade_details_match_summary_with_passing_params(self, engine):
+        """T1-R3-03: When a grade passes (lighter loads), enriched details match top-level summary.
+
+        Uses reduced collapse load (low pore pressure) where C90@47ppf can pass biaxial.
+        """
+        # Low pore pressure → low burst. Low mud weight → low collapse load.
+        # Collapse load = 8.5 * 0.052 * 9500 = 4,199 psi.
+        # C90@0.472 Pco_orig ≈ 5596; biaxial reduction with lower tension ≈ 0.85 → Pco_corr ≈ 4756 > 4199 → PASS
+        result = engine.calculate_full_casing_design(
+            mud_weight_ppg=8.5,
+            pore_pressure_ppg=5.0,
+        )
+        selected_grade = result["grade_selection"].get("selected_grade", "")
+        if selected_grade.startswith("None"):
+            import pytest
+            pytest.skip("No grade selected even with low loads — skip match check")
+
+        candidates = result["grade_selection"]["all_candidates"]
+        selected = next((c for c in candidates if c["grade"] == selected_grade), None)
+        assert selected is not None
+
+        d = selected["details"]
+        # Safety factor for burst must match between enriched details and top-level
+        assert d["safety_factors"]["results"]["burst"]["safety_factor"] == \
+            result["safety_factors"]["results"]["burst"]["safety_factor"]

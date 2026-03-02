@@ -18,6 +18,21 @@ from typing import Dict, Any
 
 _log = logging.getLogger(__name__)
 
+# Tabulated API constants for standard API 5CT grades.
+# Source: API Bulletin 5C3, 6th Edition (1990), Table 2;
+#         Bourgoyne et al., Applied Drilling Engineering, Table 7-1.
+# Used in preference to the polynomial approximation for matching yield strengths.
+_TABULATED_CONSTANTS = {
+    40000:  {"A": 2.950,  "B": 0.0465, "C": 754},    # H-40
+    55000:  {"A": 3.037,  "B": 0.0557, "C": 1269},   # J-55, K-55
+    80000:  {"A": 3.071,  "B": 0.0667, "C": 1955},   # N-80, L-80
+    90000:  {"A": 3.071,  "B": 0.0667, "C": 1955},   # C-90  (API TR 5C3)
+    95000:  {"A": 3.121,  "B": 0.0743, "C": 2254},   # T-95
+    110000: {"A": 3.132,  "B": 0.0743, "C": 2254},   # P-110
+    125000: {"A": 3.147,  "B": 0.0855, "C": 2843},   # Q-125
+}
+_TABULATED_TOL_PSI = 500  # match if Yp within ±500 psi of a tabulated value
+
 
 def calculate_burst_rating(
     casing_od_in: float,
@@ -78,13 +93,24 @@ def calculate_collapse_rating(
     dt = casing_od_in / wall_thickness_in
     yp = yield_strength_psi
 
-    # ── API 5C3 empirical coefficients (functions of yield strength) ──
-    # Polynomial approximations from API TR 5C3.
-    # NOTE: The A coefficient uses 0.10679e-5 (i.e., 1.0679 x 10^-5),
-    # NOT 0.10679e-4. This is a common transcription error in some sources.
-    A = 2.8762 + 0.10679e-5 * yp + 0.21301e-10 * yp ** 2 - 0.53132e-16 * yp ** 3
-    B = 0.026233 + 0.50609e-6 * yp
-    C = -465.93 + 0.030867 * yp - 0.10483e-7 * yp ** 2 + 0.36989e-13 * yp ** 3
+    # ── API 5C3 collapse constants (A, B, C) ──
+    # Prefer tabulated values for standard API 5CT grades; fall back to
+    # polynomial approximation (API TR 5C3) for non-standard yield strengths.
+    # NOTE on polynomial: the A coefficient uses 0.10679e-5 (= 1.0679×10⁻⁶),
+    # NOT 0.10679e-4. Using the wrong exponent pushes dt_yp too high and can
+    # misclassify the collapse zone (e.g. Plastic → Yield for C-90 9-5/8" 47 lb/ft).
+    _tab = next(
+        (v for k, v in _TABULATED_CONSTANTS.items() if abs(yp - k) <= _TABULATED_TOL_PSI),
+        None,
+    )
+    if _tab:
+        A = _tab["A"]
+        B = _tab["B"]
+        C = _tab["C"]
+    else:
+        A = 2.8762 + 0.10679e-5 * yp + 0.21301e-10 * yp ** 2 - 0.53132e-16 * yp ** 3
+        B = 0.026233 + 0.50609e-6 * yp
+        C = -465.93 + 0.030867 * yp - 0.10483e-7 * yp ** 2 + 0.36989e-13 * yp ** 3
 
     # ── Boundary D/t ratios (API TR 5C3) ──
 

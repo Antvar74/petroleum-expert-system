@@ -86,45 +86,52 @@ body {
 
 .executive-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin: 16px 0 28px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 12px 0 24px;
 }
 
 .executive-kpi-card {
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px 8px;
+  border-radius: 6px;
+  padding: 10px 6px;
   text-align: center;
   background: #f8fafc;
+  overflow: hidden;
 }
 
 .executive-kpi-value {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #1e40af;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  line-height: 1.2;
 }
 
 .executive-kpi-label {
-  font-size: 10px;
+  font-size: 9px;
   color: #94a3b8;
   text-transform: uppercase;
   margin-top: 4px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  overflow-wrap: break-word;
 }
 
 .executive-section {
-  margin: 24px 0;
-  break-inside: avoid;
+  margin: 16px 0;
 }
 
 .executive-section-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #334155;
-  border-bottom: 1px solid #e2e8f0;
+  color: #1e3a5f;
+  border-bottom: 2px solid #1e40af;
   letter-spacing: 0.5px;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+  page-break-after: avoid;
 }
 
 .executive-section.summary {
@@ -145,24 +152,26 @@ body {
 
 /* ── Chart images in executive report ── */
 .executive-chart-container {
-  margin: 12px 0 8px 0;
+  margin: 10px auto 6px;
   text-align: center;
   page-break-inside: avoid;
+  max-width: 650px;
 }
 
 .executive-chart-image {
   max-width: 100%;
-  height: auto;
-  border: 1px solid #e2e8f0;
+  max-height: 360px;
+  object-fit: contain;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .executive-chart-caption {
   font-size: 10px;
   color: #64748b;
   font-style: italic;
-  margin-top: 6px;
+  margin-top: 4px;
   text-align: center;
 }
 

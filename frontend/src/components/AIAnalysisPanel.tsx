@@ -90,48 +90,34 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     return () => clearInterval(interval);
   }, [analysis]);
 
-  // PDF generation
+  // PDF generation — same pattern as DDRReportPDF: display block → html2pdf → display none
   const handleSavePDF = async () => {
     const el = reportRef.current;
     if (!el) return;
 
     setIsGeneratingPDF(true);
     try {
-      // Element is always rendered offscreen (position: fixed, left: -9999px)
-      // so html2canvas always has a laid-out element with proper dimensions
+      el.style.display = 'block';
       const filename = `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`;
-      const opt = {
+      // @ts-ignore - html2pdf Worker thenable
+      await html2pdf().set({
         margin: 10,
         filename,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: 794 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-      };
-      // @ts-ignore - html2pdf types are loose
-      const blob: Blob = await html2pdf().set(opt).from(el).outputPdf('blob');
-      if (!blob || blob.size < 1024) {
-        console.error('PDF blob too small:', blob?.size, 'bytes');
-        addToast(t('ai.pdfError'), 'error');
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+      }).from(el).save();
       addToast(t('ai.pdfSaved'), 'success');
     } catch (err) {
       console.error('PDF generation error:', err);
       addToast(t('ai.pdfError'), 'error');
     } finally {
+      if (reportRef.current) reportRef.current.style.display = 'none';
       setIsGeneratingPDF(false);
     }
   };
 
-  // Share as PDF
+  // Share as PDF — display block → generate blob → display none
   const handleSharePDF = async () => {
     if (!navigator.share) {
       addToast(t('ai.sharingNotSupported'), 'info');
@@ -143,22 +129,20 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 
     setIsGeneratingPDF(true);
     try {
+      el.style.display = 'block';
+      const filename = `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`;
       const opt = {
         margin: 10,
-        filename: `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName.replace(/\s+/g, '_')}.pdf`,
+        filename,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: 794 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
       };
 
-      // @ts-ignore - html2pdf types are loose
-      const pdfBlob = await html2pdf().set(opt).from(el).outputPdf('blob');
-
-      const file = new File(
-        [pdfBlob],
-        `PetroExpert_${moduleName.replace(/\s+/g, '_')}_${wellName}.pdf`,
-        { type: 'application/pdf' }
-      );
+      // @ts-ignore - get jsPDF instance for blob
+      const pdf = await html2pdf().set(opt).from(el).toPdf().get('pdf');
+      const pdfBlob = pdf.output('blob');
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
@@ -174,6 +158,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         console.error('Share error:', err);
       }
     } finally {
+      if (reportRef.current) reportRef.current.style.display = 'none';
       setIsGeneratingPDF(false);
     }
   };

@@ -18,7 +18,7 @@ def calculate_burst_scenarios(
     tvd_ft: float,
     mud_weight_ppg: float,
     pore_pressure_ppg: float,
-    gas_gradient_psi_ft: float = 0.1,
+    gas_gradient_ppg: float = 0.1,
     cement_top_tvd_ft: float = 0.0,
     cement_density_ppg: float = 16.0,
     tubing_pressure_psi: float = 0.0,
@@ -36,9 +36,16 @@ def calculate_burst_scenarios(
     3. Tubing leak — tubing head pressure applied to casing
     4. Injection — injection pressure + fluid gradient
     5. DST — reservoir pressure at surface during drill stem test
+
+    Args:
+        gas_gradient_ppg: gas column density in ppg (default 0.1 ppg ≈ near-weightless gas,
+                          worst-case conservative assumption for burst design).
     """
     if tvd_ft <= 0:
         return {"error": "TVD must be > 0"}
+
+    # Convert gas gradient ppg → psi/ft
+    gas_gradient_psi_ft = gas_gradient_ppg * 0.052
 
     p_reservoir = pore_pressure_ppg * 0.052 * tvd_ft
 

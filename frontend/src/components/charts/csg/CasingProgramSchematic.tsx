@@ -6,17 +6,25 @@ import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { Columns } from 'lucide-react';
 
+interface WeightRec {
+  ppf: number;
+  grade: string;
+  description: string;
+}
+
 interface CasingProgramSchematicProps {
   summary: { selected_grade?: string; overall_status?: string } | null;
   params: { casing_od_in?: number; casing_weight_ppf?: number; tvd_ft?: number; cement_top_tvd_ft?: number; cement_density_ppg?: number } | null;
+  weightRecommendation?: WeightRec | null;
   height?: number;
 }
 
-const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary, params, height = 380 }) => {
+const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary, params, weightRecommendation, height = 380 }) => {
   if (!summary && !params) return null;
 
   const grade = summary?.selected_grade || '—';
-  const status = summary?.overall_status;
+  const isDesignFailure = grade.startsWith('None');
+  const status = isDesignFailure ? 'DESIGN FAILURE' : summary?.overall_status;
   const od = params?.casing_od_in;
   const weight = params?.casing_weight_ppf;
   const tvd = params?.tvd_ft || 0;
@@ -52,10 +60,36 @@ const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary
             fill="rgba(99,102,241,0.15)" stroke="#6366f1" strokeWidth={2} rx={2} />
 
           {/* Grade label inside casing */}
-          <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 - 15}
-            fill="#6366f1" fontSize={16} fontWeight="bold" textAnchor="middle">{grade}</text>
-          <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 + 5}
-            fill="rgba(255,255,255,0.5)" fontSize={10} textAnchor="middle">{od}" {weight} ppf</text>
+          {isDesignFailure ? (
+            <>
+              <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 - 22}
+                fill="#ef4444" fontSize={11} fontWeight="bold" textAnchor="middle">DESIGN FAILURE</text>
+              <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 - 8}
+                fill="rgba(239,68,68,0.6)" fontSize={9} textAnchor="middle">{od}" {weight} ppf</text>
+              {weightRecommendation && (
+                <>
+                  <line x1={casingLeft + 8} y1={(topY + bottomY) / 2 + 2}
+                    x2={casingRight - 8} y2={(topY + bottomY) / 2 + 2}
+                    stroke="rgba(234,179,8,0.3)" strokeWidth={1} />
+                  <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 + 14}
+                    fill="#eab308" fontSize={10} fontWeight="bold" textAnchor="middle">
+                    ALT: {weightRecommendation.grade}
+                  </text>
+                  <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 + 27}
+                    fill="rgba(234,179,8,0.7)" fontSize={9} textAnchor="middle">
+                    {od}" {weightRecommendation.ppf} ppf
+                  </text>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 - 15}
+                fill="#6366f1" fontSize={16} fontWeight="bold" textAnchor="middle">{grade}</text>
+              <text x={(casingLeft + casingRight) / 2} y={(topY + bottomY) / 2 + 5}
+                fill="rgba(255,255,255,0.5)" fontSize={10} textAnchor="middle">{od}" {weight} ppf</text>
+            </>
+          )}
 
           {/* Cement TOC annotation */}
           <line x1={80} y1={cementTopY} x2={120} y2={cementTopY}
@@ -73,8 +107,8 @@ const CasingProgramSchematic: React.FC<CasingProgramSchematicProps> = ({ summary
             fill="#9ca3af" fontSize={9} textAnchor="start">{cementDensity} ppg</text>
 
           {/* Status badge */}
-          <rect x={w / 2 - 40} y={5} width={80} height={18} rx={9}
-            fill={status === 'ALL PASS' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'} />
+          <rect x={w / 2 - 50} y={5} width={100} height={18} rx={9}
+            fill={status === 'ALL PASS' ? 'rgba(34,197,94,0.2)' : isDesignFailure ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.2)'} />
           <text x={w / 2} y={17}
             fill={status === 'ALL PASS' ? '#22c55e' : '#ef4444'}
             fontSize={9} fontWeight="bold" textAnchor="middle">{status}</text>

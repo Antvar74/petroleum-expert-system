@@ -17,6 +17,30 @@ from typing import List, Dict, Any, Optional
 from .constants import CASING_GRADES, CASING_CATALOG
 from .ratings import calculate_collapse_rating
 
+# NACE MR0175: grades NOT suitable for sour service when H2S partial pressure > 0.05 psi.
+# Source: API TR 5C3, NACE MR0175/ISO 15156.
+_NACE_NON_COMPLIANT = frozenset({"N80", "P110", "Q125"})
+
+
+def _biaxial_reduction(axial_tension_lbs: float, area_sq_in: float, yp: float) -> float:
+    """
+    Compute biaxial collapse reduction factor per API TR 5C3 §8.
+
+    Under axial tension, effective yield is reduced:
+        Y_eff = Yp * (sqrt(1 - 0.75*(Sa/Yp)^2) - 0.5*(Sa/Yp))
+    Reduction factor = Y_eff / Yp  (applied to Pco_original to get Pco_corrected).
+
+    Each grade has a different Fy, so each gets its own reduction factor even
+    for the same tension load and cross-section geometry.
+    """
+    if yp <= 0 or area_sq_in <= 0:
+        return 1.0
+    sigma_a = axial_tension_lbs / area_sq_in
+    sa_ratio = max(min(sigma_a / yp, 0.99), -0.99)
+    discriminant = max(0.0, 1.0 - 0.75 * sa_ratio ** 2)
+    yp_eff = yp * (math.sqrt(discriminant) - 0.5 * sa_ratio)
+    return max(0.0, yp_eff / yp)
+
 
 def select_casing_grade(
     required_burst_psi: float,
@@ -27,12 +51,17 @@ def select_casing_grade(
     sf_burst: float = 1.10,
     sf_collapse: float = 1.00,
     sf_tension: float = 1.60,
+    h2s_service: bool = False,
 ) -> Dict[str, Any]:
     """
     Select optimal casing grade that satisfies all three load criteria.
 
     Iterates through available grades (lightest/cheapest first) and
     selects the first grade where all safety factors are met.
+
+    Args:
+        h2s_service: When True, excludes NACE MR0175 non-compliant grades
+                     (N80, P110, Q125) from selection (sour service wells).
     """
     if casing_od_in <= 0 or wall_thickness_in <= 0:
         return {"error": "Invalid casing dimensions"}
@@ -49,34 +78,47 @@ def select_casing_grade(
     for grade_name, grade_info in sorted_grades:
         yp = grade_info["yield_psi"]
 
+        # NACE MR0175 compliance check for sour service
+        nace_compliant = grade_name not in _NACE_NON_COMPLIANT
+
         # Burst rating (Barlow)
         burst_rating = 0.875 * 2.0 * yp * wall_thickness_in / casing_od_in
 
-        # Collapse rating (simplified — yield collapse for initial screening)
-        dt = casing_od_in / wall_thickness_in
+        # Collapse rating (API TR 5C3 — 4-zone formula)
         collapse_result = calculate_collapse_rating(
             casing_od_in, wall_thickness_in, yp
         )
         collapse_rating = collapse_result.get("collapse_rating_psi", 0)
 
+        # FIX-CAS-016: Biaxial correction per grade (each Fy gives a different
+        # reduction factor under the same axial tension load).
+        # This ensures the table and the panel use IDENTICAL collapse logic.
+        reduction = _biaxial_reduction(required_tension_lbs, area, yp)
+        collapse_rating_corrected = collapse_rating * reduction
+
         # Tension rating (body yield)
         tension_rating = yp * area
 
-        # Safety factors
+        # Safety factors — collapse uses biaxially corrected rating
         sf_b = burst_rating / required_burst_psi if required_burst_psi > 0 else 999
-        sf_c = collapse_rating / required_collapse_psi if required_collapse_psi > 0 else 999
+        sf_c = collapse_rating_corrected / required_collapse_psi if required_collapse_psi > 0 else 999
         sf_t = tension_rating / required_tension_lbs if required_tension_lbs > 0 else 999
 
         passes_burst = sf_b >= sf_burst
         passes_collapse = sf_c >= sf_collapse
         passes_tension = sf_t >= sf_tension
-        passes_all = passes_burst and passes_collapse and passes_tension
+        # Exclude non-NACE grades when operating in sour service
+        passes_all = passes_burst and passes_collapse and passes_tension and (
+            nace_compliant if h2s_service else True
+        )
 
         candidates.append({
             "grade": grade_name,
             "yield_psi": yp,
             "burst_rating_psi": round(burst_rating, 0),
             "collapse_rating_psi": round(collapse_rating, 0),
+            "collapse_rating_corrected_psi": round(collapse_rating_corrected, 0),
+            "biaxial_reduction": round(reduction, 4),
             "collapse_zone": collapse_result.get("collapse_zone", ""),
             "tension_rating_lbs": round(tension_rating, 0),
             "sf_burst": round(sf_b, 2),
@@ -85,6 +127,7 @@ def select_casing_grade(
             "passes_burst": passes_burst,
             "passes_collapse": passes_collapse,
             "passes_tension": passes_tension,
+            "nace_compliant": nace_compliant,
             "passes_all": passes_all,
             "color": grade_info["color"],
         })
@@ -92,10 +135,55 @@ def select_casing_grade(
     # Find optimal (first that passes all)
     selected = next((c for c in candidates if c["passes_all"]), None)
 
+    # FIX-CAS-011: When no grade at current weight satisfies criteria, scan
+    # the catalog for the same OD at higher wall thickness (heavier weight) and
+    # return the lightest alternative that would pass all safety factors.
+    weight_recommendation: Optional[Dict[str, Any]] = None
+    if selected is None:
+        od_key = f"{casing_od_in:.3f}"
+        catalog_entries = CASING_CATALOG.get(od_key, [])
+        # Only consider entries heavier than current wall (ascending = cheapest first)
+        heavier = sorted(
+            [e for e in catalog_entries if e["wall"] > wall_thickness_in],
+            key=lambda e: e["weight"],
+        )
+        for entry in heavier:
+            entry_grade = entry["grade"]
+            entry_wall = entry["wall"]
+            entry_yp = CASING_GRADES.get(entry_grade, {}).get("yield_psi", 80000)
+            entry_area = math.pi / 4.0 * (casing_od_in ** 2 - entry["id"] ** 2)
+
+            # FIX-CAS-011 R3: apply biaxial correction using heavier-entry geometry.
+            # Heavier wall → larger area → lower axial stress → higher reduction factor.
+            entry_reduction = _biaxial_reduction(required_tension_lbs, entry_area, entry_yp)
+            entry_collapse_corrected = entry["collapse"] * entry_reduction
+
+            burst_ok = entry["burst"] >= required_burst_psi * sf_burst
+            collapse_ok = entry_collapse_corrected >= required_collapse_psi * sf_collapse
+            tension_rating = entry_yp * entry_area
+            tension_ok = tension_rating >= required_tension_lbs * sf_tension
+            nace_ok = (entry_grade not in _NACE_NON_COMPLIANT) if h2s_service else True
+
+            if burst_ok and collapse_ok and tension_ok and nace_ok:
+                weight_recommendation = {
+                    "ppf": entry["weight"],
+                    "wall_in": entry_wall,
+                    "id_in": entry["id"],
+                    "grade": entry_grade,
+                    "burst_rating_psi": entry["burst"],
+                    "collapse_rating_psi": entry["collapse"],
+                    "collapse_rating_corrected_psi": round(entry_collapse_corrected, 0),
+                    "biaxial_reduction": round(entry_reduction, 4),
+                    "tension_rating_lbs": round(tension_rating, 0),
+                    "description": f'{casing_od_in}" {entry["weight"]} lb/ft {entry_grade}',
+                }
+                break
+
     return {
         "selected_grade": selected["grade"] if selected else "None — no grade satisfies all criteria",
         "selected_details": selected,
         "all_candidates": candidates,
+        "weight_recommendation": weight_recommendation,
         "requirements": {
             "burst_psi": round(required_burst_psi, 0),
             "collapse_psi": round(required_collapse_psi, 0),

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ReferenceLine, ResponsiveContainer,
+  Legend, ReferenceLine, ReferenceArea, ResponsiveContainer,
 } from 'recharts';
 
 interface SFvsDepthChartProps {
@@ -67,6 +67,8 @@ export default function SFvsDepthChart({
             formatter={(v: number, name: string) => [v.toFixed(2), name]}
           />
           <Legend />
+          <ReferenceArea x1={0} x2={1.0} fill="#ef4444" fillOpacity={0.06}
+            label={{ value: 'Failure Zone', fill: '#ef4444', fontSize: 9, position: 'insideTopLeft' }} />
           <ReferenceLine x={sfBurstMin} stroke="#EF4444" strokeDasharray="5 5" label={{ value: `SF Burst min=${sfBurstMin}`, fill: '#EF4444', fontSize: 10 }} />
           <ReferenceLine x={sfCollapseMin} stroke="#3B82F6" strokeDasharray="5 5" />
           <ReferenceLine x={sfTensionMin} stroke="#8B5CF6" strokeDasharray="5 5" />

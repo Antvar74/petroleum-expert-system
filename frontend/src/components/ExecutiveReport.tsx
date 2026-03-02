@@ -20,20 +20,27 @@ interface ExecutiveReportProps {
   chartImages?: Record<string, string>;
 }
 
-const CHART_SECTIONS: Record<string, { chartKey: string; figureNum: number; figureTitle: string }> = {
-  'SF_VS_DEPTH_ANALYSIS': { chartKey: 'sf-vs-depth', figureNum: 1, figureTitle: 'Safety Factor vs Depth' },
-  'BIAXIAL_ANALYSIS': { chartKey: 'biaxial-ellipse', figureNum: 2, figureTitle: 'Biaxial Ellipse API 5C3' },
-  'SCENARIO_ENVELOPE_ANALYSIS': { chartKey: 'scenario-envelope', figureNum: 3, figureTitle: 'Multi-Scenario Envelope' },
-  'TENSION_PROFILE_ANALYSIS': { chartKey: 'tension-profile', figureNum: 4, figureTitle: 'Tension vs Depth Profile' },
+const CHART_SECTIONS: Record<string, { charts: Array<{ chartKey: string; figureNum: number; figureTitle: string }> }> = {
+  'SF_VS_DEPTH_ANALYSIS': { charts: [{ chartKey: 'sf-vs-depth', figureNum: 1, figureTitle: 'Safety Factor vs Depth' }] },
+  'BIAXIAL_ANALYSIS': { charts: [{ chartKey: 'biaxial-ellipse', figureNum: 2, figureTitle: 'Biaxial Ellipse API 5C3' }] },
+  'SCENARIO_ENVELOPE_ANALYSIS': { charts: [{ chartKey: 'scenario-envelope', figureNum: 3, figureTitle: 'Multi-Scenario Envelope' }] },
+  'TENSION_PROFILE_ANALYSIS': { charts: [
+    { chartKey: 'tension-bar', figureNum: 4, figureTitle: 'Tension Load Profile' },
+    { chartKey: 'tension-depth', figureNum: 5, figureTitle: 'Tension vs Depth' },
+  ] },
 };
+
+interface ChartEntry {
+  chartKey: string;
+  figureNum: number;
+  figureTitle: string;
+}
 
 interface ChartSection {
   marker: string;
   title: string;
   content: string;
-  chartKey?: string;
-  figureNum?: number;
-  figureTitle?: string;
+  charts: ChartEntry[];
 }
 
 /**
@@ -53,7 +60,7 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
     const sections = parseMarkerSections(analysisText || '');
 
     return (
-      <div ref={ref} style={{ position: 'fixed', left: '-9999px', top: 0, width: '794px', zIndex: -1 }} className="executive-report">
+      <div ref={ref} style={{ display: 'none' }} className="executive-report">
         {/* Header */}
         <div className="executive-report-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -94,38 +101,40 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
 
         {/* Analysis Sections with Charts */}
         {sections.map((section, idx) => {
-          const chartImg = section.chartKey && chartImages?.[section.chartKey];
+          const firstChart = section.charts[0];
+          const sectionNum = firstChart ? firstChart.figureNum + 1 : undefined;
 
           return (
-            <div key={idx} className="executive-section" style={{
-              pageBreakInside: section.chartKey ? 'avoid' : 'auto',
-            }}>
+            <div key={idx} className="executive-section">
               {section.title && (
-                <div className="executive-section-title" style={{ paddingBottom: '6px', marginBottom: '10px' }}>
+                <div className="executive-section-title">
                   {section.marker === 'EXECUTIVE_SUMMARY' ? '1. EXECUTIVE SUMMARY' :
                    section.marker === 'RECOMMENDATIONS' ? '6. RECOMMENDATIONS' :
-                   section.figureNum ? `${section.figureNum + 1}. ${section.title}` :
+                   sectionNum ? `${sectionNum}. ${section.title}` :
                    section.title}
                 </div>
               )}
 
-              {/* Chart Image */}
-              {chartImg ? (
-                <div className="executive-chart-container">
-                  <img
-                    src={chartImg}
-                    alt={section.figureTitle || ''}
-                    className="executive-chart-image"
-                  />
-                  <div className="executive-chart-caption">
-                    Figure {section.figureNum}. {section.figureTitle}
+              {/* Chart Images */}
+              {section.charts.map((chart) => {
+                const chartImg = chartImages?.[chart.chartKey];
+                return chartImg ? (
+                  <div key={chart.chartKey} className="executive-chart-container">
+                    <img
+                      src={chartImg}
+                      alt={chart.figureTitle}
+                      className="executive-chart-image"
+                    />
+                    <div className="executive-chart-caption">
+                      Figure {chart.figureNum}. {chart.figureTitle}
+                    </div>
                   </div>
-                </div>
-              ) : section.chartKey ? (
-                <div className="executive-chart-container" style={{ padding: '20px', border: '1px dashed #cbd5e1', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
-                  [Figure {section.figureNum}: {section.figureTitle} — chart not available]
-                </div>
-              ) : null}
+                ) : (
+                  <div key={chart.chartKey} className="executive-chart-container" style={{ padding: '20px', border: '1px dashed #cbd5e1', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
+                    [Figure {chart.figureNum}: {chart.figureTitle} — chart not available]
+                  </div>
+                );
+              })}
 
               {/* Analysis Text */}
               <div className="executive-markdown-content">
@@ -162,7 +171,7 @@ function formatNumber(val: number, locale: string = 'en-US'): string {
 }
 
 function parseMarkerSections(text: string): ChartSection[] {
-  if (!text) return [{ marker: '', title: 'Analysis', content: 'No analysis available.' }];
+  if (!text) return [{ marker: '', title: 'Analysis', content: 'No analysis available.', charts: [] }];
 
   // Normalize markers: LLMs often wrap them in bold/italic markdown like **[MARKER]** or *[MARKER]*
   const normalized = text.replace(/\*{1,3}\[([A-Z_]+)\]\*{1,3}/g, '[$1]');
@@ -185,14 +194,25 @@ function parseMarkerSections(text: string): ChartSection[] {
   // Content before first marker
   if (markers[0].index > 0) {
     const pre = normalized.substring(0, markers[0].index).trim();
-    if (pre) sections.push({ marker: '', title: '', content: pre });
+    if (pre) sections.push({ marker: '', title: '', content: pre, charts: [] });
   }
 
   for (let i = 0; i < markers.length; i++) {
     const tag = markers[i].tag;
     const contentStart = markers[i].index + tag.length + 2; // +2 for [ and ]
     const contentEnd = i + 1 < markers.length ? markers[i + 1].index : normalized.length;
-    const content = normalized.substring(contentStart, contentEnd).trim();
+    let content = normalized.substring(contentStart, contentEnd).trim();
+
+    // For the last marker (usually RECOMMENDATIONS), truncate if the LLM
+    // appended a duplicate legacy analysis after the marker-based sections.
+    // Detect by looking for "ANÁLISIS EJECUTIVO" or "EXECUTIVE SUMMARY" headers
+    // that signal a second analysis block.
+    if (i === markers.length - 1) {
+      const dupeMatch = content.match(/\n\s*(?:ANÁLISIS EJECUTIVO|RESUMEN EJECUTIVO|EXECUTIVE SUMMARY|HALLAZGOS CLAVE|KEY FINDINGS)\b/i);
+      if (dupeMatch && dupeMatch.index !== undefined && dupeMatch.index > 50) {
+        content = content.substring(0, dupeMatch.index).trim();
+      }
+    }
 
     const chartInfo = CHART_SECTIONS[tag];
     const title = tag.replace(/_/g, ' ');
@@ -201,9 +221,7 @@ function parseMarkerSections(text: string): ChartSection[] {
       marker: tag,
       title,
       content,
-      chartKey: chartInfo?.chartKey,
-      figureNum: chartInfo?.figureNum,
-      figureTitle: chartInfo?.figureTitle,
+      charts: chartInfo?.charts ?? [],
     });
   }
 
@@ -211,7 +229,7 @@ function parseMarkerSections(text: string): ChartSection[] {
 }
 
 function parseLegacySections(text: string): ChartSection[] {
-  if (!text) return [{ marker: '', title: '', content: 'No analysis available.' }];
+  if (!text) return [{ marker: '', title: '', content: 'No analysis available.', charts: [] }];
 
   // Try to split by numbered headers like "1. EXECUTIVE SUMMARY" or "## EXECUTIVE SUMMARY"
   const headerPatterns = [
@@ -251,7 +269,7 @@ function parseLegacySections(text: string): ChartSection[] {
 
   if (positions.length === 0) {
     // No headers found — return as single section
-    return [{ marker: '', title: '', content: text.trim() }];
+    return [{ marker: '', title: '', content: text.trim(), charts: [] }];
   }
 
   // Extract sections
@@ -261,7 +279,7 @@ function parseLegacySections(text: string): ChartSection[] {
   if (positions[0].start > 0) {
     const preContent = text.substring(0, positions[0].start).trim();
     if (preContent) {
-      sections.push({ marker: '', title: '', content: preContent });
+      sections.push({ marker: '', title: '', content: preContent, charts: [] });
     }
   }
 
@@ -277,10 +295,11 @@ function parseLegacySections(text: string): ChartSection[] {
       marker: '',
       title: positions[i].title,
       content: cleanContent,
+      charts: [],
     });
   }
 
-  return sections.length > 0 ? sections : [{ marker: '', title: '', content: text.trim() }];
+  return sections.length > 0 ? sections : [{ marker: '', title: '', content: text.trim(), charts: [] }];
 }
 
 export default ExecutiveReport;

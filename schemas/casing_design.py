@@ -22,7 +22,7 @@ class CasingDesignCalculateRequest(BaseModel):
     mud_weight_ppg: float = Field(default=10.5, description="Mud weight (ppg)")
     pore_pressure_ppg: float = Field(default=9.0, description="Pore pressure (ppg)")
     fracture_gradient_ppg: float = Field(default=16.5, description="Fracture gradient (ppg)")
-    gas_gradient_psi_ft: float = Field(default=0.1, description="Gas gradient (psi/ft)")
+    gas_gradient_ppg: float = Field(default=0.1, description="Gas column density (ppg). Conservative near-weightless gas assumption for burst design.")
     cement_top_tvd_ft: float = Field(default=5000.0, description="Cement top TVD (ft)")
     cement_density_ppg: float = Field(default=16.0, description="Cement density (ppg)")
     bending_dls: float = Field(default=3.0, description="Bending dogleg severity (deg/100ft)")

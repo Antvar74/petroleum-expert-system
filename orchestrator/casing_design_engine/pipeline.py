@@ -9,7 +9,10 @@ import math
 from typing import Dict, Any, List
 
 from .constants import CASING_GRADES
-from .loads import calculate_burst_load, calculate_collapse_load, calculate_tension_load
+from .loads import (
+    calculate_burst_load, calculate_collapse_load,
+    calculate_tension_load, calculate_tension_profile,
+)
 from .ratings import calculate_burst_rating, calculate_collapse_rating, derate_for_temperature
 from .corrections import (
     calculate_biaxial_correction, calculate_biaxial_profile,
@@ -122,7 +125,7 @@ def calculate_full_casing_design(
     mud_weight_ppg: float = 10.5,
     pore_pressure_ppg: float = 9.0,
     fracture_gradient_ppg: float = 16.5,
-    gas_gradient_psi_ft: float = 0.1,
+    gas_gradient_ppg: float = 0.1,
     cement_top_tvd_ft: float = 5000.0,
     cement_density_ppg: float = 16.0,
     bending_dls: float = 3.0,
@@ -153,6 +156,9 @@ def calculate_full_casing_design(
     """
     alerts = []
 
+    # Sour service flag — H2S partial pressure threshold per NACE MR0175
+    h2s_service = h2s_partial_pressure_psi > 0.05
+
     # Resolve evacuation level:
     #   -1  → no evacuation (casing full of mud, collapse ≈ 0)
     #    0  → full evacuation (casing empty, worst-case collapse)
@@ -163,7 +169,7 @@ def calculate_full_casing_design(
     burst_scenarios = calculate_burst_scenarios(
         tvd_ft=tvd_ft, mud_weight_ppg=mud_weight_ppg,
         pore_pressure_ppg=pore_pressure_ppg,
-        gas_gradient_psi_ft=gas_gradient_psi_ft,
+        gas_gradient_ppg=gas_gradient_ppg,
         cement_top_tvd_ft=cement_top_tvd_ft,
         cement_density_ppg=cement_density_ppg,
         tubing_pressure_psi=tubing_pressure_psi,
@@ -173,7 +179,7 @@ def calculate_full_casing_design(
     burst_load = calculate_burst_load(
         tvd_ft=tvd_ft, mud_weight_ppg=mud_weight_ppg,
         pore_pressure_ppg=pore_pressure_ppg,
-        gas_gradient_psi_ft=gas_gradient_psi_ft,
+        gas_gradient_ppg=gas_gradient_ppg,
         cement_top_tvd_ft=cement_top_tvd_ft,
         cement_density_ppg=cement_density_ppg,
     )
@@ -237,6 +243,7 @@ def calculate_full_casing_design(
         casing_od_in=casing_od_in,
         wall_thickness_in=wall_thickness_in,
         sf_burst=sf_burst, sf_collapse=sf_collapse, sf_tension=sf_tension,
+        h2s_service=h2s_service,
     )
 
     selected = grade_selection.get("selected_details")
@@ -265,6 +272,10 @@ def calculate_full_casing_design(
     if not nace_check["compliant"]:
         alerts.append(f"NACE MR0175: {selected_grade} NOT compliant for sour service "
                       f"(H2S={h2s_partial_pressure_psi} psi). {nace_check['recommendation']}")
+    elif h2s_service:
+        # Informational: sour service active, selected grade is compliant
+        alerts.append(f"NACE MR0175: Sour service (H2S={h2s_partial_pressure_psi} psi) — "
+                      f"{selected_grade} is compliant")
 
     # 7. Burst & collapse ratings with effective yield
     burst_rating = calculate_burst_rating(
@@ -396,6 +407,8 @@ def calculate_full_casing_design(
         tension_load_lbs=total_tension,
         tension_rating_lbs=tension_rating_lbs,
         sf_burst_min=sf_burst, sf_collapse_min=sf_collapse, sf_tension_min=sf_tension,
+        vme_stress_psi=triaxial.get("vme_stress_psi", 0),
+        yield_strength_psi_vme=effective_yield,
     )
 
     # 14. SF vs depth profile (use governing scenario profiles for consistency)
@@ -415,6 +428,29 @@ def calculate_full_casing_design(
         mud_weight_ppg=mud_weight_ppg,
         casing_length_ft=casing_length_ft,
     )
+
+    # 14b. Tension vs depth profile for visualization
+    tension_profile = calculate_tension_profile(
+        casing_weight_ppf=casing_weight_ppf,
+        casing_length_ft=casing_length_ft,
+        mud_weight_ppg=mud_weight_ppg,
+        casing_od_in=casing_od_in,
+        shock_load=tension_governing == "Running (Shock)",
+        bending_load_dls=bending_dls,
+        pipe_body_yield_lbs=tension_rating_lbs,
+    )
+
+    # 14c. Biaxial state line for normalized ellipse plot
+    biaxial_state_line = []
+    if isinstance(biaxial_depth, dict) and "profile" in biaxial_depth:
+        for pt in biaxial_depth["profile"]:
+            sa_over_fy = pt["axial_stress_psi"] / effective_yield if effective_yield > 0 else 0
+            pnet_over_pco = pt["collapse_load_psi"] / collapse_rating_design if collapse_rating_design > 0 else 0
+            biaxial_state_line.append({
+                "tvd_ft": pt["tvd_ft"],
+                "sigma_a_over_fy": round(sa_over_fy, 4),
+                "p_net_over_pco": round(pnet_over_pco, 4),
+            })
 
     # 15. Alerts
     if not safety_factors["all_pass"]:
@@ -453,6 +489,7 @@ def calculate_full_casing_design(
         "sf_burst": safety_factors["results"]["burst"]["safety_factor"],
         "sf_collapse": safety_factors["results"]["collapse"]["safety_factor"],
         "sf_tension": safety_factors["results"]["tension"]["safety_factor"],
+        "sf_vme": safety_factors["results"].get("vme", {}).get("safety_factor"),
         "triaxial_status": triaxial["status"],
         "triaxial_utilization_pct": triaxial["utilization_pct"],
         "overall_status": safety_factors["overall_status"],
@@ -476,6 +513,8 @@ def calculate_full_casing_design(
         "grade_selection": grade_selection,
         "safety_factors": safety_factors,
         "sf_vs_depth": sf_vs_depth,
+        "tension_profile": tension_profile,
+        "biaxial_state_line": biaxial_state_line,
         "summary": summary,
         "burst_scenarios": burst_scenarios,
         "collapse_scenarios": collapse_scenarios,

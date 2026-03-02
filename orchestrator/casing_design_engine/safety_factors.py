@@ -23,9 +23,16 @@ def calculate_safety_factors(
     sf_burst_min: float = 1.10,
     sf_collapse_min: float = 1.00,
     sf_tension_min: float = 1.60,
+    vme_stress_psi: float = 0.0,
+    yield_strength_psi_vme: float = 0.0,
+    sf_vme_min: float = 1.25,
 ) -> Dict[str, Any]:
     """
-    Calculate and evaluate safety factors for burst, collapse, and tension.
+    Calculate and evaluate safety factors for burst, collapse, tension, and VME.
+
+    VME (Von Mises Equivalent) is the 4th criterion per API TR 5C3:
+        SF_VME = Fy / sigma_VME  (minimum 1.25)
+    Only evaluated when vme_stress_psi > 0 and yield_strength_psi_vme > 0.
     """
     sf_burst = burst_rating_psi / burst_load_psi if burst_load_psi > 0 else 999.0
     sf_collapse = collapse_rating_psi / collapse_load_psi if collapse_load_psi > 0 else 999.0
@@ -60,6 +67,19 @@ def calculate_safety_factors(
             "margin_pct": round((sf_tension / sf_tension_min - 1) * 100, 1),
         },
     }
+
+    # VME safety factor — only included when triaxial stress is provided
+    if vme_stress_psi > 0 and yield_strength_psi_vme > 0:
+        sf_vme = yield_strength_psi_vme / vme_stress_psi
+        results["vme"] = {
+            "vme_stress_psi": round(vme_stress_psi, 0),
+            "yield_strength_psi": round(yield_strength_psi_vme, 0),
+            "safety_factor": round(sf_vme, 2),
+            "minimum_sf": sf_vme_min,
+            "passes": sf_vme >= sf_vme_min,
+            "status": "PASS" if sf_vme >= sf_vme_min else "FAIL",
+            "margin_pct": round((sf_vme / sf_vme_min - 1) * 100, 1),
+        }
 
     all_pass = all(r["passes"] for r in results.values())
     governing = min(results.items(), key=lambda x: x[1]["safety_factor"])

@@ -24,7 +24,9 @@
     "provider": "Proveedor",
     "providerAuto": "Auto (Mejor Disponible)",
     "providerGemini": "Google Gemini",
-    "providerOllama": "Ollama (Local)"
+    "providerOllama": "Ollama (Local)",
+    "pdfSaved": "Reporte guardado en carpeta de Descargas",
+    "pdfError": "Error al generar reporte PDF"
   },
   "modules": {
     "torqueDrag": "Torque y Arrastre",

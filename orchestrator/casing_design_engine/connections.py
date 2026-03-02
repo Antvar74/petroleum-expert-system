@@ -84,8 +84,34 @@ def verify_connection(
     passes_burst = sf_b >= sf_burst
     passes_all = passes_tension and passes_burst
 
-    # Check if connection is the weak link
+    # Check if connection is the weak link (efficiency < 95% of pipe body)
     is_weak_link = conn_tension < pipe_body_yield_lbs * 0.95
+
+    # FIX-CAS-015: three-level status — FAIL (SF fails), WARNING (weak link, SF ok), PASS
+    if not passes_all:
+        connection_status = "FAIL"
+    elif is_weak_link:
+        connection_status = "WARNING"
+    else:
+        connection_status = "PASS"
+
+    # Build alerts distinguishing failure type
+    alerts = []
+    if not passes_all:
+        if not passes_tension:
+            alerts.append(
+                f"FAIL — Tension SF {sf_t:.2f} < {sf_tension} required "
+                f"(connection rating {conn_tension:,.0f} lbs)"
+            )
+        if not passes_burst:
+            alerts.append(
+                f"FAIL — Burst SF {sf_b:.2f} < {sf_burst} required"
+            )
+    elif is_weak_link:
+        alerts.append(
+            f"Weak link — tension efficiency {conn['tension_efficiency']*100:.0f}% "
+            f"(SF={sf_t:.2f} satisfies ≥{sf_tension})"
+        )
 
     return {
         "connection_type": connection_type.upper(),
@@ -98,10 +124,9 @@ def verify_connection(
         "passes_burst": passes_burst,
         "passes_all": passes_all,
         "is_weak_link": is_weak_link,
+        "connection_status": connection_status,
         "efficiency": conn["tension_efficiency"],
         "gas_tight": "gas-tight" in conn.get("notes", ""),
         "notes": conn["notes"],
-        "alerts": [
-            f"Connection is weak link — tension efficiency {conn['tension_efficiency']*100:.0f}%"
-        ] if is_weak_link else [],
+        "alerts": alerts,
     }

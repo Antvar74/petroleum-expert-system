@@ -53,7 +53,7 @@ def calculate_casing_design(well_id: int, data: CasingDesignCalculateRequest, db
         mud_weight_ppg=data.mud_weight_ppg,
         pore_pressure_ppg=data.pore_pressure_ppg,
         fracture_gradient_ppg=data.fracture_gradient_ppg,
-        gas_gradient_psi_ft=data.gas_gradient_psi_ft,
+        gas_gradient_ppg=data.gas_gradient_ppg,
         cement_top_tvd_ft=data.cement_top_tvd_ft,
         cement_density_ppg=data.cement_density_ppg,
         bending_dls=data.bending_dls,

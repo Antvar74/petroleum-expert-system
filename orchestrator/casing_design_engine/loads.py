@@ -13,14 +13,14 @@ References:
 - Bourgoyne et al.: Applied Drilling Engineering, Ch. 7
 """
 import math
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 def calculate_burst_load(
     tvd_ft: float,
     mud_weight_ppg: float,
     pore_pressure_ppg: float,
-    gas_gradient_psi_ft: float = 0.1,
+    gas_gradient_ppg: float = 0.1,
     cement_top_tvd_ft: float = 0.0,
     cement_density_ppg: float = 16.0,
     num_points: int = 20,
@@ -34,13 +34,21 @@ def calculate_burst_load(
 
     Burst_load = P_internal - P_external at each depth
 
-    Internal: P_int(z) = P_reservoir - gas_gradient * (TVD - z)
+    Internal: P_int(z) = P_reservoir - gas_gradient_psi_ft * (TVD - z)
+              gas_gradient_psi_ft = gas_gradient_ppg * 0.052
               P_reservoir = pore_pressure * 0.052 * TVD
     External: P_ext(z) = mud_weight * 0.052 * z  (above cement)
               P_ext(z) = cement_density * 0.052 * (z - cement_top) + ... (in cement)
+
+    Args:
+        gas_gradient_ppg: gas column density in ppg (default 0.1 ppg ≈ near-weightless gas,
+                          worst-case conservative assumption for burst design).
     """
     if tvd_ft <= 0:
         return {"error": "TVD must be > 0"}
+
+    # Convert gas gradient ppg → psi/ft
+    gas_gradient_psi_ft = gas_gradient_ppg * 0.052
 
     # Reservoir pressure at TD
     p_reservoir = pore_pressure_ppg * 0.052 * tvd_ft
@@ -128,14 +136,13 @@ def calculate_collapse_load(
     for i in range(num_points):
         depth = i * step
 
-        # External pressure
-        if depth <= cement_top_tvd_ft or cement_top_tvd_ft <= 0:
-            p_external = mud_weight_ppg * 0.052 * depth
-        else:
-            p_external = (
-                mud_weight_ppg * 0.052 * cement_top_tvd_ft
-                + cement_density_ppg * 0.052 * (depth - cement_top_tvd_ft)
-            )
+        # External pressure: annular mud column only.
+        # Post-hardening cement is solid and does NOT add hydrostatic pressure.
+        # Liquid-cement external pressure belongs to the cementing scenario in
+        # scenarios.py, not to the evacuation / running design case.
+        # Reference: API TR 5C3 §7.2 — use mud gradient for P_ext in
+        # post-cementing evacuation design.
+        p_external = mud_weight_ppg * 0.052 * depth
 
         # Internal pressure (evacuation scenario)
         # fluid level = effective_evac: above it casing is empty, below it has mud
@@ -222,4 +229,62 @@ def calculate_tension_load(
         "total_tension_lbs": round(total_tension, 0),
         "axial_stress_psi": round(axial_stress, 0),
         "cross_section_area_sq_in": round(area_sq_in, 3),
+    }
+
+
+def calculate_tension_profile(
+    casing_weight_ppf: float,
+    casing_length_ft: float,
+    mud_weight_ppg: float,
+    casing_od_in: float,
+    shock_load: bool = True,
+    bending_load_dls: float = 0.0,
+    pipe_body_yield_lbs: float = 0.0,
+    num_points: int = 25,
+) -> Dict[str, Any]:
+    """
+    Calculate tension load profile vs. depth.
+
+    At each depth the buoyed weight of the string below that point is
+    computed.  Shock and bending loads are added as constant offsets
+    (they act at any depth during running operations).
+
+    References:
+    - API 5CT: Specification for Casing and Tubing
+    - Lubinski: shock load approximation F_shock = 3200 * ppf
+    """
+    if casing_length_ft <= 0:
+        return {"error": "Casing length must be > 0"}
+
+    bf = 1.0 - mud_weight_ppg / 65.4
+
+    # Constant load components
+    shock_lbs = 3200.0 * casing_weight_ppf if shock_load else 0.0
+    bending_lbs = (
+        63.0 * bending_load_dls * casing_od_in * casing_weight_ppf
+        if bending_load_dls > 0 else 0.0
+    )
+
+    step = casing_length_ft / max(num_points - 1, 1)
+    profile: List[Dict[str, Any]] = []
+
+    for i in range(num_points):
+        depth = i * step
+        remaining = max(casing_length_ft - depth, 0)
+        buoyant_at_depth = casing_weight_ppf * remaining * bf
+        total_at_depth = buoyant_at_depth + shock_lbs + bending_lbs
+
+        profile.append({
+            "tvd_ft": round(depth, 0),
+            "buoyant_weight_lbs": round(buoyant_at_depth, 0),
+            "shock_load_lbs": round(shock_lbs, 0),
+            "bending_load_lbs": round(bending_lbs, 0),
+            "total_tension_lbs": round(total_at_depth, 0),
+        })
+
+    return {
+        "profile": profile,
+        "pipe_body_yield_lbs": round(pipe_body_yield_lbs, 0),
+        "max_tension_lbs": round(profile[0]["total_tension_lbs"], 0) if profile else 0,
+        "num_points": len(profile),
     }
