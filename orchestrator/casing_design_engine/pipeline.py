@@ -329,7 +329,7 @@ def calculate_full_casing_design(
         casing_id_in=casing_id_in,
         mud_weight_ppg=mud_weight_ppg,
         yield_strength_psi=effective_yield,
-        overpull_lbs=0.0,
+        overpull_lbs=overpull_lbs,
     )
 
     # 11. Triaxial VME

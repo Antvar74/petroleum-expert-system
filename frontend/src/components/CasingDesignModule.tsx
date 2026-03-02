@@ -150,7 +150,30 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const handleRunAnalysis = async () => {
     const captured = await captureChartImages();
     setChartImages(captured);
-    runAnalysis(result || {}, params);
+    // When user has manually selected a grade, the agent must see that grade's data —
+    // not the pipeline's original result (which may show a different auto-selected grade).
+    let resultForAnalysis = result || {};
+    if (userSelectedGrade && activeGradeData) {
+      resultForAnalysis = {
+        ...result,
+        biaxial_correction: activeGradeData.biaxial_correction ?? result?.biaxial_correction,
+        triaxial_vme: activeGradeData.triaxial_vme ?? result?.triaxial_vme,
+        safety_factors: activeGradeData.safety_factors ?? result?.safety_factors,
+        summary: {
+          ...result?.summary,
+          selected_grade: userSelectedGrade,
+          sf_burst: activeGradeData.safety_factors?.results?.burst?.safety_factor ?? result?.summary?.sf_burst,
+          sf_collapse: activeGradeData.safety_factors?.results?.collapse?.safety_factor ?? result?.summary?.sf_collapse,
+          sf_tension: activeGradeData.safety_factors?.results?.tension?.safety_factor ?? result?.summary?.sf_tension,
+          overall_status: activeGradeData.safety_factors?.overall_status ?? result?.summary?.overall_status,
+          burst_rating_psi: activeGradeData.burst_rating_design_psi ?? result?.summary?.burst_rating_psi,
+          collapse_rating_psi: activeGradeData.collapse_rating_biaxial_psi ?? result?.summary?.collapse_rating_psi,
+          tension_rating_lbs: activeGradeData.tension_rating_lbs ?? result?.summary?.tension_rating_lbs,
+          effective_yield_psi: activeGradeData.effective_yield_psi ?? result?.summary?.effective_yield_psi,
+        },
+      };
+    }
+    runAnalysis(resultForAnalysis, params);
   };
 
   const tabs = [
@@ -168,6 +191,10 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
   const activeGradeName = userSelectedGrade || activeCandidate?.grade || result?.summary?.selected_grade;
   const activeBurstRating = activeGradeData?.burst_rating_design_psi ?? result?.burst_rating?.burst_rating_psi;
   const activeCollapseRating = activeGradeData?.collapse_rating_biaxial_psi ?? result?.biaxial_correction?.corrected_collapse_psi;
+  // Biaxial derating % uses activeBiaxial (same source as the panel) — always consistent with the display
+  const biaxialDeratingPct = activeBiaxial?.reduction_factor != null
+    ? (1 - (activeBiaxial.reduction_factor as number)) * 100
+    : null;
   // FIX-CAS-012: detect when no grade at current weight passes all criteria
   const gradeFailsAll = Boolean(
     result?.grade_selection?.selected_grade?.startsWith('None') && !userSelectedGrade
@@ -475,9 +502,33 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
                   <div className="flex justify-between"><span className="text-gray-400">Peso Aire:</span><span className="font-mono">{result.tension_load?.air_weight_lbs?.toLocaleString()} lbs</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">BF:</span><span className="font-mono">{result.tension_load?.buoyancy_factor}</span></div>
                   <div className="flex justify-between"><span className="text-gray-400">Peso Flotado:</span><span className="font-mono">{result.tension_load?.buoyant_weight_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Shock Load:</span><span className="font-mono">{result.tension_load?.shock_load_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Bending:</span><span className="font-mono">{result.tension_load?.bending_load_lbs?.toLocaleString()} lbs</span></div>
-                  <div className="flex justify-between"><span className="text-gray-400">Overpull:</span><span className="font-mono">{result.tension_load?.overpull_lbs?.toLocaleString()} lbs</span></div>
+                  <div className="border-t border-white/10 pt-2 mt-1">
+                    <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                      Escenarios de Tensión
+                    </div>
+                    {/* Running scenario */}
+                    <div className={`flex justify-between items-center mb-0.5 ${result.tension_scenarios?.governing === 'Running (Shock)' ? 'text-white' : 'text-gray-500'}`}>
+                      <span className="flex items-center gap-1">
+                        {result.tension_scenarios?.governing === 'Running (Shock)' && <span className="text-indigo-400 text-[10px] font-bold">▶</span>}
+                        <span>Running (Shock + Bending):</span>
+                      </span>
+                      <span className="font-mono">{result.tension_scenarios?.running?.total_tension_lbs?.toLocaleString()} lbs</span>
+                    </div>
+                    <div className="text-[10px] text-gray-600 pl-3 mb-2">
+                      Shock: {result.tension_scenarios?.running?.shock_load_lbs?.toLocaleString()} · Bending: {result.tension_scenarios?.running?.bending_load_lbs?.toLocaleString()}
+                    </div>
+                    {/* Stuck pipe scenario */}
+                    <div className={`flex justify-between items-center mb-0.5 ${result.tension_scenarios?.governing === 'Stuck Pipe (Overpull)' ? 'text-white' : 'text-gray-500'}`}>
+                      <span className="flex items-center gap-1">
+                        {result.tension_scenarios?.governing === 'Stuck Pipe (Overpull)' && <span className="text-indigo-400 text-[10px] font-bold">▶</span>}
+                        <span>Stuck Pipe (Overpull):</span>
+                      </span>
+                      <span className="font-mono">{result.tension_scenarios?.stuck_pipe?.total_tension_lbs?.toLocaleString()} lbs</span>
+                    </div>
+                    <div className="text-[10px] text-gray-600 pl-3">
+                      Overpull: {result.tension_scenarios?.stuck_pipe?.overpull_lbs?.toLocaleString()} lbs
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -511,19 +562,30 @@ const CasingDesignModule: React.FC<CasingDesignModuleProps> = ({ wellId, wellNam
               </div>
             </div>
 
-            {/* Alerts */}
-            {result.summary?.alerts?.length > 0 && (
-              <div className="glass-panel p-6 rounded-2xl border border-red-500/20">
-                <h3 className="text-lg font-bold text-red-400 mb-3">&#9888; {t('casingDesign.designAlerts')}</h3>
-                <ul className="space-y-2">
-                  {result.summary.alerts.map((alert: string, i: number) => (
-                    <li key={i} className="text-sm text-red-300 flex items-start gap-2">
-                      <span className="mt-1">&bull;</span>{alert}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* Alerts — biaxial derating recomputed from pipeline result on every render */}
+            {(() => {
+              const filteredAlerts = (result.summary?.alerts ?? []).filter(
+                (a: string) => !/biaxial derating/i.test(a)
+              );
+              if (biaxialDeratingPct != null && biaxialDeratingPct > 20) {
+                filteredAlerts.push(
+                  `Significant biaxial derating: collapse reduced by ${biaxialDeratingPct.toFixed(0)}%`
+                );
+              }
+              if (filteredAlerts.length === 0) return null;
+              return (
+                <div className="glass-panel p-6 rounded-2xl border border-red-500/20">
+                  <h3 className="text-lg font-bold text-red-400 mb-3">&#9888; {t('casingDesign.designAlerts')}</h3>
+                  <ul className="space-y-2">
+                    {filteredAlerts.map((a: string, i: number) => (
+                      <li key={i} className="text-sm text-red-300 flex items-start gap-2">
+                        <span className="mt-1">&bull;</span>{a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
