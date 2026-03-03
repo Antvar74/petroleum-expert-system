@@ -8,7 +8,8 @@ from typing import Dict, Any
 from .penetration   import calculate_penetration_depth
 from .productivity  import calculate_productivity_ratio, optimize_perforation_design
 from .underbalance  import calculate_underbalance
-from .gun_selection import select_gun_configuration, select_gun_from_catalog
+from .gun_selection import select_gun_configuration, select_gun_from_catalog  # noqa: F401
+from .constants import GUN_CATALOG as _GUN_CATALOG
 from .fracture      import (
     calculate_fracture_initiation,
     calculate_fracture_gradient,
@@ -71,6 +72,25 @@ def calculate_full_completion_design(
         casing_id_in=casing_id_in,
         tubing_od_in=tubing_od_in,
     )
+
+    # 2a. P/T rating check — look up recommended gun OD in GUN_CATALOG
+    if gun["recommended"]:
+        rec_od = gun["recommended"]["od_in"]
+        catalog_match = next(
+            (g for g in _GUN_CATALOG if abs(g["od_in"] - rec_od) < 0.01), None
+        )
+        if catalog_match:
+            p_pass = reservoir_pressure_psi <= catalog_match["max_pressure_psi"]
+            t_pass = temperature_f <= catalog_match["max_temp_f"]
+            gun["recommended"]["pt_check"] = {
+                "bhp_psi": reservoir_pressure_psi,
+                "bht_f": temperature_f,
+                "gun_max_pressure_psi": catalog_match["max_pressure_psi"],
+                "gun_max_temp_f": catalog_match["max_temp_f"],
+                "pressure_pass": p_pass,
+                "temp_pass": t_pass,
+                "overall_pass": p_pass and t_pass,
+            }
 
     # 3. Underbalance analysis
     underbalance = calculate_underbalance(

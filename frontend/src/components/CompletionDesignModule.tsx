@@ -260,6 +260,26 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                       <div><span className="text-gray-400">Clearance:</span> <span className="font-mono">{result.gun_selection.recommended.clearance_in}"</span></div>
                       <div><span className="text-gray-400">Fases Disp.:</span> <span className="font-mono">{result.gun_selection.recommended.available_phasing?.join(', ')}°</span></div>
                       <div><span className="text-gray-400">Conveyance:</span> <span className="text-xs">{result.gun_selection.conveyance_notes}</span></div>
+                      {result.gun_selection.recommended.pt_check && (() => {
+                        const pt = result.gun_selection.recommended.pt_check as Record<string, number | boolean>;
+                        return (
+                          <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
+                            <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Rating vs Condiciones BH</div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400">BHP {(pt.bhp_psi as number).toLocaleString()} / {(pt.gun_max_pressure_psi as number).toLocaleString()} psi</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${pt.pressure_pass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {pt.pressure_pass ? '✓ PASS' : '✗ FAIL'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400">BHT {pt.bht_f as number}°F / {pt.gun_max_temp_f as number}°F máx</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${pt.temp_pass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {pt.temp_pass ? '✓ PASS' : '✗ FAIL'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="text-red-400">No compatible guns found</div>
