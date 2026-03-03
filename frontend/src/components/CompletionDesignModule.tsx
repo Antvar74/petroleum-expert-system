@@ -8,6 +8,7 @@ import FractureGradientProfile from './charts/cd/FractureGradientProfile';
 import PhasingPolarChart from './charts/cd/PhasingPolarChart';
 import UnderbalanceWindowChart from './charts/cd/UnderbalanceWindowChart';
 import IPRCurveChart from './charts/cd/IPRCurveChart';
+import NodalAnalysisChart from './charts/cd/NodalAnalysisChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -47,6 +48,15 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
     damage_radius_ft: 0.5,
     damage_permeability_md: 50,
     formation_type: 'sandstone',
+    // VLP / Production tubing (Beggs & Brill 1973)
+    tubing_id_in: 2.992,
+    wellhead_pressure_psi: 200,
+    gor_scf_stb: 500,
+    water_cut: 0.10,
+    oil_api: 35,
+    gas_sg: 0.70,
+    water_sg: 1.07,
+    surface_temp_f: 80,
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -198,6 +208,32 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                     { key: 'effective_stress_psi', label: 'Esfuerzo Efectivo (psi)', step: '500' },
                     { key: 'damage_radius_ft', label: 'Radio Daño (ft)', step: '0.1' },
                     { key: 'damage_permeability_md', label: 'Perm. Daño (mD)', step: '10' },
+                  ].map(({ key, label, step }) => (
+                    <div key={key} className="space-y-1">
+                      <label className="text-xs text-gray-400">{label}</label>
+                      <input type="number" step={step}
+                        value={(params as Record<string, number>)[key]}
+                        onChange={e => updateParam(key, e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Producción & Tubing (VLP — Beggs & Brill 1973) */}
+              <div>
+                <h3 className="text-lg font-bold mb-3">Producción &amp; Tubing <span className="text-xs text-gray-500 font-normal ml-2">Beggs &amp; Brill (1973)</span></h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {[
+                    { key: 'tubing_id_in',         label: 'ID Tubing (in)',       step: '0.125' },
+                    { key: 'wellhead_pressure_psi', label: 'P Cabezal (psi)',      step: '50' },
+                    { key: 'gor_scf_stb',           label: 'GOR (scf/STB)',        step: '50' },
+                    { key: 'water_cut',             label: 'Corte Agua (0-1)',     step: '0.05' },
+                    { key: 'oil_api',               label: 'API Gravity (°API)',   step: '1' },
+                    { key: 'gas_sg',                label: 'Gas SG (aire=1)',      step: '0.01' },
+                    { key: 'water_sg',              label: 'Water SG',             step: '0.01' },
+                    { key: 'surface_temp_f',        label: 'T Superficie (°F)',    step: '5' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -423,6 +459,66 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Nodal Analysis — full width (IPR + VLP + operating point) */}
+            <NodalAnalysisChart
+              ipr={result.ipr as Parameters<typeof NodalAnalysisChart>[0]['ipr']}
+              vlp={result.vlp as Parameters<typeof NodalAnalysisChart>[0]['vlp']}
+              nodal={result.nodal as Parameters<typeof NodalAnalysisChart>[0]['nodal']}
+            />
+
+            {/* Flow Efficiency (FIX-COMP-009) */}
+            {result.ipr?.flow_efficiency != null && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Eficiencia de Flujo</h3>
+                  <span className="text-xs text-gray-500">FE = PI_actual / PI_ideal</span>
+                </div>
+                {(() => {
+                  const fe = result.ipr.flow_efficiency as number;
+                  const aofActual = result.ipr.AOF_stbd as number;
+                  const aofIdeal = result.ipr.AOF_ideal_stbd as number;
+                  const piActual = result.ipr.PI_stbd_psi as number;
+                  const piIdeal = result.ipr.PI_ideal_stbd_psi as number;
+                  const isPositive = fe >= 1.0;
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <span className={`font-mono font-bold text-4xl ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                          {fe.toFixed(2)}
+                        </span>
+                        <span className={`text-lg font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                          ({(fe * 100).toFixed(0)}%)
+                        </span>
+                      </div>
+                      <p className={`text-sm ${isPositive ? 'text-green-300' : 'text-red-300'}`}>
+                        {isPositive
+                          ? `FE > 1.0 — Esta completación produce ${((fe - 1) * 100).toFixed(0)}% más que un pozo abierto ideal (skin=0) gracias a penetración profunda con skin negativo.`
+                          : 'FE < 1.0 — Daño neto presente. Considerar estimulación (acidificación o fracturamiento).'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">PI con completación</div>
+                          <div className="font-mono text-violet-400 font-semibold">{piActual?.toFixed(4)} <span className="text-xs text-gray-500">STB/d/psi</span></div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">PI ideal (sin daño)</div>
+                          <div className="font-mono text-gray-300 font-semibold">{piIdeal?.toFixed(4)} <span className="text-xs text-gray-500">STB/d/psi</span></div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">AOF con completación</div>
+                          <div className="font-mono text-violet-400 font-semibold">{aofActual?.toFixed(0)} <span className="text-xs text-gray-500">STB/d</span></div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">AOF sin skin</div>
+                          <div className="font-mono text-gray-300 font-semibold">{aofIdeal?.toFixed(0)} <span className="text-xs text-gray-500">STB/d</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

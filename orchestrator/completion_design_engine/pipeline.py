@@ -16,9 +16,9 @@ from .fracture      import (
     calculate_fracture_gradient_daines,
     calculate_fracture_gradient_matthews_kelly,
 )
-from .ipr     import calculate_ipr_vogel, calculate_ipr_fetkovich, calculate_ipr_darcy
-from .vlp     import calculate_vlp_beggs_brill, calculate_nodal_analysis
-from .advanced import calculate_crushed_zone_skin, calculate_horizontal_productivity
+from .ipr     import calculate_ipr_vogel, calculate_ipr_fetkovich, calculate_ipr_darcy  # noqa: F401
+from .vlp     import calculate_vlp_curve, calculate_nodal_analysis
+from .advanced import calculate_crushed_zone_skin, calculate_horizontal_productivity  # noqa: F401
 
 # Drainage radius default (ft) — 40-acre spacing → re ≈ 745 ft; use 660 ft (typical 20-acre)
 _DEFAULT_DRAINAGE_RADIUS_FT = 660.0
@@ -51,6 +51,15 @@ def calculate_full_completion_design(
     Bo: float = 1.2,
     mu_oil_cp: float = 1.0,
     drainage_radius_ft: float = _DEFAULT_DRAINAGE_RADIUS_FT,
+    # VLP / Production tubing parameters (Beggs & Brill 1973)
+    tubing_id_in: float = 2.992,        # 3-1/2" OD 9.3 lb/ft
+    wellhead_pressure_psi: float = 200.0,
+    gor_scf_stb: float = 500.0,
+    water_cut: float = 0.10,
+    oil_api: float = 35.0,
+    gas_sg: float = 0.70,
+    water_sg: float = 1.07,
+    surface_temp_f: float = 80.0,
 ) -> Dict[str, Any]:
     """
     Complete integrated completion design analysis.
@@ -133,6 +142,7 @@ def calculate_full_completion_design(
     )
 
     # 7. IPR — Darcy (single-phase oil, uses optimal skin from step 6)
+    import math as _math
     opt_skin = optimization["optimal_configuration"].get("skin_total", 0.0)
     ipr = calculate_ipr_darcy(
         permeability_md=formation_permeability_md,
@@ -144,6 +154,54 @@ def calculate_full_completion_design(
         drainage_radius_ft=drainage_radius_ft,
         skin=opt_skin,
     )
+
+    # Flow Efficiency = PI_actual / PI_ideal = ln(re/rw) / (ln(re/rw) + S_total)
+    # Numerically equal to the PR already computed by K&T sweep.
+    _ln_re_rw = _math.log(drainage_radius_ft / wellbore_radius_ft) if wellbore_radius_ft > 0 else 7.0
+    _ln_denom = _ln_re_rw + opt_skin
+    flow_efficiency = _ln_re_rw / _ln_denom if _ln_denom > 0 else 1.0
+    ipr["flow_efficiency"] = round(flow_efficiency, 4)
+    ipr["PI_ideal_stbd_psi"] = round(
+        formation_permeability_md * formation_thickness_ft
+        / (141.2 * Bo * mu_oil_cp * _ln_re_rw), 4
+    ) if _ln_re_rw > 0 else 0.0
+    ipr["AOF_ideal_stbd"] = round(ipr["PI_ideal_stbd_psi"] * reservoir_pressure_psi, 1)
+
+    # 8. VLP curve — Beggs & Brill (1973), q from 0 to 110% AOF
+    q_max_vlp = max(ipr.get("AOF_stbd", 1000.0) * 1.1, 500.0)
+    vlp = calculate_vlp_curve(
+        tubing_id_in=tubing_id_in,
+        well_depth_ft=depth_tvd_ft,
+        wellhead_pressure_psi=wellhead_pressure_psi,
+        q_max_stbd=q_max_vlp,
+        water_cut=water_cut,
+        glr_scf_stb=gor_scf_stb,
+        oil_api=oil_api,
+        gas_sg=gas_sg,
+        water_sg=water_sg,
+        surface_temp_f=surface_temp_f,
+        bht_f=temperature_f,
+        num_rate_points=20,
+    )
+
+    # 9. Nodal analysis — IPR × VLP intersection
+    nodal = calculate_nodal_analysis(
+        ipr_Pwf=ipr.get("Pwf_psi", []),
+        ipr_q=ipr.get("q_oil_stbd", []),
+        vlp_q_range=vlp.get("q_stbd", []),
+        vlp_Pwf=vlp.get("Pwf_psi", []),
+    )
+    if nodal.get("operating_point_q", 0) <= 0:
+        nodal["no_natural_flow"] = True
+        nodal["message"] = "No hay flujo natural — considerar levantamiento artificial"
+    else:
+        nodal["no_natural_flow"] = False
+        pr = reservoir_pressure_psi
+        q_op = nodal["operating_point_q"]
+        pwf_op = nodal["operating_point_Pwf_psi"]
+        nodal["drawdown_psi"] = round(pr - pwf_op, 1)
+        aof = ipr.get("AOF_stbd", 1.0)
+        nodal["pct_aof_utilized"] = round(q_op / aof * 100, 1) if aof > 0 else 0.0
 
     # Build alerts
     alerts = []
@@ -185,5 +243,7 @@ def calculate_full_completion_design(
         "fracture_gradient": frac_gradient,
         "optimization": optimization,
         "ipr": ipr,
+        "vlp": vlp,
+        "nodal": nodal,
         "alerts": alerts,
     }

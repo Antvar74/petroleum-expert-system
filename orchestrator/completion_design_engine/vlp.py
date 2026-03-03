@@ -189,6 +189,90 @@ def calculate_vlp_beggs_brill(
     }
 
 
+def calculate_vlp_curve(
+    tubing_id_in: float,
+    well_depth_ft: float,
+    wellhead_pressure_psi: float,
+    q_max_stbd: float,
+    water_cut: float = 0.0,
+    glr_scf_stb: float = 500.0,
+    oil_api: float = 35.0,
+    gas_sg: float = 0.65,
+    water_sg: float = 1.07,
+    surface_temp_f: float = 100.0,
+    bht_f: float = 200.0,
+    num_rate_points: int = 20,
+    inclination_deg: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Build full VLP curve (Pwf vs q) using Beggs & Brill (1973).
+
+    Calls calculate_vlp_beggs_brill() at each rate point from 0 to q_max.
+    The characteristic J-shape arises from hydrostatic dominance at low rates
+    and friction dominance at high rates.
+
+    Args:
+        tubing_id_in: tubing inner diameter (inches)
+        well_depth_ft: tubing setting depth, measured depth (ft)
+        wellhead_pressure_psi: flowing wellhead pressure (psi)
+        q_max_stbd: maximum rate for curve (usually 1.1 × AOF) (STB/d)
+        num_rate_points: number of q points on curve
+
+    Returns:
+        Dict with q_stbd[], Pwf_psi[], static BHP, dominant_regime, method
+    """
+    if q_max_stbd <= 0 or tubing_id_in <= 0 or well_depth_ft <= 0:
+        return {"error": "Invalid inputs", "q_stbd": [], "Pwf_psi": []}
+
+    # q=0: purely hydrostatic (single-phase liquid column)
+    static_result = calculate_vlp_beggs_brill(
+        tubing_id_in=tubing_id_in,
+        well_depth_ft=well_depth_ft,
+        wellhead_pressure_psi=wellhead_pressure_psi,
+        oil_rate_stbd=0.0,
+        water_cut=water_cut,
+        glr_scf_stb=glr_scf_stb,
+        oil_api=oil_api,
+        gas_sg=gas_sg,
+        water_sg=water_sg,
+        surface_temp_f=surface_temp_f,
+        bht_f=bht_f,
+        num_points=3,
+        inclination_deg=inclination_deg,
+    )
+    q_stbd: List[float] = [0.0]
+    Pwf_psi: List[float] = [static_result.get("Pwf_required_psi", 0.0)]
+
+    for i in range(1, num_rate_points + 1):
+        q = q_max_stbd * i / num_rate_points
+        res = calculate_vlp_beggs_brill(
+            tubing_id_in=tubing_id_in,
+            well_depth_ft=well_depth_ft,
+            wellhead_pressure_psi=wellhead_pressure_psi,
+            oil_rate_stbd=q,
+            water_cut=water_cut,
+            glr_scf_stb=glr_scf_stb,
+            oil_api=oil_api,
+            gas_sg=gas_sg,
+            water_sg=water_sg,
+            surface_temp_f=surface_temp_f,
+            bht_f=bht_f,
+            num_points=5,  # fewer internal steps for speed in curve-building mode
+            inclination_deg=inclination_deg,
+        )
+        q_stbd.append(round(q, 1))
+        Pwf_psi.append(res.get("Pwf_required_psi", 0.0))
+
+    return {
+        "q_stbd": q_stbd,
+        "Pwf_psi": Pwf_psi,
+        "q_max_stbd": round(q_max_stbd, 1),
+        "static_bhp_psi": round(Pwf_psi[0], 1),
+        "wellhead_pressure_psi": wellhead_pressure_psi,
+        "method": "beggs_brill_1973",
+    }
+
+
 def calculate_nodal_analysis(
     ipr_Pwf: List[float],
     ipr_q: List[float],
