@@ -1008,6 +1008,26 @@
     "bestInterval": "Mejor Intervalo",
     "petroAverages": "Promedios Petrofísicos",
     "intervalRanking": "Ranking de Intervalos",
+    "scoreWeightsTitle": "Pesos del Score Compuesto",
+    "sumMustBeOne": "La suma debe ser 1.0",
+    "logPoints": "Puntos Log",
+    "netPayIntervals": "Intervalos Net Pay",
+    "netPayTotal": "Net Pay Total",
+    "bestScore": "Mejor Score",
+    "top": "Tope",
+    "base": "Base",
+    "thickness": "Espesor",
+    "phiAverage": "φ Promedio",
+    "swAverage": "Sw Promedio",
+    "shcAverage": "Shc Promedio",
+    "vshAverage": "Vsh Promedio",
+    "charts": {
+      "cutoffsTitle": "Cutoffs vs Promedios",
+      "intervalRankingTitle": "Ranking de Intervalos (Score Compuesto)",
+      "logTrackTitle": "Log Track Vertical — φ, Sw, Vsh vs Profundidad",
+      "netPayTitle": "Intervalos Net Pay",
+      "skinComponentsTitle": "Componentes de Skin por Intervalo (Karakas-Tariq)"
+    },
     "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el análisis."
   },
   "vibrations": {

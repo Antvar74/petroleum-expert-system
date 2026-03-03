@@ -263,7 +263,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
 
               {/* Pesos del Score Compuesto */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Pesos del Score Compuesto</h3>
+                <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.scoreWeightsTitle')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { key: 'w_phi', label: 'w_phi (Porosidad)' },
@@ -281,7 +281,7 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">La suma debe ser 1.0</p>
+                <p className="text-xs text-gray-500 mt-2">{t('shotEfficiency.sumMustBeOne')}</p>
               </div>
 
               <button onClick={calculate} disabled={loading}
@@ -298,10 +298,10 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Puntos Log', value: result.summary?.total_log_points || 0, color: 'text-blue-400' },
-                { label: 'Intervalos Net Pay', value: result.summary?.net_pay_intervals_count || 0, color: 'text-emerald-400' },
-                { label: 'Net Pay Total', value: `${result.summary?.total_net_pay_ft || 0} ft`, color: 'text-cyan-400' },
-                { label: 'Mejor Score', value: result.summary?.best_interval?.score?.toFixed(3) || 'N/A', color: 'text-violet-400' },
+                { label: t('shotEfficiency.logPoints'), value: result.summary?.total_log_points || 0, color: 'text-blue-400' },
+                { label: t('shotEfficiency.netPayIntervals'), value: result.summary?.net_pay_intervals_count || 0, color: 'text-emerald-400' },
+                { label: t('shotEfficiency.netPayTotal'), value: `${result.summary?.total_net_pay_ft || 0} ft`, color: 'text-cyan-400' },
+                { label: t('shotEfficiency.bestScore'), value: result.summary?.best_interval?.score?.toFixed(3) || 'N/A', color: 'text-violet-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -315,9 +315,9 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
               <div className="glass-panel p-6 rounded-2xl border border-emerald-500/20">
                 <h3 className="text-lg font-bold text-emerald-400 mb-3">&#127942; {t('shotEfficiency.bestInterval')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><span className="text-gray-400">Tope:</span> <span className="font-mono">{result.summary.best_interval.top_md} ft</span></div>
-                  <div><span className="text-gray-400">Base:</span> <span className="font-mono">{result.summary.best_interval.base_md} ft</span></div>
-                  <div><span className="text-gray-400">Espesor:</span> <span className="font-mono">{result.summary.best_interval.thickness_ft} ft</span></div>
+                  <div><span className="text-gray-400">{t('shotEfficiency.top')}:</span> <span className="font-mono">{result.summary.best_interval.top_md} ft</span></div>
+                  <div><span className="text-gray-400">{t('shotEfficiency.base')}:</span> <span className="font-mono">{result.summary.best_interval.base_md} ft</span></div>
+                  <div><span className="text-gray-400">{t('shotEfficiency.thickness')}:</span> <span className="font-mono">{result.summary.best_interval.thickness_ft} ft</span></div>
                   <div><span className="text-gray-400">φ avg:</span> <span className="font-mono">{(result.summary.best_interval.avg_phi * 100).toFixed(1)}%</span></div>
                   <div><span className="text-gray-400">Sw avg:</span> <span className="font-mono">{(result.summary.best_interval.avg_sw * 100).toFixed(1)}%</span></div>
                   {/* FIX-SHOT-004: HC Saturation */}
@@ -339,11 +339,11 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.petroAverages')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><span className="text-gray-400">φ Promedio:</span> <span className="font-mono">{((result.summary?.avg_porosity || 0) * 100).toFixed(1)}%</span></div>
-                <div><span className="text-gray-400">Sw Promedio:</span> <span className="font-mono">{((result.summary?.avg_sw || 0) * 100).toFixed(1)}%</span></div>
+                <div><span className="text-gray-400">{t('shotEfficiency.phiAverage')}:</span> <span className="font-mono">{((result.summary?.avg_porosity || 0) * 100).toFixed(1)}%</span></div>
+                <div><span className="text-gray-400">{t('shotEfficiency.swAverage')}:</span> <span className="font-mono">{((result.summary?.avg_sw || 0) * 100).toFixed(1)}%</span></div>
                 {/* FIX-SHOT-004: HC Saturation average */}
-                <div><span className="text-gray-400">Shc Promedio:</span> <span className="font-mono text-emerald-400">{((1 - (result.summary?.avg_sw || 0)) * 100).toFixed(1)}%</span></div>
-                <div><span className="text-gray-400">Vsh Promedio:</span> <span className="font-mono">{((result.summary?.avg_vsh || 0) * 100).toFixed(1)}%</span></div>
+                <div><span className="text-gray-400">{t('shotEfficiency.shcAverage')}:</span> <span className="font-mono text-emerald-400">{((1 - (result.summary?.avg_sw || 0)) * 100).toFixed(1)}%</span></div>
+                <div><span className="text-gray-400">{t('shotEfficiency.vshAverage')}:</span> <span className="font-mono">{((result.summary?.avg_vsh || 0) * 100).toFixed(1)}%</span></div>
               </div>
               {/* FIX-SHOT-002: Archie vs Simandoux comparison when shaly model is active */}
               {result.summary?.avg_sw_archie != null && (

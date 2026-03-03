@@ -3,6 +3,7 @@
  * Industry-standard orientation: depth on Y-axis increasing downward, curves plotted horizontally.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -17,6 +18,7 @@ interface LogTrackChartProps {
 }
 
 const LogTrackChart: React.FC<LogTrackChartProps> = ({ processedLogs, cutoffs, height = 600 }) => {
+  const { t } = useTranslation();
   if (!processedLogs?.length) return null;
 
   const data = processedLogs.map(d => ({
@@ -28,7 +30,7 @@ const LogTrackChart: React.FC<LogTrackChartProps> = ({ processedLogs, cutoffs, h
 
   return (
     <ChartContainer
-      title="Log Track Vertical — φ, Sw, Vsh vs Profundidad"
+      title={t('shotEfficiency.charts.logTrackTitle')}
       icon={BarChart3}
       height={height}
       badge={{ text: `${processedLogs.length} pts`, color: 'bg-blue-500/20 text-blue-400' }}

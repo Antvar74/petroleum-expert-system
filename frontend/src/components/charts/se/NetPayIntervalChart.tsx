@@ -2,6 +2,7 @@
  * NetPayIntervalChart.tsx — Horizontal bars showing net pay intervals with thickness.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -17,6 +18,7 @@ interface NetPayIntervalChartProps {
 }
 
 const NetPayIntervalChart: React.FC<NetPayIntervalChartProps> = ({ intervals, netPay, height = 350 }) => {
+  const { t } = useTranslation();
   if (!intervals?.length) return null;
 
   const data = intervals.map((iv) => ({
@@ -28,7 +30,7 @@ const NetPayIntervalChart: React.FC<NetPayIntervalChartProps> = ({ intervals, ne
 
   return (
     <ChartContainer
-      title="Intervalos Net Pay"
+      title={t('shotEfficiency.charts.netPayTitle')}
       icon={Layers}
       height={height}
       badge={{ text: `${netPay?.total_net_pay_ft} ft total`, color: 'bg-emerald-500/20 text-emerald-400' }}

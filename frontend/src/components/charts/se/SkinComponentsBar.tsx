@@ -3,6 +3,7 @@
  * Uses side-by-side bars so each component is visible regardless of magnitude differences.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -24,6 +25,7 @@ const COLORS = {
 };
 
 const SkinComponentsBar: React.FC<SkinComponentsBarProps> = ({ intervals, height = 350 }) => {
+  const { t } = useTranslation();
   if (!intervals?.length || !intervals[0]?.skin_components) return null;
 
   // Build grouped data — one row per interval with all 3 components
@@ -37,7 +39,7 @@ const SkinComponentsBar: React.FC<SkinComponentsBarProps> = ({ intervals, height
 
   return (
     <ChartContainer
-      title="Componentes de Skin por Intervalo (Karakas-Tariq)"
+      title={t('shotEfficiency.charts.skinComponentsTitle')}
       icon={BarChart3}
       height={height}
     >

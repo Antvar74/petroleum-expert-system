@@ -2,6 +2,7 @@
  * CutoffSensitivityChart.tsx — Shows cutoff values vs avg values for phi, sw, vsh.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { SlidersHorizontal } from 'lucide-react';
 
@@ -18,6 +19,7 @@ interface CutoffSensitivityChartProps {
 }
 
 const CutoffSensitivityChart: React.FC<CutoffSensitivityChartProps> = ({ summary, parameters, height = 280 }) => {
+  const { t } = useTranslation();
   if (!summary || !parameters) return null;
 
   const items = [
@@ -59,7 +61,7 @@ const CutoffSensitivityChart: React.FC<CutoffSensitivityChartProps> = ({ summary
 
   return (
     <ChartContainer
-      title="Cutoffs vs Promedios"
+      title={t('shotEfficiency.charts.cutoffsTitle')}
       icon={SlidersHorizontal}
       height={height}
       isFluid

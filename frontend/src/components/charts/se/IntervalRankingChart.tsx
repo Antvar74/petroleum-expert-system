@@ -2,6 +2,7 @@
  * IntervalRankingChart.tsx — Horizontal bar chart showing scored + ranked intervals.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -19,6 +20,7 @@ interface IntervalRankingChartProps {
 }
 
 const IntervalRankingChart: React.FC<IntervalRankingChartProps> = ({ rankings, height = 350 }) => {
+  const { t } = useTranslation();
   if (!rankings?.ranked?.length) return null;
 
   const data = rankings.ranked.slice(0, 8).map(iv => ({
@@ -29,7 +31,7 @@ const IntervalRankingChart: React.FC<IntervalRankingChartProps> = ({ rankings, h
 
   return (
     <ChartContainer
-      title="Ranking de Intervalos (Score Compuesto)"
+      title={t('shotEfficiency.charts.intervalRankingTitle')}
       icon={Award}
       height={height}
       badge={{ text: `Top: ${data[0]?.score}`, color: 'bg-emerald-500/20 text-emerald-400' }}
