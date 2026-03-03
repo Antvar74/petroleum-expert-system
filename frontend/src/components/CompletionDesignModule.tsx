@@ -7,6 +7,7 @@ import ProductivityRatioGauge from './charts/cd/ProductivityRatioGauge';
 import FractureGradientProfile from './charts/cd/FractureGradientProfile';
 import PhasingPolarChart from './charts/cd/PhasingPolarChart';
 import UnderbalanceWindowChart from './charts/cd/UnderbalanceWindowChart';
+import IPRCurveChart from './charts/cd/IPRCurveChart';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import { useLanguage } from '../hooks/useLanguage';
 import { useAIAnalysis } from '../hooks/useAIAnalysis';
@@ -399,6 +400,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PenetrationDepthChart penetration={result.penetration} />
               <ProductivityRatioGauge optimization={result.optimization} />
+              <IPRCurveChart ipr={result.ipr as Parameters<typeof IPRCurveChart>[0]['ipr']} />
               <FractureGradientProfile fractureGradient={result.fracture_gradient} />
               <PhasingPolarChart optimization={result.optimization} />
               <UnderbalanceWindowChart underbalance={result.underbalance} />

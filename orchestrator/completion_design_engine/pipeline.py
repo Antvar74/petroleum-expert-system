@@ -19,6 +19,9 @@ from .ipr     import calculate_ipr_vogel, calculate_ipr_fetkovich, calculate_ipr
 from .vlp     import calculate_vlp_beggs_brill, calculate_nodal_analysis
 from .advanced import calculate_crushed_zone_skin, calculate_horizontal_productivity
 
+# Drainage radius default (ft) — 40-acre spacing → re ≈ 745 ft; use 660 ft (typical 20-acre)
+_DEFAULT_DRAINAGE_RADIUS_FT = 660.0
+
 
 def calculate_full_completion_design(
     casing_id_in: float,
@@ -43,6 +46,10 @@ def calculate_full_completion_design(
     damage_radius_ft: float = 0.5,
     damage_permeability_md: float = 50.0,
     formation_type: str = "sandstone",
+    # IPR defaults — single-phase oil (typical light/medium crude)
+    Bo: float = 1.2,
+    mu_oil_cp: float = 1.0,
+    drainage_radius_ft: float = _DEFAULT_DRAINAGE_RADIUS_FT,
 ) -> Dict[str, Any]:
     """
     Complete integrated completion design analysis.
@@ -104,6 +111,19 @@ def calculate_full_completion_design(
         damage_permeability_md=damage_permeability_md,
     )
 
+    # 7. IPR — Darcy (single-phase oil, uses optimal skin from step 6)
+    opt_skin = optimization["optimal_configuration"].get("skin_total", 0.0)
+    ipr = calculate_ipr_darcy(
+        permeability_md=formation_permeability_md,
+        net_pay_ft=formation_thickness_ft,
+        Bo=Bo,
+        mu_oil_cp=mu_oil_cp,
+        reservoir_pressure_psi=reservoir_pressure_psi,
+        wellbore_radius_ft=wellbore_radius_ft,
+        drainage_radius_ft=drainage_radius_ft,
+        skin=opt_skin,
+    )
+
     # Build alerts
     alerts = []
     if penetration["efficiency_pct"] < 70:
@@ -143,5 +163,6 @@ def calculate_full_completion_design(
         "fracture_initiation": fracture,
         "fracture_gradient": frac_gradient,
         "optimization": optimization,
+        "ipr": ipr,
         "alerts": alerts,
     }
