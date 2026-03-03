@@ -34,6 +34,15 @@ class CementingEngine:
         "H":  {"density_range": (16.0, 16.5), "depth_ft": 8000,  "use": "General purpose"},
     }
 
+    @staticmethod
+    def _infer_cement_class(density_ppg: float) -> Optional[str]:
+        """Infer API 10A cement class from slurry density. Returns class letter or None."""
+        for cls, info in CementingEngine.CEMENT_CLASSES.items():
+            lo, hi = info["density_range"]
+            if lo <= density_ppg <= hi:
+                return cls
+        return None
+
     # Typical spacer / wash densities
     DEFAULT_SPACER_DENSITY = 10.0  # ppg (water-based spacer)
     DEFAULT_WASH_VOLUME_BBL_PER_1000FT = 5.0  # rule of thumb
@@ -451,6 +460,7 @@ class CementingEngine:
             ecd_psi = p_hydro + dp_friction
             ecd_ppg = ecd_psi / (0.052 * casing_shoe_tvd_ft) if casing_shoe_tvd_ft > 0 else 0
 
+            pump_vol_bbl = fill_fraction * total_annular_bbl
             snapshots.append({
                 "fill_pct": round(fill_fraction * 100, 1),
                 "cement_height_ft": round(cement_height_ft, 0),
@@ -460,6 +470,8 @@ class CementingEngine:
                 "bhp_psi": round(ecd_psi, 0),
                 "ecd_ppg": round(ecd_ppg, 2),
                 "fracture_margin_ppg": round(fracture_gradient_ppg - ecd_ppg, 2),
+                "pump_volume_bbl": round(pump_vol_bbl, 1),
+                "elapsed_min": round(pump_vol_bbl / pump_rate_bbl_min, 1) if pump_rate_bbl_min > 0 else 0.0,
             })
 
         # Find max ECD and check against fracture gradient
@@ -1442,6 +1454,31 @@ class CementingEngine:
         if utube.get("utube_occurs"):
             alerts.append(f"U-tube effect: {utube['pressure_imbalance_psi']:.0f} psi imbalance — "
                           f"hold pressure after pumps stop")
+
+        # FIX-CEM-001: Spacer height and contact-time validation
+        # Reference: API RP 10B; Nelson & Guillot "Well Cementing" Ch.5 — minimum 500 ft OR 10 min
+        ann_cap = volumes["annular_capacity_bbl_ft"]
+        if ann_cap > 0:
+            spacer_height_ft = spacer_volume_bbl / ann_cap
+            contact_time_min = spacer_volume_bbl / pump_rate_bbl_min if pump_rate_bbl_min > 0 else 0.0
+            if spacer_height_ft < 500 and contact_time_min < 10:
+                min_vol_bbl = math.ceil(500 * ann_cap)
+                alerts.append(
+                    f"Spacer height {spacer_height_ft:.0f} ft < 500 ft minimum and contact time "
+                    f"{contact_time_min:.1f} min < 10 min (API RP 10B / Nelson & Guillot Ch. 5). "
+                    f"Increase spacer to {min_vol_bbl} bbl minimum to achieve 500 ft annular height."
+                )
+
+        # FIX-CEM-003: Cement class vs depth validation (API Spec 10A)
+        tail_class = CementingEngine._infer_cement_class(tail_cement_density_ppg)
+        if tail_class:
+            max_depth_ft = CementingEngine.CEMENT_CLASSES[tail_class]["depth_ft"]
+            if casing_shoe_tvd_ft > max_depth_ft:
+                alerts.append(
+                    f"INFO: Tail cement ({tail_cement_density_ppg} ppg, Class {tail_class}) at "
+                    f"{casing_shoe_tvd_ft:.0f} ft TVD exceeds API 10A max depth of {max_depth_ft:,} ft "
+                    f"for Class {tail_class}. Verify thickening time and retarder with supplier."
+                )
 
         summary = {
             "total_cement_bbl": volumes["total_cement_bbl"],

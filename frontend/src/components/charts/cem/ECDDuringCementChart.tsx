@@ -8,19 +8,38 @@ import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { TrendingUp } from 'lucide-react';
 
+interface ECDSnapshot {
+  fill_pct: number;
+  ecd_ppg: number;
+  current_fluid?: string;
+  pump_volume_bbl?: number;
+  elapsed_min?: number;
+}
+
 interface ECDDuringCementChartProps {
-  ecd: { snapshots: Array<{ fill_pct: number; ecd_ppg: number; current_fluid?: string }>; fracture_gradient_ppg: number; pore_pressure_ppg: number };
+  ecd: { snapshots: Array<ECDSnapshot>; fracture_gradient_ppg: number; pore_pressure_ppg: number };
   height?: number;
 }
 
 const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height = 350 }) => {
   if (!ecd?.snapshots?.length) return null;
 
-  const data = ecd.snapshots.map((snap: { fill_pct: number; ecd_ppg: number; current_fluid?: string }) => ({
+  const data = ecd.snapshots.map((snap: ECDSnapshot) => ({
     volume: Math.round(snap.fill_pct * 10) / 10,
     ecd: Math.round(snap.ecd_ppg * 100) / 100,
     stage: snap.current_fluid ?? `${snap.fill_pct}%`,
+    pump_volume_bbl: snap.pump_volume_bbl,
+    elapsed_min: snap.elapsed_min,
   }));
+
+  // Find first snapshot where ECD crosses fracture gradient
+  const fracGradForCross = ecd.fracture_gradient_ppg;
+  const crossSnap = ecd.snapshots.find(s => s.ecd_ppg >= fracGradForCross);
+  const crossLabel = crossSnap
+    ? crossSnap.pump_volume_bbl != null && crossSnap.elapsed_min != null
+      ? `ECD=FG @ ~${crossSnap.pump_volume_bbl.toFixed(0)} bbl (${crossSnap.elapsed_min.toFixed(0)} min)`
+      : `ECD=FG @ ${crossSnap.fill_pct}%`
+    : null;
 
   const maxEcd = Math.max(...data.map((d: { volume: number; ecd: number; stage: string }) => d.ecd));
   const fracGrad = ecd.fracture_gradient_ppg;
@@ -61,6 +80,11 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
         {poreP && (
           <ReferenceLine y={poreP} stroke="#a855f7" strokeDasharray="6 3"
             label={{ value: `Pore: ${poreP}`, fill: '#a855f7', fontSize: 10, position: 'right' }} />
+        )}
+        {crossLabel && crossSnap && (
+          <ReferenceLine x={Math.round(crossSnap.fill_pct * 10) / 10} stroke="#f97316"
+            strokeWidth={2} strokeDasharray="4 4"
+            label={{ value: crossLabel, fill: '#f97316', fontSize: 9, position: 'insideTopLeft' }} />
         )}
         <Line type="monotone" dataKey="ecd" stroke="#14b8a6" strokeWidth={3} dot={false}
           name="ECD" animationDuration={CHART_DEFAULTS.animationDuration} />
