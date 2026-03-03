@@ -74,6 +74,14 @@ def calculate_full_vibration_analysis(
             stabilizer_spacing_ft=stabilizer_spacing_ft,
         )
 
+    # FIX-VIB-001/002/004: extract TMM critical RPMs so they are the authoritative
+    # source for lateral scoring in both the main stability index and the vibration map.
+    tmm_critical_rpms: List[float] = [
+        float(m.get("critical_rpm", 0))
+        for m in lateral.get("modes", [])
+        if m.get("critical_rpm", 0) > 5
+    ]
+
     # 3. Stick-slip
     stick_slip = calculate_stick_slip_severity(
         surface_rpm=rpm,
@@ -137,9 +145,11 @@ def calculate_full_vibration_analysis(
         stick_slip_result=stick_slip,
         mse_result=mse,
         operating_rpm=rpm,
+        tmm_critical_rpms=tmm_critical_rpms or None,
     )
 
-    # 7. Vibration map
+    # 7. Vibration map — pass TMM modes so each cell uses proximity-based
+    # lateral scoring instead of the high analytical critical RPM (FIX-VIB-002).
     vib_map = generate_vibration_map(
         bit_diameter_in=bit_diameter_in,
         bha_od_in=bha_od_in,
@@ -155,6 +165,7 @@ def calculate_full_vibration_analysis(
         dp_od_in=dp_od_in,
         dp_id_in=dp_id_in,
         ucs_psi=ucs_psi,
+        tmm_critical_rpms=tmm_critical_rpms or None,
     )
 
     # Alerts
@@ -167,7 +178,19 @@ def calculate_full_vibration_analysis(
         alerts.append(f"Operating near lateral critical RPM ({lateral_crit:.0f}) — whirl risk")
     ss_sev = stick_slip.get("severity_index", 0)
     if ss_sev > 1.0:
-        alerts.append(f"Stick-slip severity {ss_sev:.2f} — {stick_slip.get('recommendation', '')}")
+        # FIX-VIB-007: include numeric WOB/RPM from optimal_point in alert.
+        opt = vib_map.get("optimal_point", {})
+        opt_wob = opt.get("wob", 0)
+        opt_rpm = opt.get("rpm", 0)
+        opt_score = opt.get("score", 0)
+        if opt_wob > 0 and opt_rpm > 0:
+            alerts.append(
+                f"Stick-slip severity {ss_sev:.2f} — "
+                f"Reducir WOB a {opt_wob} klb y ajustar RPM a {opt_rpm} RPM "
+                f"(punto de mínimo riesgo, score {opt_score:.0f}/100)"
+            )
+        else:
+            alerts.append(f"Stick-slip severity {ss_sev:.2f} — {stick_slip.get('recommendation', '')}")
     if mse.get("mse_total_psi", 0) > 100000:
         alerts.append("Excessive MSE detected — check bit condition and drilling parameters")
     if stability["stability_index"] < 40:

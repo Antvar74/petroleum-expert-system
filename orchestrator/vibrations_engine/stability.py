@@ -21,7 +21,8 @@ def calculate_stability_index(
     lateral_result: Dict[str, Any],
     stick_slip_result: Dict[str, Any],
     mse_result: Dict[str, Any],
-    operating_rpm: float
+    operating_rpm: float,
+    tmm_critical_rpms: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate combined stability index from all vibration modes.
@@ -48,36 +49,63 @@ def calculate_stability_index(
     else:
         scores["axial"] = 50
 
-    # Lateral score: operating below critical = better
-    lateral_crit = lateral_result.get("critical_rpm", 999)
-    if lateral_crit > 0:
-        if operating_rpm < lateral_crit * 0.85:
-            scores["lateral"] = 90
-        elif operating_rpm < lateral_crit:
-            scores["lateral"] = 60
-        elif operating_rpm < lateral_crit * 1.15:
-            scores["lateral"] = 30  # near resonance
-        else:
-            scores["lateral"] = 50  # above resonance
-    else:
-        scores["lateral"] = 50
+    # Lateral score — FIX-VIB-001/004: use TMM/FEA modes when available.
+    # Priority: explicit tmm_critical_rpms > lateral_result.modes > simple analytical.
+    tmm_rpms: List[float] = tmm_critical_rpms or [
+        float(m.get("critical_rpm", 0))
+        for m in lateral_result.get("modes", [])
+        if m.get("critical_rpm", 0) > 5
+    ]
 
-    # Stick-slip score
+    if tmm_rpms:
+        # Proximity-based: distance to nearest mode gives meaningful gradient.
+        # FIX-VIB-004: finds closest mode including all FEA harmonics.
+        min_dist = min(abs(operating_rpm - r) for r in tmm_rpms)
+        closest = min(tmm_rpms, key=lambda r: abs(operating_rpm - r))
+        proximity_pct = (min_dist / closest * 100.0) if closest > 0 else 100.0
+        if proximity_pct >= 20.0:
+            scores["lateral"] = min(100.0, 80.0 + (proximity_pct - 20.0) * 0.5)
+        elif proximity_pct >= 10.0:
+            scores["lateral"] = 40.0 + (proximity_pct - 10.0) * 4.0
+        elif proximity_pct >= 5.0:
+            scores["lateral"] = 10.0 + (proximity_pct - 5.0) * 6.0
+        else:
+            scores["lateral"] = proximity_pct * 2.0
+    else:
+        # Fallback: simple Paslay-Dawson analytical critical RPM.
+        lateral_crit = lateral_result.get("critical_rpm", 999)
+        if lateral_crit > 0:
+            if operating_rpm < lateral_crit * 0.85:
+                scores["lateral"] = 90.0
+            elif operating_rpm < lateral_crit:
+                scores["lateral"] = 60.0
+            elif operating_rpm < lateral_crit * 1.15:
+                scores["lateral"] = 30.0  # near resonance
+            else:
+                scores["lateral"] = 50.0  # above resonance
+        else:
+            scores["lateral"] = 50.0
+
+    # Stick-slip score — FIX-VIB-002: exponential decay produces gradient
+    # across the entire severity range (not clamped to 0 at severity ≥ 1.5).
+    # At severity=0 → 100, 0.5 → 86, 1.5 → 64, 3 → 41, 6 → 17, 10 → 5.
     ss_severity = stick_slip_result.get("severity_index", 0)
-    scores["torsional"] = max(0, 100 - ss_severity * 66.7)
+    scores["torsional"] = max(0.0, min(100.0, 100.0 * math.exp(-ss_severity * 0.2)))
 
     # MSE score — prefer efficiency_pct when available (UCS-based)
     efficiency = mse_result.get("efficiency_pct")
     if efficiency is not None:
-        # UCS-based efficiency scoring
+        # UCS-based efficiency scoring with finer granularity at low efficiency
         if efficiency > 80:
             scores["mse"] = 95
         elif efficiency > 40:
             scores["mse"] = 70
         elif efficiency > 20:
             scores["mse"] = 35
+        elif efficiency > 10:
+            scores["mse"] = 20
         else:
-            scores["mse"] = 10  # Highly inefficient
+            scores["mse"] = 8  # Highly inefficient
     else:
         # Fallback: absolute MSE thresholds
         mse_val = mse_result.get("mse_total_psi", 50000)
@@ -90,9 +118,14 @@ def calculate_stability_index(
         else:
             scores["mse"] = 15
 
-    # Weighted overall — MSE doubled from 0.15 to 0.30
+    # Weighted overall
     weights = {"axial": 0.15, "lateral": 0.25, "torsional": 0.30, "mse": 0.30}
     overall = sum(scores[k] * weights[k] for k in scores)
+
+    # FIX-VIB-005: worst-case-governs — if any sub-score < 10, cap global at 25.
+    # Prevents a fatal condition (e.g. bit stalling) being hidden by good sub-scores.
+    if min(scores.values()) < 10.0:
+        overall = min(overall, 25.0)
 
     if overall >= 80:
         status = "Stable"
@@ -134,6 +167,7 @@ def generate_vibration_map(
     total_depth_ft: Optional[float] = None,
     dp_od_in: float = 5.0,
     dp_id_in: float = 4.276,
+    tmm_critical_rpms: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
     """
     Generate RPM vs WOB vibration stability map (heatmap data).
@@ -197,7 +231,8 @@ def generate_vibration_map(
                 ucs_psi=ucs_psi,
             )
             stability = calculate_stability_index(
-                axial, lateral, stick_slip, mse, rpm
+                axial, lateral, stick_slip, mse, rpm,
+                tmm_critical_rpms=tmm_critical_rpms,
             )
 
             score = stability["stability_index"]

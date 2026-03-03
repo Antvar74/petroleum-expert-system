@@ -11,16 +11,21 @@ interface CriticalRPMChartProps {
   axial: { critical_rpm_1st: number; critical_rpm_2nd: number; critical_rpm_3rd: number };
   lateral: { critical_rpm: number };
   operatingRpm: number;
+  /** FIX-VIB-001: FEA mode-1 critical RPM — authoritative when available. */
+  feaMode1Rpm?: number;
   height?: number;
 }
 
-const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, operatingRpm, height = 350 }) => {
+const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, operatingRpm, feaMode1Rpm, height = 350 }) => {
   if (!axial || !lateral) return null;
+
+  const lateralRpm = feaMode1Rpm && feaMode1Rpm > 0 ? feaMode1Rpm : lateral.critical_rpm;
+  const lateralLabel = feaMode1Rpm && feaMode1Rpm > 0 ? 'Lateral (FEA)' : 'Lateral';
 
   const data = [
     { name: 'Axial 1st', rpm: axial.critical_rpm_1st, color: '#ef4444' },
     { name: 'Axial 2nd', rpm: axial.critical_rpm_2nd, color: '#f97316' },
-    { name: 'Lateral', rpm: lateral.critical_rpm, color: '#8b5cf6' },
+    { name: lateralLabel, rpm: lateralRpm, color: '#8b5cf6' },
   ].filter(d => d.rpm > 0);
 
   return (

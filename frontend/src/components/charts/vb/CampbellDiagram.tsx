@@ -8,7 +8,7 @@
 import React from 'react';
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  Scatter, ReferenceArea,
+  Scatter, ReferenceArea, ReferenceLine,
 } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -53,6 +53,10 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
   const maxModeFreq = allModeFreqs.length > 0 ? Math.max(...allModeFreqs) : 1;
   const yMax = yDomainHz ? yDomainHz[1] : maxModeFreq * 1.3;
 
+  // FIX-VIB-008: extend X domain so operating RPM is always visible.
+  const rpmDataMax = rpmValues.length > 0 ? Math.max(...rpmValues) : 0;
+  const xMax = Math.max(rpmDataMax, operatingRpm ? operatingRpm * 1.25 : 0, 150);
+
   // Build merged data array
   const data = rpmValues.map((rpm, i) => {
     const row: Record<string, number> = { rpm };
@@ -65,6 +69,24 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
     });
     return row;
   });
+
+  // Append an extra point at xMax when data doesn't reach it,
+  // so Recharts lines render across the full extended domain.
+  if (xMax > rpmDataMax && rpmValues.length > 0) {
+    const lastIdx = rpmValues.length - 1;
+    const lastRpm = rpmValues[lastIdx];
+    const extra: Record<string, number> = { rpm: xMax };
+    // Natural freq curves are horizontal — repeat last value.
+    Object.entries(naturalFreqCurves).forEach(([key, vals]) => {
+      extra[key] = vals[lastIdx] ?? 0;
+    });
+    // Excitation lines are linear: extrapolate from slope at last point.
+    Object.entries(excitationLines).forEach(([key, vals]) => {
+      const slope = lastRpm > 0 ? (vals[lastIdx] ?? 0) / lastRpm : 0;
+      extra[`exc_${key}`] = Math.min(slope * xMax, yMax);
+    });
+    data.push(extra);
+  }
 
   // Crossing scatter data (only those within Y domain)
   const crossingData = crossings
@@ -86,7 +108,7 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
         <XAxis
           dataKey="rpm"
           type="number"
-          domain={['dataMin', 'dataMax']}
+          domain={[0, Math.ceil(xMax)]}
           tick={{ fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
           label={{ value: 'RPM', position: 'insideBottom', fill: CHART_DEFAULTS.labelColor, fontSize: 12, offset: -5 }}
         />
@@ -100,15 +122,23 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
         <Tooltip content={<DarkTooltip />} />
         <Legend />
 
-        {/* Operating RPM band */}
+        {/* Operating RPM band + vertical line */}
         {operatingRpm && (
-          <ReferenceArea
-            x1={operatingRpm - 10}
-            x2={operatingRpm + 10}
-            fill="#f43f5e"
-            fillOpacity={0.08}
-            label={{ value: `${operatingRpm} RPM`, fill: '#f43f5e', fontSize: 10 }}
-          />
+          <>
+            <ReferenceArea
+              x1={operatingRpm - 10}
+              x2={operatingRpm + 10}
+              fill="#f43f5e"
+              fillOpacity={0.08}
+            />
+            <ReferenceLine
+              x={operatingRpm}
+              stroke="#f43f5e"
+              strokeDasharray="6 3"
+              strokeWidth={2}
+              label={{ value: `Oper. ${operatingRpm} RPM`, fill: '#f43f5e', fontSize: 9, position: 'insideTopRight' }}
+            />
+          </>
         )}
 
         {/* Natural frequency curves (solid) */}

@@ -8,6 +8,7 @@ import { RotateCw } from 'lucide-react';
 interface StickSlipIndicatorProps {
   stickSlip: {
     severity_index: number;
+    dhss_standard?: number;
     classification: string;
     color: string;
     rpm_min_at_bit: number;
@@ -51,7 +52,12 @@ const StickSlipIndicator: React.FC<StickSlipIndicatorProps> = ({ stickSlip, heig
         <div className="w-full">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>0</span>
-            <span>Severidad: {sev.toFixed(2)}</span>
+            <span>
+              Severidad: {sev.toFixed(2)}
+              {stickSlip.dhss_standard != null && (
+                <span className="ml-2 text-gray-400">| DHSS: {stickSlip.dhss_standard.toFixed(2)}</span>
+              )}
+            </span>
             <span>2.0</span>
           </div>
           <div className="relative w-full h-8 rounded-full overflow-hidden flex">

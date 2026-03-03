@@ -195,9 +195,15 @@ def calculate_stick_slip_severity(
         color = "red"
         recommendation = "Bit stalling likely — significantly reduce WOB and increase RPM"
 
+    # FIX-VIB-003: DHSS standard indicator — industry-interpretable form.
+    # DHSS = (RPM_max - RPM_min_clamped) / (2 × RPM_surface)
+    # At severity=6.02, RPM_min=0, RPM_max=481 → DHSS = 481/240 ≈ 2.00
+    dhss_standard = round((rpm_max_bit - rpm_min_bit) / (2.0 * surface_rpm), 3)
+
     return {
         "severity_index": round(severity, 3),
         "severity_undamped": round(severity_undamped, 3),
+        "dhss_standard": dhss_standard,
         "classification": classification,
         "color": color,
         "rpm_min_at_bit": round(rpm_min_bit, 0),

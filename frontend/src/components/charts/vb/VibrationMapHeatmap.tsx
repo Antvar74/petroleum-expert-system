@@ -25,6 +25,17 @@ const VibrationMapHeatmap: React.FC<VibrationMapHeatmapProps> = ({ vibrationMap,
 
   const { wob_range, rpm_range, map_data, optimal_point } = vibrationMap;
 
+  // FIX-VIB-006: relabel when optimal score is below "Marginal" threshold.
+  const optScore = optimal_point.score;
+  const optLabel =
+    optScore >= 60
+      ? `Óptimo: ${optimal_point.rpm} RPM @ ${optimal_point.wob} klb`
+      : optScore >= 40
+        ? `Mín. Riesgo: ${optimal_point.rpm} RPM @ ${optimal_point.wob} klb`
+        : `Mín. Riesgo: ${optimal_point.rpm} RPM @ ${optimal_point.wob} klb (Zona Inestable)`;
+  const optBadgeColor =
+    optScore >= 60 ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400';
+
   const getColor = (score: number) => {
     if (score >= 80) return '#22c55e';
     if (score >= 60) return '#84cc16';
@@ -41,7 +52,7 @@ const VibrationMapHeatmap: React.FC<VibrationMapHeatmapProps> = ({ vibrationMap,
       title="Mapa de Vibraciones (RPM × WOB)"
       icon={Grid3x3}
       height={height}
-      badge={{ text: `Óptimo: ${optimal_point.rpm} RPM @ ${optimal_point.wob} klb`, color: 'bg-green-500/20 text-green-400' }}
+      badge={{ text: optLabel, color: optBadgeColor }}
       isFluid
     >
       <div className="flex flex-col items-center justify-center h-full overflow-auto p-2">

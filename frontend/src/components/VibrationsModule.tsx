@@ -452,7 +452,12 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <StabilityGauge stability={result.stability} />
-              <CriticalRPMChart axial={result.axial_vibrations} lateral={result.lateral_vibrations} operatingRpm={params.rpm} />
+              <CriticalRPMChart
+                axial={result.axial_vibrations}
+                lateral={result.lateral_vibrations}
+                operatingRpm={params.rpm as number}
+                feaMode1Rpm={feaResult?.eigenvalue?.critical_rpms?.[0] as number | undefined}
+              />
               <VibrationMapHeatmap vibrationMap={result.vibration_map} />
               <MSEBreakdownChart mse={result.mse} />
               <StickSlipIndicator stickSlip={result.stick_slip} />
