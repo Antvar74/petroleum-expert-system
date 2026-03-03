@@ -314,7 +314,17 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                   <div><span className="text-gray-400">P Cierre:</span> <span className="font-mono">{result.fracture_initiation?.closure_pressure_psi} psi</span></div>
                   <div><span className="text-gray-400">ISIP Est.:</span> <span className="font-mono">{result.fracture_initiation?.isip_estimate_psi} psi</span></div>
                   <div><span className="text-gray-400">Ratio Esfuerzos:</span> <span className="font-mono">{result.fracture_initiation?.stress_ratio}</span></div>
-                  <div className="text-xs text-gray-500">{result.fracture_initiation?.fracture_orientation}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {result.fracture_initiation?.stress_regime && (
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        result.fracture_initiation.stress_regime === 'Normal' ? 'bg-blue-500/20 text-blue-400' :
+                        result.fracture_initiation.stress_regime === 'Strike-Slip' ? 'bg-yellow-500/20 text-yellow-400' :
+                        result.fracture_initiation.stress_regime === 'Reverse' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>{result.fracture_initiation.stress_regime}</span>
+                    )}
+                    <span className="text-xs text-gray-500">{result.fracture_initiation?.fracture_orientation}</span>
+                  </div>
                 </div>
               </div>
             </div>

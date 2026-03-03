@@ -47,7 +47,7 @@ const FractureGradientProfile: React.FC<FractureGradientProfileProps> = ({ fract
         <YAxis stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
           label={{ value: 'Gradiente (ppg)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
         <Tooltip content={<DarkTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
+        <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', paddingBottom: 4 }} />
         <Line type="monotone" dataKey="pore" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Poro" />
         <Line type="monotone" dataKey="frac" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Fractura" />
         <Line type="monotone" dataKey="overburden" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} name="Sobrecarga" />

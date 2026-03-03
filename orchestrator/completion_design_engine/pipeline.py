@@ -100,12 +100,13 @@ def calculate_full_completion_design(
         formation_type=formation_type,
     )
 
-    # 4. Fracture initiation
+    # 4. Fracture initiation + stress regime (Anderson 1951)
     fracture = calculate_fracture_initiation(
         sigma_min_psi=sigma_min_psi,
         sigma_max_psi=sigma_max_psi,
         tensile_strength_psi=tensile_strength_psi,
         pore_pressure_psi=pore_pressure_psi,
+        overburden_stress_psi=overburden_stress_psi,
     )
 
     # 5. Fracture gradient (Eaton)

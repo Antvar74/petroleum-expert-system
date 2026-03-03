@@ -345,7 +345,9 @@ class TestFractureInitiation:
             tensile_strength_psi=500, pore_pressure_psi=3000,
         )
         assert r["stress_ratio"] == pytest.approx(1.5, abs=0.01)
-        assert "perpendicular" in r["fracture_orientation"].lower()
+        # Spanish output uses ⊥ symbol for perpendicular; check either form
+        orientation = r["fracture_orientation"]
+        assert "⊥" in orientation or "perpendicular" in orientation.lower()
 
 
 # ============================================================

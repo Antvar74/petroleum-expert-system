@@ -11,12 +11,31 @@ import math
 from typing import Dict, Any, List
 
 
+def _classify_stress_regime(sigma_h: float, sigma_H: float, sigma_v: float) -> str:
+    """
+    Anderson (1951) stress regime classification.
+
+    Normal:      σ_v ≥ σ_H ≥ σ_h  → gravity-dominated, normal faulting
+    Strike-slip: σ_H ≥ σ_v ≥ σ_h  → one horizontal dominant
+    Reverse:     σ_H ≥ σ_h ≥ σ_v  → compressional, thrust faulting
+    """
+    if sigma_v >= sigma_H >= sigma_h:
+        return "Normal"
+    elif sigma_H >= sigma_v >= sigma_h:
+        return "Strike-Slip"
+    elif sigma_H >= sigma_h >= sigma_v:
+        return "Reverse"
+    else:
+        return "Transitional"
+
+
 def calculate_fracture_initiation(
     sigma_min_psi: float,
     sigma_max_psi: float,
     tensile_strength_psi: float,
     pore_pressure_psi: float,
     biot_coefficient: float = 1.0,
+    overburden_stress_psi: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Calculate hydraulic fracture initiation pressure.
@@ -30,9 +49,10 @@ def calculate_fracture_initiation(
         tensile_strength_psi: rock tensile strength (psi)
         pore_pressure_psi: formation pore pressure (psi)
         biot_coefficient: Biot poroelastic coefficient (0-1)
+        overburden_stress_psi: vertical/overburden stress (psi); enables regime classification
 
     Returns:
-        Dict with fracture initiation pressure, breakdown pressure, margins
+        Dict with fracture initiation pressure, breakdown pressure, margins, stress_regime
     """
     p_breakdown = (3.0 * sigma_min_psi - sigma_max_psi
                    + tensile_strength_psi
@@ -44,9 +64,15 @@ def calculate_fracture_initiation(
     stress_ratio = sigma_max_psi / sigma_min_psi if sigma_min_psi > 0 else 1.0
 
     if stress_ratio > 1.1:
-        orientation = "Fracture perpendicular to σ_min (transverse if horizontal well)"
+        orientation = "Fractura ⊥ σ_min — transversal en pozo horizontal"
     else:
-        orientation = "Near-isotropic stress — fracture direction uncertain"
+        orientation = "Esfuerzos casi isotrópicos — dirección de fractura incierta"
+
+    # Anderson (1951) stress regime classification
+    if overburden_stress_psi > 0:
+        regime = _classify_stress_regime(sigma_min_psi, sigma_max_psi, overburden_stress_psi)
+    else:
+        regime = "Unknown (overburden not provided)"
 
     return {
         "breakdown_pressure_psi": round(p_breakdown, 1),
@@ -57,9 +83,11 @@ def calculate_fracture_initiation(
         "tensile_strength_psi": round(tensile_strength_psi, 1),
         "stress_ratio": round(stress_ratio, 3),
         "fracture_orientation": orientation,
+        "stress_regime": regime,
         "stresses": {
             "sigma_min_psi": round(sigma_min_psi, 1),
             "sigma_max_psi": round(sigma_max_psi, 1),
+            "overburden_psi": round(overburden_stress_psi, 1),
             "pore_pressure_psi": round(pore_pressure_psi, 1),
         },
     }
