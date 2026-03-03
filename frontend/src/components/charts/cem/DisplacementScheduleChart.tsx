@@ -4,6 +4,7 @@
  * Key events (Spacer Away, Lead Away, Tail Away, Plug Bump) shown as reference lines.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Legend } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -22,6 +23,7 @@ const FLUID_COLORS: Record<string, string> = {
 };
 
 const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ displacement, height = 350 }) => {
+  const { t } = useTranslation();
   if (!displacement?.schedule?.length) return null;
 
   // Build data with one area per fluid stage
@@ -53,7 +55,7 @@ const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ d
 
   return (
     <ChartContainer
-      title="Programa de Desplazamiento"
+      title={t('cementing.displacementScheduleChart')}
       icon={Layers}
       height={height}
       badge={{ text: `${displacement.total_time_min ?? '—'} min`, color: 'bg-teal-500/20 text-teal-400' }}
@@ -64,13 +66,13 @@ const DisplacementScheduleChart: React.FC<DisplacementScheduleChartProps> = ({ d
           dataKey="volume"
           stroke={CHART_DEFAULTS.axisColor}
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
-          label={{ value: 'Volumen Bombeado (bbl)', position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          label={{ value: t('cementing.volumePumped'), position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
         <YAxis
           domain={[0, 100]}
           stroke={CHART_DEFAULTS.axisColor}
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
-          label={{ value: 'Progreso (%)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          label={{ value: t('cementing.progressPct'), angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
         <Tooltip content={<DarkTooltip formatter={(v: number, name: string) => {
           const labels: Record<string, string> = { spacer: 'Spacer', lead: 'Lead Cement', tail: 'Tail Cement', mud: 'Displacement Mud' };

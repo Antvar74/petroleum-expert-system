@@ -1183,7 +1183,18 @@
     "uTube": "U-Tube",
     "liftPressure": "Lift Pressure",
     "sacks": "sacks",
-    "noResults": "No results. Go to \"Parameters\" and run the simulation."
+    "noResults": "No results. Go to \"Parameters\" and run the simulation.",
+    "displacementScheduleChart": "Displacement Schedule",
+    "ecdDuringCementingChart": "ECD During Cementing",
+    "fluidColumnChart": "Fluid Column",
+    "volumePumped": "Volume Pumped (bbl)",
+    "progressPct": "Progress (%)",
+    "annularFillPct": "% Annular Fill",
+    "uTubeEffect": "U-Tube Effect",
+    "occurs": "OCCURS",
+    "notOccurs": "NOT OCCURS",
+    "balanced": "BALANCED",
+    "liftPressureRequired": "Lift Pressure Required"
   },
   "casingDesign": {
     "title": "Casing Design",

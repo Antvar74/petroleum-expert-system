@@ -3,6 +3,7 @@
  * Shows whether free-fall / U-tube occurs, with severity gauge.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { ArrowDownCircle } from 'lucide-react';
 
@@ -13,6 +14,7 @@ interface FreeFallIndicatorProps {
 }
 
 const FreeFallIndicator: React.FC<FreeFallIndicatorProps> = ({ freeFall, utube, height = 350 }) => {
+  const { t } = useTranslation();
   if (!freeFall && !utube) return null;
 
   const ffOccurs = freeFall?.free_fall_occurs;
@@ -32,14 +34,14 @@ const FreeFallIndicator: React.FC<FreeFallIndicatorProps> = ({ freeFall, utube, 
   };
 
   return (
-    <ChartContainer title="Free-Fall & U-Tube" icon={ArrowDownCircle} height={height} isFluid>
+    <ChartContainer title={t('cementing.freeFallUtube')} icon={ArrowDownCircle} height={height} isFluid>
       <div className="flex flex-col h-full justify-center gap-8 px-2">
         {/* Free-Fall Section */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-bold">Free-Fall</span>
+            <span className="text-sm font-bold">{t('cementing.freeFall')}</span>
             <span className={`text-sm font-bold px-2 py-0.5 rounded ${ffOccurs ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
-              {ffOccurs ? 'OCURRE' : 'NO OCURRE'}
+              {ffOccurs ? t('cementing.occurs') : t('cementing.notOccurs')}
             </span>
           </div>
           <div className="w-full bg-white/5 rounded-full h-6 overflow-hidden">
@@ -56,9 +58,9 @@ const FreeFallIndicator: React.FC<FreeFallIndicatorProps> = ({ freeFall, utube, 
         {/* U-Tube Section */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-bold">U-Tube Effect</span>
+            <span className="text-sm font-bold">{t('cementing.uTubeEffect')}</span>
             <span className={`text-sm font-bold px-2 py-0.5 rounded ${utubeOccurs ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
-              {utubeOccurs ? 'OCURRE' : 'EQUILIBRADO'}
+              {utubeOccurs ? t('cementing.occurs') : t('cementing.balanced')}
             </span>
           </div>
           <div className="w-full bg-white/5 rounded-full h-6 overflow-hidden">
@@ -76,7 +78,7 @@ const FreeFallIndicator: React.FC<FreeFallIndicatorProps> = ({ freeFall, utube, 
         {utube?.lift_pressure_psi !== undefined && (
           <div className="border-t border-white/10 pt-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Lift Pressure Required:</span>
+              <span className="text-gray-400">{t('cementing.liftPressureRequired')}:</span>
               <span className="font-mono font-bold text-orange-400">{utube.lift_pressure_psi || '—'} psi</span>
             </div>
           </div>

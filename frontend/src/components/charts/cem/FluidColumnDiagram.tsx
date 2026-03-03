@@ -3,6 +3,7 @@
  * Displays spacer, lead cement, tail cement, rat-hole proportions.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { Cylinder } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const FLUID_SECTIONS = [
 ];
 
 const FluidColumnDiagram: React.FC<FluidColumnDiagramProps> = ({ volumes, height = 350 }) => {
+  const { t } = useTranslation();
   if (!volumes) return null;
 
   const total = volumes.total_pump_volume_bbl || 1;
@@ -29,7 +31,7 @@ const FluidColumnDiagram: React.FC<FluidColumnDiagramProps> = ({ volumes, height
   }));
 
   return (
-    <ChartContainer title="Columna de Fluidos" icon={Cylinder} height={height} isFluid>
+    <ChartContainer title={t('cementing.fluidColumnChart')} icon={Cylinder} height={height} isFluid>
       <div className="flex flex-col h-full justify-between">
         {/* Stacked horizontal bar */}
         <div className="flex-1 flex flex-col justify-center px-2">
@@ -65,14 +67,14 @@ const FluidColumnDiagram: React.FC<FluidColumnDiagramProps> = ({ volumes, height
         {/* Summary */}
         <div className="border-t border-white/10 pt-3 mt-3">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Total Bombeo:</span>
+            <span className="text-gray-400">{t('cementing.totalPumping')}:</span>
             <span className="font-mono font-bold text-teal-400">{volumes.total_pump_volume_bbl} bbl</span>
           </div>
           <div className="flex justify-between text-sm mt-1">
-            <span className="text-gray-400">Total Cemento:</span>
+            <span className="text-gray-400">{t('cementing.totalCement')}:</span>
             <span className="font-mono font-bold text-white">
               {((volumes.lead_cement_bbl || 0) + (volumes.tail_cement_bbl || 0)).toFixed(1)} bbl
-              ({((volumes.lead_cement_sacks || 0) + (volumes.tail_cement_sacks || 0))} sacos)
+              ({((volumes.lead_cement_sacks || 0) + (volumes.tail_cement_sacks || 0))} {t('cementing.sacks')})
             </span>
           </div>
         </div>

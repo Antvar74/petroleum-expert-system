@@ -3,6 +3,7 @@
  * Shows ECD with fracture-gradient reference line and color bands.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -22,6 +23,7 @@ interface ECDDuringCementChartProps {
 }
 
 const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height = 350 }) => {
+  const { t } = useTranslation();
   if (!ecd?.snapshots?.length) return null;
 
   const data = ecd.snapshots.map((snap: ECDSnapshot) => ({
@@ -47,7 +49,7 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
 
   return (
     <ChartContainer
-      title="ECD durante Cementación"
+      title={t('cementing.ecdDuringCementingChart')}
       icon={TrendingUp}
       height={height}
       badge={{
@@ -61,7 +63,7 @@ const ECDDuringCementChart: React.FC<ECDDuringCementChartProps> = ({ ecd, height
           dataKey="volume"
           stroke={CHART_DEFAULTS.axisColor}
           tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 11 }}
-          label={{ value: '% Llenado Anular', position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
+          label={{ value: t('cementing.annularFillPct'), position: 'insideBottom', offset: -5, fill: CHART_DEFAULTS.labelColor, fontSize: 11 }}
         />
         <YAxis
           stroke={CHART_DEFAULTS.axisColor}
