@@ -74,6 +74,14 @@ def identify_net_pay_intervals(
         avg_sw = sum(p["sw"] for p in grp) / len(grp)
         avg_vsh = sum(p["vsh"] for p in grp) / len(grp)
 
+        # FIX-SHOT-001: N/G = passing points / all points in the [top, base] range.
+        # The contiguous-grouping algorithm guarantees N/G=1.0 for all intervals today
+        # (non-pay points break the group boundary), but we compute it from the tagged
+        # data so it will correctly reflect < 1.0 if the algorithm is ever extended to
+        # allow internal shale stringers.
+        all_in_range = [p for p in tagged if top_md <= p["md"] <= base_md]
+        net_to_gross = len(grp) / len(all_in_range) if all_in_range else 1.0
+
         result_intervals.append({
             "top_md": round(top_md, 1),
             "base_md": round(base_md, 1),
@@ -83,6 +91,7 @@ def identify_net_pay_intervals(
             "avg_vsh": round(avg_vsh, 4),
             "is_net_pay": True,
             "point_count": len(grp),
+            "net_to_gross": round(net_to_gross, 3),
         })
         total_net += thickness
 

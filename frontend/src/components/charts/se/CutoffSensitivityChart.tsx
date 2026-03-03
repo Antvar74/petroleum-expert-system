@@ -9,9 +9,10 @@ interface CutoffSensitivityChartProps {
   summary: {
     avg_porosity: number; avg_sw: number; avg_vsh: number;
     net_pay_intervals_count: number; total_net_pay_ft: number;
+    min_interval_thickness_ft?: number | null;
   };
   parameters: {
-    cutoffs: { phi_min: number; sw_max: number; vsh_max: number };
+    cutoffs: { phi_min: number; sw_max: number; vsh_max: number; min_thickness_ft?: number };
   };
   height?: number;
 }
@@ -44,6 +45,16 @@ const CutoffSensitivityChart: React.FC<CutoffSensitivityChartProps> = ({ summary
       direction: 'max' as const,
       color: '#f97316',
     },
+    ...(parameters.cutoffs.min_thickness_ft != null && summary.min_interval_thickness_ft != null
+      ? [{
+          label: 'Espesor Mín. (ft)',
+          cutoff: parameters.cutoffs.min_thickness_ft,
+          avg: summary.min_interval_thickness_ft,
+          unit: ' ft',
+          direction: 'min' as const,
+          color: '#a855f7',
+        }]
+      : []),
   ];
 
   return (

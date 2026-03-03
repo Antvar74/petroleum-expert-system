@@ -128,6 +128,13 @@ def calculate_full_shot_efficiency(
             "igr": vsh_res.get("igr", 1.0),
         }
 
+        # FIX-SHOT-002: include Archie reference when a shaly model is active.
+        # calculate_sw_simandoux / calculate_sw_indonesia always compute sw_archie
+        # as a comparison baseline (Simandoux/Indonesia give higher Sw in shaly zones).
+        if "sw_archie" in sw_res:
+            row["sw_archie"] = sw_res["sw_archie"]
+            row["sw_difference"] = sw_res.get("sw_difference", 0.0)
+
         # Permeability estimation
         if estimate_permeability and phi_val > 0 and sw_irreducible > 0:
             k_res = calculate_permeability_timur(phi_val, sw_irreducible)
@@ -191,14 +198,27 @@ def calculate_full_shot_efficiency(
     avg_sw_all = sum(p["sw"] for p in processed) / len(processed)
     avg_vsh_all = sum(p["vsh"] for p in processed) / len(processed)
 
+    # FIX-SHOT-002: Archie reference average (only for points that used shaly model)
+    shaly_pts = [p for p in processed if "sw_archie" in p]
+    avg_sw_archie = (
+        round(sum(p["sw_archie"] for p in shaly_pts) / len(shaly_pts), 4)
+        if shaly_pts else None
+    )
+
+    # FIX-SHOT-005: minimum interval thickness for cutoff panel
+    thicknesses = [iv["thickness_ft"] for iv in intervals] if intervals else []
+    min_interval_thickness_ft = round(min(thicknesses), 1) if thicknesses else None
+
     summary = {
         "total_log_points": len(processed),
         "rejected_points": parsed["rejected_count"],
         "avg_porosity": round(avg_phi_all, 4),
         "avg_sw": round(avg_sw_all, 4),
+        "avg_sw_archie": avg_sw_archie,
         "avg_vsh": round(avg_vsh_all, 4),
         "net_pay_intervals_count": net_pay["interval_count"],
         "total_net_pay_ft": net_pay["total_net_pay_ft"],
+        "min_interval_thickness_ft": min_interval_thickness_ft,
         "sw_model_used": sw_model,
         "permeability_estimated": estimate_permeability,
         "best_interval": {

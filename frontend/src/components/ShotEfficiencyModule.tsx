@@ -320,23 +320,41 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                   <div><span className="text-gray-400">Espesor:</span> <span className="font-mono">{result.summary.best_interval.thickness_ft} ft</span></div>
                   <div><span className="text-gray-400">φ avg:</span> <span className="font-mono">{(result.summary.best_interval.avg_phi * 100).toFixed(1)}%</span></div>
                   <div><span className="text-gray-400">Sw avg:</span> <span className="font-mono">{(result.summary.best_interval.avg_sw * 100).toFixed(1)}%</span></div>
+                  {/* FIX-SHOT-004: HC Saturation */}
+                  <div><span className="text-gray-400">Shc avg:</span> <span className="font-mono text-emerald-400">{((1 - (result.summary.best_interval.avg_sw || 0)) * 100).toFixed(1)}%</span></div>
                   <div><span className="text-gray-400">Score:</span> <span className="font-bold text-emerald-400">{result.summary.best_interval.score?.toFixed(3)}</span></div>
                   <div><span className="text-gray-400">Skin:</span> <span className="font-mono">{result.summary.best_interval.skin_total?.toFixed(2)}</span></div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3 font-mono">
-                  Score = {params.w_phi}&middot;&phi; + {params.w_sw}&middot;(1-Sw) + {params.w_thick}&middot;h + {params.w_skin}&middot;Skin
-                </p>
+                {/* FIX-SHOT-003: show actual weights from backend ranking engine */}
+                {(() => {
+                  const w = (result.rankings as Record<string, unknown>)?.weights_used as Record<string, number> | undefined;
+                  if (!w) return null;
+                  const parts = Object.entries(w).map(([k, v]) => `${v.toFixed(2)}·${k}`).join(' + ');
+                  return <p className="text-xs text-gray-500 mt-3 font-mono">Score = {parts}</p>;
+                })()}
               </div>
             )}
 
             {/* Average Petrophysics */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-3">{t('shotEfficiency.petroAverages')}</h3>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div><span className="text-gray-400">φ Promedio:</span> <span className="font-mono">{((result.summary?.avg_porosity || 0) * 100).toFixed(1)}%</span></div>
                 <div><span className="text-gray-400">Sw Promedio:</span> <span className="font-mono">{((result.summary?.avg_sw || 0) * 100).toFixed(1)}%</span></div>
+                {/* FIX-SHOT-004: HC Saturation average */}
+                <div><span className="text-gray-400">Shc Promedio:</span> <span className="font-mono text-emerald-400">{((1 - (result.summary?.avg_sw || 0)) * 100).toFixed(1)}%</span></div>
                 <div><span className="text-gray-400">Vsh Promedio:</span> <span className="font-mono">{((result.summary?.avg_vsh || 0) * 100).toFixed(1)}%</span></div>
               </div>
+              {/* FIX-SHOT-002: Archie vs Simandoux comparison when shaly model is active */}
+              {result.summary?.avg_sw_archie != null && (
+                <div className="mt-3 flex items-center gap-3 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <span className="text-amber-400 font-semibold">Sw Model Comparison:</span>
+                  <span className="text-gray-300">Archie (ref): <span className="font-mono text-amber-300">{((result.summary.avg_sw_archie as number) * 100).toFixed(1)}%</span></span>
+                  <span className="text-gray-500">→</span>
+                  <span className="text-gray-300">Shaly model: <span className="font-mono text-blue-300">{((result.summary?.avg_sw || 0) * 100).toFixed(1)}%</span></span>
+                  <span className="text-gray-500 italic">(+{(((result.summary?.avg_sw || 0) - (result.summary.avg_sw_archie as number)) * 100).toFixed(1)}% clay correction)</span>
+                </div>
+              )}
             </div>
 
             {/* Intervals Table */}
@@ -351,25 +369,35 @@ const ShotEfficiencyModule: React.FC<ShotEfficiencyModuleProps> = ({ wellId, wel
                         <th className="text-left py-2 px-2">Tope (ft)</th>
                         <th className="text-left py-2 px-2">Base (ft)</th>
                         <th className="text-left py-2 px-2">h (ft)</th>
+                        <th className="text-left py-2 px-2">N/G</th>
                         <th className="text-left py-2 px-2">φ (%)</th>
                         <th className="text-left py-2 px-2">Sw (%)</th>
+                        {/* FIX-SHOT-004: Shc column */}
+                        <th className="text-left py-2 px-2 text-emerald-400">Shc (%)</th>
                         <th className="text-left py-2 px-2">Vsh (%)</th>
                         <th className="text-left py-2 px-2">Skin</th>
                         <th className="text-left py-2 px-2">Score</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {result.rankings.ranked.map((iv: { rank: number; top_md: number; base_md: number; score: number }, i: number) => (
+                      {(result.rankings as { ranked: Record<string, unknown>[] }).ranked.map((iv: Record<string, unknown>, i: number) => (
                         <tr key={i} className={`border-b border-white/5 ${i === 0 ? 'bg-emerald-500/10' : ''}`}>
-                          <td className="py-2 px-2 font-bold text-emerald-400">{iv.rank}</td>
-                          <td className="py-2 px-2 font-mono">{iv.top_md}</td>
-                          <td className="py-2 px-2 font-mono">{iv.base_md}</td>
-                          <td className="py-2 px-2 font-mono">{iv.thickness_ft}</td>
-                          <td className="py-2 px-2 font-mono">{(iv.avg_phi * 100).toFixed(1)}</td>
-                          <td className="py-2 px-2 font-mono">{(iv.avg_sw * 100).toFixed(1)}</td>
-                          <td className="py-2 px-2 font-mono">{(iv.avg_vsh * 100).toFixed(1)}</td>
-                          <td className="py-2 px-2 font-mono">{iv.skin_total?.toFixed(2)}</td>
-                          <td className="py-2 px-2 font-bold">{iv.score?.toFixed(3)}</td>
+                          <td className="py-2 px-2 font-bold text-emerald-400">{iv.rank as number}</td>
+                          <td className="py-2 px-2 font-mono">{iv.top_md as number}</td>
+                          <td className="py-2 px-2 font-mono">{iv.base_md as number}</td>
+                          <td className="py-2 px-2 font-mono">{iv.thickness_ft as number}</td>
+                          {/* FIX-SHOT-001: N/G ratio */}
+                          <td className="py-2 px-2 font-mono text-xs">
+                            {iv.net_to_gross != null
+                              ? <span className={(iv.net_to_gross as number) >= 1.0 ? 'text-green-400' : 'text-amber-400'}>{((iv.net_to_gross as number) * 100).toFixed(0)}%</span>
+                              : '—'}
+                          </td>
+                          <td className="py-2 px-2 font-mono">{((iv.avg_phi as number) * 100).toFixed(1)}</td>
+                          <td className="py-2 px-2 font-mono">{((iv.avg_sw as number) * 100).toFixed(1)}</td>
+                          <td className="py-2 px-2 font-mono text-emerald-400">{((1 - (iv.avg_sw as number)) * 100).toFixed(1)}</td>
+                          <td className="py-2 px-2 font-mono">{((iv.avg_vsh as number) * 100).toFixed(1)}</td>
+                          <td className="py-2 px-2 font-mono">{(iv.skin_total as number)?.toFixed(2)}</td>
+                          <td className="py-2 px-2 font-bold">{(iv.score as number)?.toFixed(3)}</td>
                         </tr>
                       ))}
                     </tbody>
