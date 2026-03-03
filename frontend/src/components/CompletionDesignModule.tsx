@@ -329,6 +329,58 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
               </div>
             </div>
 
+            {/* Skin Component Breakdown (K&T 1991) */}
+            {result.optimization?.optimal_configuration?.skin_components && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Desglose de Skin — Config. Óptima (K&amp;T 1991)</h3>
+                  <span className="text-xs text-gray-500">Karakas &amp; Tariq, SPE 18247</span>
+                </div>
+                {(() => {
+                  const sc = result.optimization.optimal_configuration.skin_components as Record<string, number>;
+                  const opt = result.optimization.optimal_configuration as Record<string, number | string>;
+                  const components = [
+                    { key: 's_perforation', label: 'S_p — Plano (Phasing)',            value: sc.s_perforation, color: '#818cf8', desc: 'Pseudo-skin de flujo plano — negativo = beneficio por ángulo de fase' },
+                    { key: 's_vertical',    label: 'S_v — Convergencia Vertical',       value: sc.s_vertical,    color: '#f97316', desc: 'Penalización por espaciado de disparos — disminuye con mayor SPF' },
+                    { key: 's_wellbore',    label: 'S_wb — Convergencia al Pozo',        value: sc.s_wellbore,    color: '#eab308', desc: 'Pérdida por convergencia al pozo — depende de radio de perforación' },
+                    { key: 's_damage',      label: 'S_d — Daño de Formación (Hawkins)',  value: sc.s_damage,      color: '#ef4444', desc: 'Skin por zona dañada — k/k_daño × ln(r_daño/r_w)' },
+                  ];
+                  const maxAbs = Math.max(1, ...components.map(c => Math.abs(c.value ?? 0)));
+                  return (
+                    <div className="space-y-4">
+                      {components.map(comp => (
+                        <div key={comp.key}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-mono font-semibold">{comp.label}</span>
+                            <span className={`font-mono font-bold text-sm ${(comp.value ?? 0) < 0 ? 'text-green-400' : (comp.value ?? 0) > 0 ? 'text-orange-300' : 'text-gray-400'}`}>
+                              {(comp.value ?? 0) > 0 ? '+' : ''}{(comp.value ?? 0).toFixed(3)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${Math.max(2, Math.abs(comp.value ?? 0) / maxAbs * 100)}%`,
+                                backgroundColor: comp.color,
+                                opacity: (comp.value ?? 0) === 0 ? 0.2 : 0.8,
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{comp.desc}</p>
+                        </div>
+                      ))}
+                      <div className="border-t border-white/10 pt-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-400">Skin Total:</span>
+                        <span className={`font-mono font-bold text-xl ${(opt.skin_total as number) < 0 ? 'text-green-400' : 'text-orange-400'}`}>
+                          {(opt.skin_total as number) > 0 ? '+' : ''}{(opt.skin_total as number)?.toFixed(3)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Alerts */}
             {result.alerts?.length > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
