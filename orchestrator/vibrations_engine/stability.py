@@ -207,12 +207,17 @@ def generate_vibration_map(
     )
 
     map_data = []
+    # FIX-VIB-009: track safe cells separately so critical cells cannot win "optimal".
     optimal_point = {"wob": 0, "rpm": 0, "score": 0, "wob_min_klb": round(wob_min_klb, 1)}
+    _found_safe = False
 
     for wob in wob_range:
         for rpm in rpm_range:
-            # Estimate torque: T ~ T_base * (WOB/WOB_base) * (RPM_factor)
-            torque_est = torque_base_ftlb * (wob / 20.0) * (1.0 + 0.002 * (rpm - 100))
+            # Estimate torque: T ~ T_base * (WOB/WOB_base).
+            # RPM dependency removed — the old 0.002*(rpm-100) factor made MSE
+            # improve artificially at low RPM, pushing the optimizer toward RPMs
+            # that worsen stick-slip (FIX-VIB-009 root cause B).
+            torque_est = torque_base_ftlb * (wob / 20.0)
             torque_est = max(1000, torque_est)
 
             # Estimate ROP: simplified D-exponent influence
@@ -235,28 +240,60 @@ def generate_vibration_map(
                 tmm_critical_rpms=tmm_critical_rpms,
             )
 
+            ss_severity_cell = stick_slip.get("severity_index", 0)
+
+            # FIX-VIB-009: critical stick-slip cells are unsafe and scored accordingly.
+            # Jansen & van den Steen (1995): severity > 1.5 → bit stalling / uncontrolled
+            # torsional oscillation. Such operating points must NEVER be recommended.
+            can_be_optimal = ss_severity_cell <= 1.5
             score = stability["stability_index"]
+            if not can_be_optimal:
+                # Cap displayed stability at 25 — matches worst-case-governs rule.
+                score = min(score, 25.0)
+
             point = {
                 "wob_klb": wob, "rpm": rpm,
                 "stability_index": score,
-                "status": stability["status"],
-                "stick_slip_severity": stick_slip.get("severity_index", 0),
+                "status": stability["status"] if can_be_optimal else "Critical",
+                "stick_slip_severity": ss_severity_cell,
                 "mse_psi": mse.get("mse_total_psi", 0),
+                "can_be_optimal": can_be_optimal,
             }
             map_data.append(point)
 
-            if score > optimal_point["score"] and wob >= wob_min_klb:
+            if can_be_optimal and score > optimal_point["score"] and wob >= wob_min_klb:
                 optimal_point = {"wob": wob, "rpm": rpm, "score": score, "wob_min_klb": round(wob_min_klb, 1)}
+                _found_safe = True
 
-    # Fallback: if no cell met the WOB constraint, pick best at lowest acceptable WOB
-    if optimal_point["wob"] == 0 and wob_min_klb > 0:
-        acceptable = [p for p in map_data if p["wob_klb"] >= wob_min_klb]
-        if acceptable:
-            best = max(acceptable, key=lambda p: p["stability_index"])
+    # Fallback A: safe cells below WOB formation constraint (drill possible but suboptimal).
+    if not _found_safe:
+        safe_cells = [p for p in map_data if p.get("can_be_optimal", False)]
+        if safe_cells:
+            best = max(safe_cells, key=lambda p: p["stability_index"])
             optimal_point = {
                 "wob": best["wob_klb"], "rpm": best["rpm"],
-                "score": best["stability_index"], "wob_min_klb": round(wob_min_klb, 1),
+                "score": best["stability_index"],
+                "wob_min_klb": round(wob_min_klb, 1),
+                "note": "WOB below formation minimum — monitor bit engagement",
             }
+            _found_safe = True
+
+    # Fallback B: no safe cell at all — report explicitly so the alert layer
+    # can issue the correct physics-based recommendation (increase RPM).
+    if not _found_safe:
+        max_rpm = max(rpm_range)
+        min_wob = min(wob_range)
+        optimal_point = {
+            "wob": 0,
+            "rpm": 0,
+            "score": 0,
+            "wob_min_klb": round(wob_min_klb, 1),
+            "message": (
+                f"No safe operating point found in evaluated range. "
+                f"Recommend increasing RPM above {max_rpm} RPM "
+                f"and/or reducing WOB below {min_wob} klb to mitigate stick-slip."
+            ),
+        }
 
     return {
         "map_data": map_data,

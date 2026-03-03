@@ -178,12 +178,35 @@ def calculate_full_vibration_analysis(
         alerts.append(f"Operating near lateral critical RPM ({lateral_crit:.0f}) — whirl risk")
     ss_sev = stick_slip.get("severity_index", 0)
     if ss_sev > 1.0:
-        # FIX-VIB-007: include numeric WOB/RPM from optimal_point in alert.
         opt = vib_map.get("optimal_point", {})
         opt_wob = opt.get("wob", 0)
         opt_rpm = opt.get("rpm", 0)
         opt_score = opt.get("score", 0)
-        if opt_wob > 0 and opt_rpm > 0:
+        no_safe_msg = opt.get("message", "")
+
+        if ss_sev > 1.5:
+            # FIX-VIB-009: Critical stick-slip — physics mandates increasing RPM.
+            # Jansen & van den Steen (1995): severity ∝ T_friction / (K × ω).
+            # Lower RPM → lower ω → higher severity. Never recommend reducing RPM.
+            if opt_wob > 0 and opt_rpm > 0 and opt_rpm > rpm:
+                # Safe cell found at higher RPM → use it.
+                alerts.append(
+                    f"Stick-slip CRÍTICO ({ss_sev:.2f}) — "
+                    f"Aumentar RPM a {opt_rpm} RPM y reducir WOB a {opt_wob} klb "
+                    f"(punto de mínimo riesgo, score {opt_score:.0f}/100)"
+                )
+            else:
+                # No safe cell or map would suggest lowering RPM — override with physics.
+                safe_rpm = round(rpm * 1.2 / 10) * 10  # +20%, rounded to nearest 10
+                base_msg = (
+                    f"Stick-slip CRÍTICO ({ss_sev:.2f}) — "
+                    f"Aumentar RPM por encima de {safe_rpm} RPM y reducir WOB."
+                )
+                if no_safe_msg:
+                    alerts.append(f"{base_msg} {no_safe_msg}")
+                else:
+                    alerts.append(base_msg)
+        elif opt_wob > 0 and opt_rpm > 0:
             alerts.append(
                 f"Stick-slip severity {ss_sev:.2f} — "
                 f"Reducir WOB a {opt_wob} klb y ajustar RPM a {opt_rpm} RPM "
