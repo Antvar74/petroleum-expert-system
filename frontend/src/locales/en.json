@@ -1064,6 +1064,24 @@
     "clickToExpand": "Click to expand",
     "runFea": "Run FEA Analysis",
     "runningFea": "Running FEA...",
+    "feaAnalysisTitle": "FEA Analysis (Euler-Bernoulli FEM)",
+    "feaMode": "Mode",
+    "bitExcitation": "Bit Excitation",
+    "frequency": "Frequency",
+    "depthOfCut": "Depth of Cut",
+    "cuttingForce": "Cutting Force",
+    "resonance": "Resonance",
+    "provideUcsForCalc": "Provide UCS for calculation",
+    "estimated": "estimated",
+    "charts": {
+      "stabilityGaugeTitle": "Global Stability Index",
+      "criticalRpmTitle": "Critical RPMs vs Operation",
+      "mseBreakdownTitle": "MSE — Rotary vs Thrust Breakdown",
+      "stickSlipTitle": "Stick-Slip Indicator",
+      "vibrationMapTitle": "Vibration Map (RPM × WOB)",
+      "modeShapesTitle": "Mode Shapes (FEA)",
+      "campbellTitle": "Campbell Diagram (FEA)"
+    },
     "wellbore": {
       "tipo": "Type",
       "topMd": "Top MD (ft)",
@@ -1245,7 +1263,12 @@
       "biaxialEllipse": "Biaxial Ellipse API 5C3",
       "tensionLoadProfile": "Tension Load Profile",
       "tensionVsDepth": "Tension vs Depth",
-      "sfVsDepth": "Safety Factor vs Depth"
+      "sfVsDepth": "Safety Factor vs Depth",
+      "burstCollapseEnvelope": "Burst / Collapse Envelope",
+      "safetyFactors": "Safety Factors",
+      "casingSchematic": "Casing Schematic",
+      "gradeSelection": "Grade Selection",
+      "multiScenarioEnvelope": "Multi-Scenario Envelope"
     }
   },
   "eventWizard": {

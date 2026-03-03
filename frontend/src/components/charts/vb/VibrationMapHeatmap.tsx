@@ -2,6 +2,7 @@
  * VibrationMapHeatmap.tsx — RPM vs WOB stability heatmap.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { Grid3x3 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ interface VibrationMapHeatmapProps {
 }
 
 const VibrationMapHeatmap: React.FC<VibrationMapHeatmapProps> = ({ vibrationMap, height = 380 }) => {
+  const { t } = useTranslation();
   if (!vibrationMap?.map_data?.length) return null;
 
   const { wob_range, rpm_range, map_data, optimal_point } = vibrationMap;
@@ -49,7 +51,7 @@ const VibrationMapHeatmap: React.FC<VibrationMapHeatmapProps> = ({ vibrationMap,
 
   return (
     <ChartContainer
-      title="Mapa de Vibraciones (RPM × WOB)"
+      title={t('vibrations.charts.vibrationMapTitle')}
       icon={Grid3x3}
       height={height}
       badge={{ text: optLabel, color: optBadgeColor }}

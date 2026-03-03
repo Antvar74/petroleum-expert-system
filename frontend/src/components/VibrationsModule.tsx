@@ -344,7 +344,7 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
                   })(),
                   color: feaResult?.eigenvalue?.critical_rpms?.[0] ? 'text-indigo-400' : 'text-cyan-400',
                 },
-                { label: 'Stick-Slip', value: `${result.summary?.stick_slip_severity?.toFixed(2)} (${result.summary?.stick_slip_class})`, color: statusColor(result.summary?.stick_slip_class === 'Mild' ? 'Stable' : result.summary?.stick_slip_class === 'Moderate' ? 'Marginal' : 'Critical') },
+                { label: t('vibrations.stickSlip'), value: `${result.summary?.stick_slip_severity?.toFixed(2)} (${result.summary?.stick_slip_class})`, color: statusColor(result.summary?.stick_slip_class === 'Mild' ? 'Stable' : result.summary?.stick_slip_class === 'Moderate' ? 'Marginal' : 'Critical') },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -358,18 +358,18 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('vibrations.mseTitle')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">MSE Total:</span> <span className="font-bold text-lg">{result.mse?.mse_total_psi?.toLocaleString()} psi</span></div>
-                  <div><span className="text-gray-400">Rotario:</span> <span className="font-mono">{result.mse?.mse_rotary_psi?.toLocaleString()} psi ({result.mse?.rotary_pct}%)</span></div>
-                  <div><span className="text-gray-400">Empuje:</span> <span className="font-mono">{result.mse?.mse_thrust_psi?.toLocaleString()} psi ({result.mse?.thrust_pct}%)</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.mseTotal')}:</span> <span className="font-bold text-lg">{result.mse?.mse_total_psi?.toLocaleString()} psi</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.rotary')}:</span> <span className="font-mono">{result.mse?.mse_rotary_psi?.toLocaleString()} psi ({result.mse?.rotary_pct}%)</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.thrust')}:</span> <span className="font-mono">{result.mse?.mse_thrust_psi?.toLocaleString()} psi ({result.mse?.thrust_pct}%)</span></div>
                   {result.mse?.efficiency_pct != null ? (
-                    <div><span className="text-gray-400">Eficiencia:</span> <span className="font-mono">{result.mse.efficiency_pct}%</span>
-                      <span className="text-xs text-gray-500 ml-1">({result.mse?.classification_basis === 'ucs_based' ? 'UCS-based' : 'estimada'})</span>
+                    <div><span className="text-gray-400">{t('vibrations.efficiency')}:</span> <span className="font-mono">{result.mse.efficiency_pct}%</span>
+                      <span className="text-xs text-gray-500 ml-1">({result.mse?.classification_basis === 'ucs_based' ? 'UCS-based' : t('vibrations.estimated')})</span>
                     </div>
                   ) : (
-                    <div><span className="text-gray-400">Eficiencia:</span> <span className="text-gray-500 italic text-xs">Proporcione UCS para calculo</span></div>
+                    <div><span className="text-gray-400">{t('vibrations.efficiency')}:</span> <span className="text-gray-500 italic text-xs">{t('vibrations.provideUcsForCalc')}</span></div>
                   )}
                   <div>
-                    <span className="text-gray-400">Estado:</span>{' '}
+                    <span className="text-gray-400">{t('vibrations.status')}:</span>{' '}
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusColor(result.mse?.classification === 'Efficient' ? 'Stable' : result.mse?.classification === 'Normal' ? 'Marginal' : 'Critical')}`}>
                       {result.mse?.classification}
                     </span>
@@ -379,11 +379,11 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('vibrations.optimalPoint')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">WOB Óptimo:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_wob} klb</span></div>
-                  <div><span className="text-gray-400">RPM Óptimo:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_rpm} RPM</span></div>
-                  <div><span className="text-gray-400">MSE:</span> <span className="font-mono">{result.summary?.mse_psi?.toLocaleString()} psi</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.optimalWob')}:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_wob} klb</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.optimalRpm')}:</span> <span className="font-bold text-rose-400">{result.summary?.optimal_rpm} RPM</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.mse')}:</span> <span className="font-mono">{result.summary?.mse_psi?.toLocaleString()} psi</span></div>
                   <div className="pt-3 border-t border-white/5">
-                    <h4 className="text-gray-400 text-xs mb-2">Scores por Modo:</h4>
+                    <h4 className="text-gray-400 text-xs mb-2">{t('vibrations.modeScores')}:</h4>
                     <div className="grid grid-cols-2 gap-1">
                       {result.stability?.mode_scores && Object.entries(result.stability.mode_scores).map(([k, v]: [string, any]) => (
                         <div key={k} className="flex justify-between text-xs">
@@ -414,14 +414,14 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
             {/* Bit Excitation & Resonance */}
             {result.bit_excitation && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Bit Excitation</h3>
+                <h3 className="text-lg font-bold mb-3">{t('vibrations.bitExcitation')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><span className="text-gray-400">Frecuencia:</span> <span className="font-mono">{result.bit_excitation.excitation_freq_hz} Hz</span></div>
-                  <div><span className="text-gray-400">Corte/rev:</span> <span className="font-mono">{result.bit_excitation.depth_of_cut_in} in</span></div>
-                  <div><span className="text-gray-400">Fuerza corte:</span> <span className="font-mono">{result.bit_excitation.cutting_force_lbs?.toLocaleString()} lbs</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.frequency')}:</span> <span className="font-mono">{result.bit_excitation.excitation_freq_hz} Hz</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.depthOfCut')}:</span> <span className="font-mono">{result.bit_excitation.depth_of_cut_in} in</span></div>
+                  <div><span className="text-gray-400">{t('vibrations.cuttingForce')}:</span> <span className="font-mono">{result.bit_excitation.cutting_force_lbs?.toLocaleString()} lbs</span></div>
                   {result.resonance_check && (
                     <div>
-                      <span className="text-gray-400">Resonancia:</span>{' '}
+                      <span className="text-gray-400">{t('vibrations.resonance')}:</span>{' '}
                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                         result.resonance_check.resonance_risk === 'low' ? 'text-green-400 bg-green-500/10' :
                         result.resonance_check.resonance_risk === 'moderate' ? 'text-yellow-400 bg-yellow-500/10' :
@@ -468,11 +468,11 @@ const VibrationsModule: React.FC<VibrationsModuleProps> = ({ wellId, wellName = 
               <>
                 {/* FEA Summary */}
                 <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20">
-                  <h3 className="text-lg font-bold text-indigo-400 mb-3">FEA Analysis (Euler-Bernoulli FEM)</h3>
+                  <h3 className="text-lg font-bold text-indigo-400 mb-3">{t('vibrations.feaAnalysisTitle')}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     {feaResult.eigenvalue?.frequencies_hz?.slice(0, 4).map((freq: number, i: number) => (
                       <div key={i} className="text-center">
-                        <div className="text-xs text-gray-500">Mode {i + 1}</div>
+                        <div className="text-xs text-gray-500">{t('vibrations.feaMode')} {i + 1}</div>
                         <div className="font-bold text-indigo-300">{freq.toFixed(2)} Hz</div>
                         <div className="text-xs text-gray-500">{(freq * 60).toFixed(0)} RPM</div>
                       </div>

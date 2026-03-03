@@ -2,6 +2,7 @@
  * StickSlipIndicator.tsx — Visual indicator showing stick-slip severity.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { RotateCw } from 'lucide-react';
 
@@ -22,6 +23,7 @@ interface StickSlipIndicatorProps {
 }
 
 const StickSlipIndicator: React.FC<StickSlipIndicatorProps> = ({ stickSlip, height = 320 }) => {
+  const { t } = useTranslation();
   if (!stickSlip) return null;
 
   const sev = stickSlip.severity_index;
@@ -41,7 +43,7 @@ const StickSlipIndicator: React.FC<StickSlipIndicatorProps> = ({ stickSlip, heig
 
   return (
     <ChartContainer
-      title="Indicador Stick-Slip"
+      title={t('vibrations.charts.stickSlipTitle')}
       icon={RotateCw}
       height={height}
       badge={{ text: stickSlip.classification, color: `bg-[${fillColor}]/20` }}

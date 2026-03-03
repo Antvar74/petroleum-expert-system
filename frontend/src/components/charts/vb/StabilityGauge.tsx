@@ -2,6 +2,7 @@
  * StabilityGauge.tsx — Radial gauge showing combined stability index (0-100).
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { Shield } from 'lucide-react';
 
@@ -17,6 +18,7 @@ interface StabilityGaugeProps {
 }
 
 const StabilityGauge: React.FC<StabilityGaugeProps> = ({ stability, height = 320 }) => {
+  const { t } = useTranslation();
   if (!stability) return null;
 
   const idx = stability.stability_index;
@@ -46,7 +48,7 @@ const StabilityGauge: React.FC<StabilityGaugeProps> = ({ stability, height = 320
 
   return (
     <ChartContainer
-      title="Índice de Estabilidad Global"
+      title={t('vibrations.charts.stabilityGaugeTitle')}
       icon={Shield}
       height={height}
       badge={{ text: stability.status, color: `bg-${stability.color === 'green' ? 'green' : stability.color === 'yellow' ? 'yellow' : stability.color === 'orange' ? 'orange' : 'red'}-500/20 text-${stability.color === 'green' ? 'green' : stability.color === 'yellow' ? 'yellow' : stability.color === 'orange' ? 'orange' : 'red'}-400` }}

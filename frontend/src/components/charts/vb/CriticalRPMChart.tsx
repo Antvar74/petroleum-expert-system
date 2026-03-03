@@ -2,6 +2,7 @@
  * CriticalRPMChart.tsx — Shows operating RPM vs axial/lateral critical RPMs.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, LabelList } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -17,6 +18,7 @@ interface CriticalRPMChartProps {
 }
 
 const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, operatingRpm, feaMode1Rpm, height = 350 }) => {
+  const { t } = useTranslation();
   if (!axial || !lateral) return null;
 
   const lateralRpm = feaMode1Rpm && feaMode1Rpm > 0 ? feaMode1Rpm : lateral.critical_rpm;
@@ -30,7 +32,7 @@ const CriticalRPMChart: React.FC<CriticalRPMChartProps> = ({ axial, lateral, ope
 
   return (
     <ChartContainer
-      title="RPMs Críticos vs Operación"
+      title={t('vibrations.charts.criticalRpmTitle')}
       icon={Zap}
       height={height}
       badge={{ text: `Operando: ${operatingRpm} RPM`, color: 'bg-rose-500/20 text-rose-400' }}

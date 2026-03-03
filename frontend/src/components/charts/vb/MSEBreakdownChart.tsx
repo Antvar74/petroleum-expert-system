@@ -2,6 +2,7 @@
  * MSEBreakdownChart.tsx — Pie/donut showing rotary vs thrust MSE components.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -21,6 +22,7 @@ interface MSEBreakdownChartProps {
 }
 
 const MSEBreakdownChart: React.FC<MSEBreakdownChartProps> = ({ mse, height = 350 }) => {
+  const { t } = useTranslation();
   if (!mse) return null;
 
   const data = [
@@ -30,7 +32,7 @@ const MSEBreakdownChart: React.FC<MSEBreakdownChartProps> = ({ mse, height = 350
 
   return (
     <ChartContainer
-      title="MSE — Desglose Rotario vs Empuje"
+      title={t('vibrations.charts.mseBreakdownTitle')}
       icon={PieIcon}
       height={height}
       badge={{ text: `${(mse.mse_total_psi / 1000).toFixed(0)}k psi`, color: 'bg-violet-500/20 text-violet-400' }}

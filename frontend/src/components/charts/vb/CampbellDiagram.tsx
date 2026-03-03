@@ -6,6 +6,7 @@
  * excitation lines going to 30+ Hz don't make the modes invisible.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   Scatter, ReferenceArea, ReferenceLine,
@@ -46,6 +47,7 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
   yDomainHz,
   height = 450,
 }) => {
+  const { t } = useTranslation();
   if (!rpmValues?.length) return null;
 
   // Compute Y domain: use backend hint or auto-compute from mode frequencies
@@ -102,7 +104,7 @@ const CampbellDiagram: React.FC<CampbellDiagramProps> = ({
   const excKeys = Object.keys(excitationLines);
 
   return (
-    <ChartContainer title="Campbell Diagram (FEA)" icon={Activity} height={height}>
+    <ChartContainer title={t('vibrations.charts.campbellTitle')} icon={Activity} height={height}>
       <ComposedChart data={data} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
         <CartesianGrid stroke={CHART_DEFAULTS.gridColor} />
         <XAxis

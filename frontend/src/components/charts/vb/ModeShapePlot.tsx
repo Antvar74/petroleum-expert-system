@@ -4,6 +4,7 @@
  * Y-axis = depth (reversed, bit at bottom), X-axis = normalized deflection.
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -24,6 +25,7 @@ const ModeShapePlot: React.FC<ModeShapePlotProps> = ({
   frequenciesHz,
   height = 450,
 }) => {
+  const { t } = useTranslation();
   const [visibleModes, setVisibleModes] = useState<Set<number>>(new Set([0, 1, 2]));
 
   if (!nodePositions?.length || !modeShapes?.length) return null;
@@ -66,7 +68,7 @@ const ModeShapePlot: React.FC<ModeShapePlotProps> = ({
   };
 
   return (
-    <ChartContainer title="Mode Shapes (FEA)" icon={Waves} height={height}>
+    <ChartContainer title={t('vibrations.charts.modeShapesTitle')} icon={Waves} height={height}>
       <LineChart data={data} layout="vertical" margin={{ top: 10, right: 30, bottom: 10, left: 60 }}>
         <CartesianGrid stroke={CHART_DEFAULTS.gridColor} />
         <YAxis
