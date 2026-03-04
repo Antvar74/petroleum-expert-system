@@ -109,10 +109,11 @@ def calculate_critical_drawdown(
         recommendation = "Sand-free completion likely — no sand control needed"
 
     # FIX-SAND-001: dry (water_sat=0) and wet (water_sat=1.0) drawdown variants
-    # kirsch_sigma_theta is independent of water saturation — only UCS term changes
+    # Plumb (1994): full saturation reduces entire critical drawdown by 30%
+    # dd_wet = dd_dry × 0.70  (not just UCS term — entire result scales)
     _denom = 1 + sin_phi
     dp_crit_dry = max((ucs_psi + kirsch_sigma_theta * (1 - sin_phi)) / _denom, 0) if _denom else ucs_psi
-    dp_crit_wet = max((ucs_psi * 0.70 + kirsch_sigma_theta * (1 - sin_phi)) / _denom, 0) if _denom else ucs_psi * 0.70
+    dp_crit_wet = dp_crit_dry * 0.70  # FIX-SAND-005: apply 0.70 to full result, not just UCS term
 
     return {
         "critical_drawdown_psi": round(dp_crit, 0),
