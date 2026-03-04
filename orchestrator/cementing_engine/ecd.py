@@ -90,32 +90,39 @@ def calculate_ecd_during_job(
             "bhp_psi": round(ecd_psi, 0),
             "ecd_ppg": round(ecd_ppg, 2),
             "fracture_margin_ppg": round(fracture_gradient_ppg - ecd_ppg, 2),
+            "pp_margin_ppg": round(ecd_ppg - pore_pressure_ppg, 2),
             "pump_volume_bbl": round(pump_vol_bbl, 1),
             "elapsed_min": round(pump_vol_bbl / pump_rate_bbl_min, 1) if pump_rate_bbl_min > 0 else 0.0,
         })
 
     max_ecd = max(s["ecd_ppg"] for s in snapshots)
-    min_margin = min(s["fracture_margin_ppg"] for s in snapshots)
+    min_fg_margin = min(s["fracture_margin_ppg"] for s in snapshots)
+    min_pp_margin = min(s["pp_margin_ppg"] for s in snapshots)
 
-    if min_margin < 0:
+    if min_fg_margin < 0:
         status = "CRITICAL — ECD exceeds fracture gradient!"
-    elif min_margin < 0.5:
+    elif min_pp_margin < 0:
+        status = "CRITICAL — ECD below pore pressure — influx risk!"
+    elif min_fg_margin < 0.5:
         status = "WARNING — Tight margin to fracture gradient"
-    elif min_margin < 1.0:
+    elif min_fg_margin < 1.0:
         status = "CAUTION — Monitor closely"
     else:
         status = "OK — Within fracture window"
 
     alerts = []
-    if min_margin < 0:
-        alerts.append(f"ECD exceeds fracture gradient by {abs(min_margin):.2f} ppg — risk of losses!")
+    if min_fg_margin < 0:
+        alerts.append(f"ECD exceeds fracture gradient by {abs(min_fg_margin):.2f} ppg — risk of losses!")
     if max_ecd > fracture_gradient_ppg:
         alerts.append("Reduce pump rate or use lighter lead cement")
+    if min_pp_margin < 0:
+        alerts.append(f"ECD drops below pore pressure by {abs(min_pp_margin):.2f} ppg — risk of influx!")
 
     return {
         "snapshots": snapshots,
         "max_ecd_ppg": round(max_ecd, 2),
-        "min_fracture_margin_ppg": round(min_margin, 2),
+        "min_fracture_margin_ppg": round(min_fg_margin, 2),
+        "min_pp_margin_ppg": round(min_pp_margin, 2),
         "fracture_gradient_ppg": fracture_gradient_ppg,
         "pore_pressure_ppg": pore_pressure_ppg,
         "annular_velocity_ft_min": round(v_ann, 1),
