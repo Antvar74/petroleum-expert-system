@@ -131,14 +131,14 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.casingFormation')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { key: 'casing_id_in', label: 'ID Casing (in)', step: '0.125' },
-                    { key: 'formation_permeability_md', label: 'Permeabilidad (mD)', step: '10' },
-                    { key: 'formation_thickness_ft', label: 'Espesor Neto (ft)', step: '5' },
-                    { key: 'depth_tvd_ft', label: 'TVD (ft)', step: '500' },
-                    { key: 'wellbore_radius_ft', label: 'Radio Pozo (ft)', step: '0.01' },
-                    { key: 'kv_kh_ratio', label: 'Kv/Kh', step: '0.1' },
-                    { key: 'tubing_od_in', label: 'OD Tubing (in, 0=casing)', step: '0.125' },
-                    { key: 'temperature_f', label: 'BHT (°F)', step: '10' },
+                    { key: 'casing_id_in',               label: t('completionDesign.fieldCasingId'),       step: '0.125' },
+                    { key: 'formation_permeability_md',  label: t('completionDesign.fieldPermeability'),   step: '10' },
+                    { key: 'formation_thickness_ft',     label: t('completionDesign.fieldNetThickness'),   step: '5' },
+                    { key: 'depth_tvd_ft',               label: t('completionDesign.fieldTvd') || 'TVD (ft)', step: '500' },
+                    { key: 'wellbore_radius_ft',         label: t('completionDesign.fieldWellboreRadius'), step: '0.01' },
+                    { key: 'kv_kh_ratio',                label: t('completionDesign.fieldKvKh'),           step: '0.1' },
+                    { key: 'tubing_od_in',               label: t('completionDesign.fieldTubingOd'),       step: '0.125' },
+                    { key: 'temperature_f',              label: t('completionDesign.fieldBHT'),            step: '10' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -150,24 +150,24 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                     </div>
                   ))}
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Tipo Formación</label>
+                    <label className="text-xs text-gray-400">{t('completionDesign.fieldFormationType')}</label>
                     <select value={params.formation_type}
                       onChange={e => setParams(prev => ({ ...prev, formation_type: e.target.value }))}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none">
-                      <option value="sandstone">Arenisca</option>
-                      <option value="carbonate">Carbonato</option>
-                      <option value="shale">Lutita</option>
+                      <option value="sandstone">{t('completionDesign.fmtSandstone')}</option>
+                      <option value="carbonate">{t('completionDesign.fmtCarbonate')}</option>
+                      <option value="shale">{t('completionDesign.fmtShale')}</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Fluido Completación</label>
+                    <label className="text-xs text-gray-400">{t('completionDesign.fieldCompletionFluid')}</label>
                     <select value={params.completion_fluid}
                       onChange={e => setParams(prev => ({ ...prev, completion_fluid: e.target.value }))}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none">
-                      <option value="brine">Salmuera</option>
-                      <option value="acid">Ácido</option>
-                      <option value="oil_based">Base Aceite</option>
-                      <option value="completion">Completación</option>
+                      <option value="brine">{t('completionDesign.fluidBrine')}</option>
+                      <option value="acid">{t('completionDesign.fluidAcid')}</option>
+                      <option value="oil_based">{t('completionDesign.fluidOilBased')}</option>
+                      <option value="completion">{t('completionDesign.fluidCompletion')}</option>
                     </select>
                   </div>
                 </div>
@@ -178,14 +178,14 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.pressuresStresses')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { key: 'reservoir_pressure_psi', label: 'P Reservorio (psi)', step: '100' },
-                    { key: 'wellbore_pressure_psi', label: 'P Pozo (psi)', step: '100' },
-                    { key: 'pore_pressure_psi', label: 'P Poro (psi)', step: '100' },
-                    { key: 'overburden_stress_psi', label: 'Sobrecarga (psi)', step: '500' },
-                    { key: 'sigma_min_psi', label: 'σ_min (psi)', step: '100' },
-                    { key: 'sigma_max_psi', label: 'σ_max (psi)', step: '100' },
-                    { key: 'tensile_strength_psi', label: 'T. Tensión (psi)', step: '50' },
-                    { key: 'poisson_ratio', label: 'Ratio Poisson', step: '0.01' },
+                    { key: 'reservoir_pressure_psi', label: t('completionDesign.fieldReservoirPressure'), step: '100' },
+                    { key: 'wellbore_pressure_psi',  label: t('completionDesign.fieldWellborePressure'),  step: '100' },
+                    { key: 'pore_pressure_psi',      label: t('completionDesign.fieldPorePressure'),      step: '100' },
+                    { key: 'overburden_stress_psi',  label: t('completionDesign.fieldOverburdenStress'),  step: '500' },
+                    { key: 'sigma_min_psi',          label: t('completionDesign.fieldSigmaMin'),          step: '100' },
+                    { key: 'sigma_max_psi',          label: t('completionDesign.fieldSigmaMax'),          step: '100' },
+                    { key: 'tensile_strength_psi',   label: t('completionDesign.fieldTensileStrength'),   step: '50' },
+                    { key: 'poisson_ratio',          label: t('completionDesign.fieldPoissonRatio'),      step: '0.01' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -204,10 +204,10 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.sections.perforationDamage')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { key: 'penetration_berea_in', label: 'Penetración Berea (in)', step: '1' },
-                    { key: 'effective_stress_psi', label: 'Esfuerzo Efectivo (psi)', step: '500' },
-                    { key: 'damage_radius_ft', label: 'Radio Daño (ft)', step: '0.1' },
-                    { key: 'damage_permeability_md', label: 'Perm. Daño (mD)', step: '10' },
+                    { key: 'penetration_berea_in',   label: t('completionDesign.fieldPenetrationBerea'),   step: '1' },
+                    { key: 'effective_stress_psi',   label: t('completionDesign.fieldEffectiveStress'),    step: '500' },
+                    { key: 'damage_radius_ft',       label: t('completionDesign.fieldDamageRadius'),       step: '0.1' },
+                    { key: 'damage_permeability_md', label: t('completionDesign.fieldDamagePermeability'), step: '10' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -221,19 +221,22 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 </div>
               </div>
 
-              {/* Producción & Tubing (VLP — Beggs & Brill 1973) */}
+              {/* Production & Tubing (VLP — Beggs & Brill 1973) */}
               <div>
-                <h3 className="text-lg font-bold mb-3">Producción &amp; Tubing <span className="text-xs text-gray-500 font-normal ml-2">Beggs &amp; Brill (1973)</span></h3>
+                <h3 className="text-lg font-bold mb-3">
+                  {t('completionDesign.sections.productionTubing')}
+                  <span className="text-xs text-gray-500 font-normal ml-2">{t('completionDesign.sections.beggsBrill')}</span>
+                </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { key: 'tubing_id_in',         label: 'ID Tubing (in)',       step: '0.125' },
-                    { key: 'wellhead_pressure_psi', label: 'P Cabezal (psi)',      step: '50' },
-                    { key: 'gor_scf_stb',           label: 'GOR (scf/STB)',        step: '50' },
-                    { key: 'water_cut',             label: 'Corte Agua (0-1)',     step: '0.05' },
-                    { key: 'oil_api',               label: 'API Gravity (°API)',   step: '1' },
-                    { key: 'gas_sg',                label: 'Gas SG (aire=1)',      step: '0.01' },
-                    { key: 'water_sg',              label: 'Water SG',             step: '0.01' },
-                    { key: 'surface_temp_f',        label: 'T Superficie (°F)',    step: '5' },
+                    { key: 'tubing_id_in',          label: t('completionDesign.fieldTubingId'),         step: '0.125' },
+                    { key: 'wellhead_pressure_psi', label: t('completionDesign.fieldWellheadPressure'), step: '50' },
+                    { key: 'gor_scf_stb',           label: t('completionDesign.fieldGOR'),              step: '50' },
+                    { key: 'water_cut',             label: t('completionDesign.fieldWaterCut'),         step: '0.05' },
+                    { key: 'oil_api',               label: t('completionDesign.fieldOilAPI'),           step: '1' },
+                    { key: 'gas_sg',                label: t('completionDesign.fieldGasSg'),            step: '0.01' },
+                    { key: 'water_sg',              label: t('completionDesign.fieldWaterSg'),          step: '0.01' },
+                    { key: 'surface_temp_f',        label: t('completionDesign.fieldSurfaceTemp'),      step: '5' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -261,10 +264,10 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Productividad', value: `${(result.summary?.productivity_ratio * 100)?.toFixed(1)}%`, color: qualityColor(result.optimization?.optimal_configuration?.quality || '') },
-                { label: 'Penetración', value: `${result.summary?.penetration_corrected_in}" (${result.summary?.penetration_efficiency_pct}%)`, color: result.summary?.penetration_efficiency_pct > 80 ? 'text-green-400' : 'text-yellow-400' },
-                { label: 'Óptimo SPF/Fase', value: `${result.summary?.optimal_spf} SPF @ ${result.summary?.optimal_phasing_deg}°`, color: 'text-violet-400' },
-                { label: 'Frac Gradient', value: `${result.summary?.fracture_gradient_ppg} ppg`, color: 'text-cyan-400' },
+                { label: t('completionDesign.summaryProductivity'),  value: `${(result.summary?.productivity_ratio * 100)?.toFixed(1)}%`, color: qualityColor(result.optimization?.optimal_configuration?.quality || '') },
+                { label: t('completionDesign.summaryPenetration'),   value: `${result.summary?.penetration_corrected_in}" (${result.summary?.penetration_efficiency_pct}%)`, color: result.summary?.penetration_efficiency_pct > 80 ? 'text-green-400' : 'text-yellow-400' },
+                { label: t('completionDesign.summaryOptimalConfig'), value: `${result.summary?.optimal_spf} SPF @ ${result.summary?.optimal_phasing_deg}°`, color: 'text-violet-400' },
+                { label: t('completionDesign.summaryFracGradient'),  value: `${result.summary?.fracture_gradient_ppg} ppg`, color: 'text-cyan-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -278,11 +281,17 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.penetration')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">Berea:</span> <span className="font-mono">{result.penetration?.penetration_berea_in}"</span></div>
-                  <div><span className="text-gray-400">Corregida:</span> <span className="font-bold text-violet-400">{result.penetration?.penetration_corrected_in}"</span></div>
-                  <div><span className="text-gray-400">Eficiencia:</span> <span className="font-mono">{result.penetration?.efficiency_pct}%</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelBerea')}:</span> <span className="font-mono">{result.penetration?.penetration_berea_in}"</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelCorrected')}:</span> <span className="font-bold text-violet-400">{result.penetration?.penetration_corrected_in}"</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelEfficiency')}:</span> <span className="font-mono">{result.penetration?.efficiency_pct}%</span></div>
                   <div className="pt-2 border-t border-white/5 text-xs text-gray-500">
-                    CF: Stress {result.penetration?.correction_factors?.cf_stress} | Temp {result.penetration?.correction_factors?.cf_temperature} | Fluid {result.penetration?.correction_factors?.cf_fluid} | Cement {result.penetration?.correction_factors?.cf_cement} | Casing {result.penetration?.correction_factors?.cf_casing}
+                    {t('completionDesign.correctionFactors', {
+                      stress:  result.penetration?.correction_factors?.cf_stress,
+                      temp:    result.penetration?.correction_factors?.cf_temperature,
+                      fluid:   result.penetration?.correction_factors?.cf_fluid,
+                      cement:  result.penetration?.correction_factors?.cf_cement,
+                      casing:  result.penetration?.correction_factors?.cf_casing,
+                    })}
                   </div>
                 </div>
               </div>
@@ -291,26 +300,26 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                 <div className="space-y-2 text-sm">
                   {result.gun_selection?.recommended ? (
                     <>
-                      <div><span className="text-gray-400">Recomendado:</span> <span className="font-bold text-cyan-400">{result.gun_selection.recommended.gun_size}"</span></div>
-                      <div><span className="text-gray-400">SPF Típico:</span> <span className="font-mono">{result.gun_selection.recommended.typical_spf}</span></div>
-                      <div><span className="text-gray-400">Clearance:</span> <span className="font-mono">{result.gun_selection.recommended.clearance_in}"</span></div>
-                      <div><span className="text-gray-400">Fases Disp.:</span> <span className="font-mono">{result.gun_selection.recommended.available_phasing?.join(', ')}°</span></div>
-                      <div><span className="text-gray-400">Conveyance:</span> <span className="text-xs">{result.gun_selection.conveyance_notes}</span></div>
+                      <div><span className="text-gray-400">{t('completionDesign.labelRecommended')}:</span> <span className="font-bold text-cyan-400">{result.gun_selection.recommended.gun_size}"</span></div>
+                      <div><span className="text-gray-400">{t('completionDesign.labelTypicalSpf')}:</span> <span className="font-mono">{result.gun_selection.recommended.typical_spf}</span></div>
+                      <div><span className="text-gray-400">{t('completionDesign.labelClearance')}:</span> <span className="font-mono">{result.gun_selection.recommended.clearance_in}"</span></div>
+                      <div><span className="text-gray-400">{t('completionDesign.labelAvailablePhasing')}:</span> <span className="font-mono">{result.gun_selection.recommended.available_phasing?.join(', ')}°</span></div>
+                      <div><span className="text-gray-400">{t('completionDesign.labelConveyance')}:</span> <span className="text-xs">{result.gun_selection.conveyance_notes}</span></div>
                       {result.gun_selection.recommended.pt_check && (() => {
                         const pt = result.gun_selection.recommended.pt_check as Record<string, number | boolean>;
                         return (
                           <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
-                            <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Rating vs Condiciones BH</div>
+                            <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">{t('completionDesign.gunRatingTitle')}</div>
                             <div className="flex items-center justify-between">
                               <span className="text-gray-400">BHP {(pt.bhp_psi as number).toLocaleString()} / {(pt.gun_max_pressure_psi as number).toLocaleString()} psi</span>
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${pt.pressure_pass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                {pt.pressure_pass ? '✓ PASS' : '✗ FAIL'}
+                                {pt.pressure_pass ? t('completionDesign.gunPass') : t('completionDesign.gunFail')}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-gray-400">BHT {pt.bht_f as number}°F / {pt.gun_max_temp_f as number}°F máx</span>
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${pt.temp_pass ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                {pt.temp_pass ? '✓ PASS' : '✗ FAIL'}
+                                {pt.temp_pass ? t('completionDesign.gunPass') : t('completionDesign.gunFail')}
                               </span>
                             </div>
                           </div>
@@ -318,7 +327,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                       })()}
                     </>
                   ) : (
-                    <div className="text-red-400">No compatible guns found</div>
+                    <div className="text-red-400">{t('completionDesign.noCompatibleGuns')}</div>
                   )}
                 </div>
               </div>
@@ -329,27 +338,27 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.underbalanceAnalysis')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">ΔP:</span> <span className="font-bold text-lg">{result.underbalance?.underbalance_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelDeltaP')}:</span> <span className="font-bold text-lg">{result.underbalance?.underbalance_psi} psi</span></div>
                   <div>
-                    <span className="text-gray-400">Estado:</span>{' '}
+                    <span className="text-gray-400">{t('completionDesign.labelStatus')}:</span>{' '}
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                       result.underbalance?.status === 'Optimal' ? 'bg-green-500/20 text-green-400' :
                       result.underbalance?.status === 'Insufficient Underbalance' ? 'bg-yellow-500/20 text-yellow-400' :
                       'bg-red-500/20 text-red-400'
                     }`}>{result.underbalance?.status}</span>
                   </div>
-                  <div><span className="text-gray-400">Rango Recom.:</span> <span className="font-mono">{result.underbalance?.recommended_range_psi?.join(' - ')} psi</span></div>
-                  <div><span className="text-gray-400">Clase Perm.:</span> <span className="font-mono">{result.underbalance?.permeability_class}</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelRecommendedRange')}:</span> <span className="font-mono">{result.underbalance?.recommended_range_psi?.join(' - ')} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelPermClass')}:</span> <span className="font-mono">{result.underbalance?.permeability_class}</span></div>
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('completionDesign.hydraulicFracture')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">P Breakdown:</span> <span className="font-bold text-orange-400">{result.fracture_initiation?.breakdown_pressure_psi} psi</span></div>
-                  <div><span className="text-gray-400">P Reapertura:</span> <span className="font-mono">{result.fracture_initiation?.reopening_pressure_psi} psi</span></div>
-                  <div><span className="text-gray-400">P Cierre:</span> <span className="font-mono">{result.fracture_initiation?.closure_pressure_psi} psi</span></div>
-                  <div><span className="text-gray-400">ISIP Est.:</span> <span className="font-mono">{result.fracture_initiation?.isip_estimate_psi} psi</span></div>
-                  <div><span className="text-gray-400">Ratio Esfuerzos:</span> <span className="font-mono">{result.fracture_initiation?.stress_ratio}</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelBreakdownPressure')}:</span> <span className="font-bold text-orange-400">{result.fracture_initiation?.breakdown_pressure_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelReopeningPressure')}:</span> <span className="font-mono">{result.fracture_initiation?.reopening_pressure_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelClosurePressure')}:</span> <span className="font-mono">{result.fracture_initiation?.closure_pressure_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelISIP')}:</span> <span className="font-mono">{result.fracture_initiation?.isip_estimate_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('completionDesign.labelStressRatio')}:</span> <span className="font-mono">{result.fracture_initiation?.stress_ratio}</span></div>
                   <div className="flex items-center gap-2 mt-1">
                     {result.fracture_initiation?.stress_regime && (
                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${
@@ -367,17 +376,17 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
 
             {/* Optimization Results */}
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
-              <h3 className="text-lg font-bold mb-4">Top 5 Configuraciones (Optimización SPF × Phasing)</h3>
+              <h3 className="text-lg font-bold mb-4">{t('completionDesign.optimizationTitle')}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/10 text-gray-400">
-                      <th className="text-left py-2 px-3">#</th>
-                      <th className="text-left py-2 px-3">SPF</th>
-                      <th className="text-left py-2 px-3">Phasing</th>
-                      <th className="text-left py-2 px-3">PR</th>
-                      <th className="text-left py-2 px-3">Skin Total</th>
-                      <th className="text-left py-2 px-3">Calidad</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colRank')}</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colSpf')}</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colPhasing')}</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colPR')}</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colSkinTotal')}</th>
+                      <th className="text-left py-2 px-3">{t('completionDesign.colQuality')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -400,17 +409,17 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
             {result.optimization?.optimal_configuration?.skin_components && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold">Desglose de Skin — Config. Óptima (K&amp;T 1991)</h3>
-                  <span className="text-xs text-gray-500">Karakas &amp; Tariq, SPE 18247</span>
+                  <h3 className="text-lg font-bold">{t('completionDesign.skinBreakdownTitle')}</h3>
+                  <span className="text-xs text-gray-500">{t('completionDesign.skinReference')}</span>
                 </div>
                 {(() => {
                   const sc = result.optimization.optimal_configuration.skin_components as Record<string, number>;
                   const opt = result.optimization.optimal_configuration as Record<string, number | string>;
                   const components = [
-                    { key: 's_perforation', label: 'S_p — Plano (Phasing)',            value: sc.s_perforation, color: '#818cf8', desc: 'Pseudo-skin de flujo plano — negativo = beneficio por ángulo de fase' },
-                    { key: 's_vertical',    label: 'S_v — Convergencia Vertical',       value: sc.s_vertical,    color: '#f97316', desc: 'Penalización por espaciado de disparos — disminuye con mayor SPF' },
-                    { key: 's_wellbore',    label: 'S_wb — Convergencia al Pozo',        value: sc.s_wellbore,    color: '#eab308', desc: 'Pérdida por convergencia al pozo — depende de radio de perforación' },
-                    { key: 's_damage',      label: 'S_d — Daño de Formación (Hawkins)',  value: sc.s_damage,      color: '#ef4444', desc: 'Skin por zona dañada — k/k_daño × ln(r_daño/r_w)' },
+                    { key: 's_perforation', label: t('completionDesign.skinSperf'),  value: sc.s_perforation, color: '#818cf8', desc: t('completionDesign.skinSperfDesc') },
+                    { key: 's_vertical',    label: t('completionDesign.skinSvert'),  value: sc.s_vertical,    color: '#f97316', desc: t('completionDesign.skinSvertDesc') },
+                    { key: 's_wellbore',    label: t('completionDesign.skinSwb'),    value: sc.s_wellbore,    color: '#eab308', desc: t('completionDesign.skinSwbDesc') },
+                    { key: 's_damage',      label: t('completionDesign.skinSdamage'),value: sc.s_damage,      color: '#ef4444', desc: t('completionDesign.skinSdamageDesc') },
                   ];
                   const maxAbs = Math.max(1, ...components.map(c => Math.abs(c.value ?? 0)));
                   return (
@@ -437,7 +446,7 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                         </div>
                       ))}
                       <div className="border-t border-white/10 pt-3 flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Skin Total:</span>
+                        <span className="text-sm text-gray-400">{t('completionDesign.labelSkinTotal')}:</span>
                         <span className={`font-mono font-bold text-xl ${(opt.skin_total as number) < 0 ? 'text-green-400' : 'text-orange-400'}`}>
                           {(opt.skin_total as number) > 0 ? '+' : ''}{(opt.skin_total as number)?.toFixed(3)}
                         </span>
@@ -469,12 +478,12 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
               nodal={result.nodal as Parameters<typeof NodalAnalysisChart>[0]['nodal']}
             />
 
-            {/* Flow Efficiency (FIX-COMP-009) */}
+            {/* Flow Efficiency */}
             {result.ipr?.flow_efficiency != null && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold">Eficiencia de Flujo</h3>
-                  <span className="text-xs text-gray-500">FE = PI_actual / PI_ideal</span>
+                  <h3 className="text-lg font-bold">{t('completionDesign.flowEfficiencyTitle')}</h3>
+                  <span className="text-xs text-gray-500">{t('completionDesign.flowEfficiencySubtitle')}</span>
                 </div>
                 {(() => {
                   const fe = result.ipr.flow_efficiency as number;
@@ -495,24 +504,24 @@ const CompletionDesignModule: React.FC<CompletionDesignModuleProps> = ({ wellId,
                       </div>
                       <p className={`text-sm ${isPositive ? 'text-green-300' : 'text-red-300'}`}>
                         {isPositive
-                          ? `FE > 1.0 — Esta completación produce ${((fe - 1) * 100).toFixed(0)}% más que un pozo abierto ideal (skin=0) gracias a penetración profunda con skin negativo.`
-                          : 'FE < 1.0 — Daño neto presente. Considerar estimulación (acidificación o fracturamiento).'}
+                          ? t('completionDesign.fePositive', { pct: ((fe - 1) * 100).toFixed(0) })
+                          : t('completionDesign.feNegative')}
                       </p>
                       <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">PI con completación</div>
+                          <div className="text-xs text-gray-500 mb-1">{t('completionDesign.piWithCompletion')}</div>
                           <div className="font-mono text-violet-400 font-semibold">{piActual?.toFixed(4)} <span className="text-xs text-gray-500">STB/d/psi</span></div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">PI ideal (sin daño)</div>
+                          <div className="text-xs text-gray-500 mb-1">{t('completionDesign.piIdeal')}</div>
                           <div className="font-mono text-gray-300 font-semibold">{piIdeal?.toFixed(4)} <span className="text-xs text-gray-500">STB/d/psi</span></div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">AOF con completación</div>
+                          <div className="text-xs text-gray-500 mb-1">{t('completionDesign.aofWithCompletion')}</div>
                           <div className="font-mono text-violet-400 font-semibold">{aofActual?.toFixed(0)} <span className="text-xs text-gray-500">STB/d</span></div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">AOF sin skin</div>
+                          <div className="text-xs text-gray-500 mb-1">{t('completionDesign.aofNoSkin')}</div>
                           <div className="font-mono text-gray-300 font-semibold">{aofIdeal?.toFixed(0)} <span className="text-xs text-gray-500">STB/d</span></div>
                         </div>
                       </div>
