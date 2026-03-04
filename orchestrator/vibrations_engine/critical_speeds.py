@@ -101,18 +101,21 @@ def calculate_critical_rpm_lateral(
     hole_diameter_in: float,
     mud_weight_ppg: float = 10.0,
     inclination_deg: float = 0.0,
-    stabilizer_spacing_ft: Optional[float] = None
+    stabilizer_spacing_ft: Optional[float] = None,
+    dp_weight_lbft: float = 0.0,  # FIX-VIB-011: DP weight (lb/ft) for composite string model
+    dp_length_ft: float = 0.0,    # FIX-VIB-011: DP section length (ft) for composite model
 ) -> Dict[str, Any]:
     """
     Calculate critical RPM for lateral vibrations (whirl).
     Paslay & Dawson (1984):
 
-    RPM_crit = 4760 / (L * sqrt(BF * w / (E * I)))
+    RPM_crit = (30*pi / L_in^2) * sqrt(E*I*g / w_lat_lbin)
 
-    Where L in ft, w in lb/ft, E in psi, I in in^4.
+    FIX-VIB-012: w_lat = w_eff * sin(inclination) — lateral gravity component.
+    Minimum effective inclination = 5° for near-vertical wells.
 
-    Forward whirl occurs below critical RPM.
-    Backward whirl occurs at and above critical RPM.
+    FIX-VIB-011: w_eff is the BHA+DP composite weight when DP section is provided.
+    w_eff = (w_BHA * L_BHA + w_DP * L_DP) / (L_BHA + L_DP)
 
     Args:
         bha_length_ft: BHA length between stabilizers (ft)
@@ -122,6 +125,8 @@ def calculate_critical_rpm_lateral(
         hole_diameter_in: hole/casing inner diameter (inches)
         mud_weight_ppg: mud weight (ppg)
         inclination_deg: wellbore inclination (degrees)
+        dp_weight_lbft: drill pipe weight per foot (lb/ft) — enables composite model
+        dp_length_ft: drill pipe section length (ft) — enables composite model
 
     Returns:
         Dict with critical RPM, whirl type prediction, clearance
@@ -132,10 +137,10 @@ def calculate_critical_rpm_lateral(
     e = STEEL_E
     bf = 1.0 - (mud_weight_ppg / 65.5)
 
-    # Moment of inertia
+    # Moment of inertia (BHA section — governs bending stiffness at the bit)
     i_moment = math.pi * (bha_od_in ** 4 - bha_id_in ** 4) / 64.0
 
-    # Buoyed weight per foot
+    # Buoyed weight per foot (BHA)
     w_buoyed = bha_weight_lbft * bf
 
     if w_buoyed <= 0 or i_moment <= 0:
@@ -149,13 +154,29 @@ def calculate_critical_rpm_lateral(
         span_ft = min(bha_length_ft, 90.0)
         span_source = "estimated"
 
+    # FIX-VIB-011: Composite BHA + DP effective buoyed weight
+    # When DP section is modelled, blend the two sections weighted by length.
+    if dp_weight_lbft > 0 and dp_length_ft > 0:
+        dp_w_buoyed = dp_weight_lbft * bf
+        total_len = span_ft + dp_length_ft
+        w_eff = (w_buoyed * span_ft + dp_w_buoyed * dp_length_ft) / total_len
+    else:
+        w_eff = w_buoyed
+
+    # FIX-VIB-012: Inclination correction (Paslay & Dawson 1984, deviated wells).
+    # Only the gravity component perpendicular to the wellbore drives lateral vibrations.
+    # w_lat = w_eff * sin(inclination). Minimum 5° prevents division-by-zero in
+    # near-vertical wells while preserving a small but non-zero lateral load.
+    inc_eff = max(5.0, inclination_deg)
+    w_lat = w_eff * math.sin(math.radians(inc_eff))
+
     # Lateral critical RPM -- Euler-Bernoulli pinned-pinned 1st mode:
     # omega_n = (pi/L_in)^2 * sqrt(E*I*g / w_lbin)   [rad/s]
     # N_crit  = omega_n * 60 / (2*pi)
     #         = (30*pi / L_in^2) * sqrt(E*I*g / w_lbin)
     g_in = 386.4  # in/s^2, gravitational constant for lbm->slug conversion
     l_in = span_ft * 12.0
-    w_lbin = w_buoyed / 12.0  # lb/ft -> lb/in
+    w_lbin = w_lat / 12.0  # lb/ft -> lb/in (lateral component)
     numerator = 30.0 * math.pi * math.sqrt(e * i_moment * g_in / w_lbin)
     rpm_critical = numerator / (l_in ** 2) if l_in > 0 else 999
 
@@ -173,6 +194,9 @@ def calculate_critical_rpm_lateral(
         "span_source": span_source,
         "radial_clearance_in": round(clearance, 3),
         "buoyed_weight_lbft": round(w_buoyed, 2),
+        "effective_weight_lbft": round(w_eff, 2),
+        "lateral_weight_lbft": round(w_lat, 2),
+        "inclination_eff_deg": round(inc_eff, 1),
         "moment_of_inertia_in4": round(i_moment, 2),
         "whirl_severity_factor": round(whirl_severity, 3),
         "prediction": "Forward Whirl risk below critical RPM" if rpm_critical > 60 else "High whirl risk",

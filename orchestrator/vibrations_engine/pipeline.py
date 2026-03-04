@@ -51,6 +51,9 @@ def calculate_full_vibration_analysis(
         mud_weight_ppg=mud_weight_ppg,
     )
 
+    # Derived DP section length — used by lateral critical RPM and vibration map
+    _dp_length_ft = max(0.0, (total_depth_ft or 0.0) - bha_length_ft)
+
     # 2. Lateral vibrations
     if bha_components:
         lateral = calculate_critical_rpm_lateral_multi(
@@ -63,6 +66,8 @@ def calculate_full_vibration_analysis(
         # Add a "critical_rpm" key for consistency with stability_index expectations
         lateral["critical_rpm"] = lateral_crit_rpm
     else:
+        # FIX-VIB-011/012: pass dp_weight_lbft and inclination_deg so both
+        # affect crit_rpm_lateral (composite weight + sin(inc) correction).
         lateral = calculate_critical_rpm_lateral(
             bha_length_ft=bha_length_ft,
             bha_od_in=bha_od_in,
@@ -72,6 +77,8 @@ def calculate_full_vibration_analysis(
             mud_weight_ppg=mud_weight_ppg,
             inclination_deg=inclination_deg,
             stabilizer_spacing_ft=stabilizer_spacing_ft,
+            dp_weight_lbft=dp_weight_lbft,
+            dp_length_ft=_dp_length_ft,
         )
 
     # FIX-VIB-001/002/004: extract TMM critical RPMs so they are the authoritative
@@ -166,6 +173,9 @@ def calculate_full_vibration_analysis(
         dp_id_in=dp_id_in,
         ucs_psi=ucs_psi,
         tmm_critical_rpms=tmm_critical_rpms or None,
+        inclination_deg=inclination_deg,
+        dp_weight_lbft=dp_weight_lbft,
+        dp_length_ft=_dp_length_ft,
     )
 
     # Alerts

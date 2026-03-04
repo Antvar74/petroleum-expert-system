@@ -168,6 +168,10 @@ def generate_vibration_map(
     dp_od_in: float = 5.0,
     dp_id_in: float = 4.276,
     tmm_critical_rpms: Optional[List[float]] = None,
+    # FIX-VIB-011/012: propagate to internal lateral critical RPM calc
+    inclination_deg: float = 0.0,
+    dp_weight_lbft: float = 0.0,
+    dp_length_ft: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Generate RPM vs WOB vibration stability map (heatmap data).
@@ -203,7 +207,10 @@ def generate_vibration_map(
     lateral = calculate_critical_rpm_lateral(
         bha_length_ft, bha_od_in, bha_id_in, bha_weight_lbft,
         hole_diameter_in, mud_weight_ppg,
+        inclination_deg=inclination_deg,
         stabilizer_spacing_ft=stabilizer_spacing_ft,
+        dp_weight_lbft=dp_weight_lbft,
+        dp_length_ft=dp_length_ft,
     )
 
     map_data = []
