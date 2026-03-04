@@ -38,7 +38,8 @@ def calculate_workover_kill(
     kill_weight = (reservoir_pressure / (0.052 * tvd)) + safety_margin_ppg
     current_bhp = 0.052 * current_mud_weight * tvd
     required_bhp = 0.052 * kill_weight * tvd
-    overbalance = required_bhp - reservoir_pressure
+    # Overbalance = actual BHP vs reservoir — positive = overbalanced, negative = underbalanced
+    overbalance = current_bhp - reservoir_pressure
 
     if current_bhp < reservoir_pressure:
         status = "UNDERBALANCED — Kill required"

@@ -39,12 +39,13 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     yield_strength_psi: 80000,
   });
 
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const { language } = useLanguage();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [result, setResult] = useState<any>(null);
+  useLanguage();
   const { t } = useTranslation();
   const { addToast } = useToast();
 
-  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders } = useAIAnalysis({
     module: 'workover-hydraulics',
     wellId,
     wellName,
@@ -64,7 +65,7 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
       setResult(res.data);
       setActiveTab('results');
     } catch (e: unknown) {
-      addToast('Error: ' + (e as APIError).response?.data?.detail || (e as APIError).message, 'error');
+      addToast('Error: ' + ((e as APIError).response?.data?.detail ?? (e as APIError).message ?? 'Unknown error'), 'error');
     }
     setLoading(false);
   }, [wellId, params, addToast]);
@@ -205,6 +206,82 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
               </div>
             )}
 
+            {/* CT Elongation Breakdown — FIX-WH-003 */}
+            {result.elongation && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-4">CT Elongation Breakdown</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
+                  {[
+                    { label: 'Peso (Weight)', value: result.elongation?.dL_weight_ft },
+                    { label: 'Temperatura', value: result.elongation?.dL_temperature_ft },
+                    { label: 'Ballooning', value: result.elongation?.dL_ballooning_ft },
+                    { label: 'Bourdon', value: result.elongation?.dL_bourdon_ft },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="glass-card p-3 rounded-lg text-center">
+                      <div className="text-xs text-gray-400 mb-1">{label}</div>
+                      <div className={`text-base font-mono font-bold ${Number(value) >= 0 ? 'text-cyan-400' : 'text-orange-400'}`}>
+                        {Number(value) >= 0 ? '+' : ''}{Number(value)?.toFixed(3)} ft
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-6 text-sm border-t border-white/10 pt-3">
+                  <div><span className="text-gray-400">Total: </span><span className="font-mono font-bold text-white">{Number(result.elongation?.dL_total_ft)?.toFixed(3)} ft</span></div>
+                  <div><span className="text-gray-400">Depth Correction: </span><span className="font-mono font-bold text-yellow-400">{Number(result.elongation?.depth_correction_ft)?.toFixed(3)} ft</span></div>
+                  {result.elongation?.dL_temperature_ft === 0 && (
+                    <div className="text-xs text-gray-500 italic">* BHT not provided — thermal elongation = 0</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* CT Fatigue — FIX-WH-004 */}
+            {result.fatigue && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-4">CT Fatigue Life</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
+                  <div className="glass-card p-3 rounded-lg text-center">
+                    <div className="text-xs text-gray-400 mb-1">Cycles to Failure (N_f)</div>
+                    <div className="text-base font-mono font-bold text-white">{Number(result.fatigue?.cycles_to_failure)?.toLocaleString()}</div>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg text-center">
+                    <div className="text-xs text-gray-400 mb-1">Remaining Life</div>
+                    <div className={`text-base font-mono font-bold ${Number(result.fatigue?.remaining_life_pct) > 50 ? 'text-green-400' : Number(result.fatigue?.remaining_life_pct) > 20 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {result.fatigue?.remaining_life_pct}%
+                    </div>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg text-center">
+                    <div className="text-xs text-gray-400 mb-1">Grade</div>
+                    <div className="text-base font-mono font-bold text-purple-400">{result.fatigue?.sn_parameters?.grade_class}</div>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg text-center">
+                    <div className="text-xs text-gray-400 mb-1">Total Strain</div>
+                    <div className="text-base font-mono font-bold text-teal-400">{Number(result.fatigue?.strain_total_pct)?.toFixed(3)}%</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Reel diameter: {result.fatigue?.reel_diameter_in}" ({result.fatigue?.reel_source}) — No trip history provided (D = 0)
+                </div>
+              </div>
+            )}
+
+            {/* CT Burst Rating — FIX-WH-005 */}
+            {result.burst_rating && (
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-4">CT Pressure Rating</h3>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div><span className="text-gray-400">Burst Rating (API 5C7):</span> <span className="font-mono font-bold text-green-400">{Number(result.burst_rating?.burst_rating_psi)?.toLocaleString()} psi</span></div>
+                  <div><span className="text-gray-400">Max Operating:</span> <span className="font-mono">{result.burst_rating?.max_operating_psi} psi</span></div>
+                  <div>
+                    <span className="text-gray-400">Utilización:</span>{' '}
+                    <span className={`font-mono font-bold ${Number(result.burst_rating?.burst_utilization_pct) < 50 ? 'text-green-400' : Number(result.burst_rating?.burst_utilization_pct) < 80 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {result.burst_rating?.burst_utilization_pct}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <CTPressureProfile hydraulics={result.hydraulics} ctDims={result.ct_dimensions} />
@@ -220,9 +297,9 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
               wellName={wellName}
               analysis={aiAnalysis?.analysis || null}
               confidence={aiAnalysis?.confidence || 'MEDIUM'}
-              agentRole={aiAnalysis?.agent_role || ''}
+              agentRole={aiAnalysis?.role || ''}
               isLoading={isAnalyzing}
-              keyMetrics={aiAnalysis?.key_metrics || []}
+              keyMetrics={[]}
               onAnalyze={handleRunAnalysis}
               provider={provider}
               onProviderChange={setProvider}

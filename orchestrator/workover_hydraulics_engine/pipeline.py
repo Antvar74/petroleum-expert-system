@@ -10,6 +10,21 @@ from .ct_reach import calculate_max_reach
 from .ct_kill import calculate_workover_kill
 from .ct_mechanics import calculate_ct_elongation, calculate_ct_fatigue
 
+# ICoTA standard minimum reel core diameter by CT OD (inches) — API RP 5C7 Table 1
+_REEL_DIAMETER_BY_OD: Dict[float, float] = {
+    1.00: 48.0, 1.25: 48.0, 1.50: 60.0,
+    1.75: 72.0, 2.00: 84.0, 2.375: 96.0,
+    2.625: 108.0, 2.875: 120.0, 3.50: 144.0,
+}
+
+
+def _standard_reel_diameter(ct_od: float) -> float:
+    """Return ICoTA standard reel core diameter for given CT OD."""
+    for od_key in sorted(_REEL_DIAMETER_BY_OD):
+        if ct_od <= od_key + 0.05:
+            return _REEL_DIAMETER_BY_OD[od_key]
+    return 144.0  # default for large CT
+
 
 def calculate_full_workover(
     flow_rate: float,
@@ -72,6 +87,23 @@ def calculate_full_workover(
         annular_pressure=0.0,
     )
 
+    # CT Fatigue — use ICoTA standard reel diameter if not provided
+    reel_diameter = _standard_reel_diameter(ct_od)
+    fatigue = calculate_ct_fatigue(
+        ct_od=ct_od,
+        wall_thickness=wall_thickness,
+        reel_diameter=reel_diameter,
+        internal_pressure=wellhead_pressure + hydraulics["pipe_loss_psi"],
+        yield_strength_psi=yield_strength_psi,
+    )
+    fatigue["reel_diameter_assumed"] = reel_diameter
+    fatigue["reel_source"] = "ICoTA standard"
+
+    # CT Burst rating — API 5C7: P_burst = 0.875 × 2 × Fy × wall / OD
+    burst_rating_psi = round(0.875 * 2.0 * yield_strength_psi * wall_thickness / ct_od, 0)
+    max_operating_psi = wellhead_pressure + hydraulics["total_loss_psi"]
+    burst_utilization_pct = round(max_operating_psi / burst_rating_psi * 100, 1) if burst_rating_psi > 0 else 0.0
+
     alerts = []
     if snubbing["pipe_light"]:
         alerts.append(f"CT is pipe-light! Snubbing force: {snubbing['snubbing_force_lb']:.0f} lb. Use snubbing unit.")
@@ -112,6 +144,12 @@ def calculate_full_workover(
         "max_reach": reach,
         "kill_data": kill_data,
         "elongation": elongation,
+        "fatigue": fatigue,
+        "burst_rating": {
+            "burst_rating_psi": burst_rating_psi,
+            "max_operating_psi": round(max_operating_psi, 1),
+            "burst_utilization_pct": burst_utilization_pct,
+        },
         "parameters": {
             "flow_rate_gpm": flow_rate,
             "mud_weight_ppg": mud_weight,
