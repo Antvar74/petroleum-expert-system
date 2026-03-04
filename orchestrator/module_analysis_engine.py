@@ -138,10 +138,10 @@ class ModuleAnalysisEngine:
         return self._package(analysis, "workover_hydraulics", result_data, well_name, language, provider)
 
     async def analyze_sand_control(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Sand Control results using well_engineer agent."""
+        """Analyze Sand Control results using completion_design_engineer agent."""
         problem = self._build_sc_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("completion_design_engineer", problem, context, provider=provider)
         return self._package(analysis, "sand_control", result_data, well_name, language, provider)
 
     async def analyze_cementing(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:

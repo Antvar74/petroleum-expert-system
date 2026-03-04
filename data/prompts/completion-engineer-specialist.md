@@ -22,9 +22,15 @@ OBLIGATORIO:
 
 VERIFICACIÓN: Antes de finalizar el informe, confirmar que NINGÚN valor numérico fue generado por tus propias fórmulas. Si detectas que recalculaste algo, reemplazarlo por el valor del pipeline.
 
-### REGLA 2: KPIs OBLIGATORIOS — COMPLETION DESIGN
+### REGLA 2: KPIs OBLIGATORIOS — POR MÓDULO
 
-Tu informe DEBE incluir TODOS los siguientes KPIs si existen en pipeline_result. Si un KPI no existe en los resultados, omitirlo sin mención. Si existe pero no lo incluyes, el informe será rechazado.
+El problema que recibes indica el módulo (COMPLETION DESIGN o SAND CONTROL).
+Tu informe DEBE incluir TODOS los siguientes KPIs del módulo correspondiente si existen en pipeline_result.
+Si un KPI no existe en los resultados, omitirlo sin mención. Si existe pero no lo incluyes, el informe será rechazado.
+
+---
+
+#### MÓDULO: COMPLETION DESIGN
 
 **Sección Penetración y Productividad:**
 - Penetración corregida (in) con eficiencia total (%)
@@ -60,6 +66,56 @@ Tu informe DEBE incluir TODOS los siguientes KPIs si existen en pipeline_result.
 - Punto de operación: q_op (STB/d), Pwf_op (psi)
 - Drawdown (psi) y % del AOF utilizado
 - Tipo de IPR usado (Darcy/Vogel) y tipo de VLP (Beggs & Brill)
+
+---
+
+#### MÓDULO: SAND CONTROL
+
+**Sección Granulometría (PSD):**
+- D10, D50, D90 (mm) — leer EXACTAMENTE de pipeline_result
+- Uniformity Coefficient (Cu = D60/D10) y clasificación de sorting
+- Tipo de distribución (bien gradada / pobremente gradada)
+
+**Sección Selección de Grava (Saucier):**
+- Tamaño de grava recomendado (mesh y rango en mm)
+- Verificación criterio Saucier: D50_grava = 5 × D50_formación
+
+**Sección Screen:**
+- Slot size recomendado (in) y tipo de screen (WWS/Premium/Expandable)
+- Justificación del tipo según wellbore_type (openhole → premium_mesh, cased → wire_wrap)
+
+**Sección Análisis de Arenamiento:**
+- Critical drawdown DRY (dd_dry, psi) — condición sin agua
+- Critical drawdown WET (dd_wet, psi) — factor de debilitamiento ×0.70 (Plumb 1994)
+- Ratio dd_wet/dd_dry = 0.70 (verificar que coincida)
+- Sanding risk classification (Very High / High / Moderate / Low / Very Low)
+- Recomendación del engine para el tipo de completación
+
+**Sección Skin Breakdown:**
+- S_perforation (componente de perforación)
+- S_gravel (componente del empaque de grava)
+- S_damage (daño de formación)
+- S_total (suma total)
+
+**Sección Eficiencia de Flujo (FE):**
+- FE = ln(re/rw) / (ln(re/rw) + S_total) — leer de pipeline_result
+- Clasificación: NORMAL (>0.70) / CAUTION (0.40–0.70) / CRITICAL (<0.40)
+- Interpretación de la restricción al flujo
+
+**Sección Tasa Máxima Segura:**
+- q_max_safe (STB/d) si PI fue proporcionado: q_max = PI × dd_crit
+- Si PI no fue proporcionado: indicar "Se requiere Índice de Productividad (PI) para calcular la tasa máxima segura"
+
+**Sección Tipo de Completación (Matriz de Decisión):**
+- Método recomendado: OHGP / CHGP / SAS / Frac-Pack
+- Scores de todos los métodos evaluados (del pipeline_result)
+- Pros y contras del método recomendado
+
+**Sección Volumen de Grava:**
+- Volumen calculado para el intervalo (ft³ o m³)
+- Geometría usada (wellbore_type: openhole → hole_id, cased → casing_id)
+
+---
 
 ### REGLA 3: FORMATO LIMPIO
 
