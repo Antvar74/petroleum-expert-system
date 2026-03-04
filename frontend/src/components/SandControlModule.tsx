@@ -38,6 +38,9 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
     gravel_permeability_md: 80000,
     pack_factor: 1.4,
     washout_factor: 1.1,
+    casing_id_in: '' as string | number,
+    drainage_radius_ft: 660,
+    productivity_index_stbd_psi: '' as string | number,
   });
 
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -45,39 +48,42 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
   const { t } = useTranslation();
   const { addToast } = useToast();
 
-  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders, setAiAnalysis } = useAIAnalysis({
+  const { aiAnalysis, isAnalyzing, runAnalysis, provider, setProvider, availableProviders } = useAIAnalysis({
     module: 'sand-control',
     wellId,
     wellName,
   });
 
   const updateParam = (key: string, value: string) => {
-    setParams(prev => ({ ...prev, [key]: key.includes('sieve') || key.includes('cumulative') ? value : (parseFloat(value) || 0) }));
+    if (key.includes('sieve') || key.includes('cumulative')) {
+      setParams(prev => ({ ...prev, [key]: value }));
+    } else {
+      setParams(prev => ({ ...prev, [key]: value === '' ? '' : (parseFloat(value) || 0) }));
+    }
   };
 
   const calculate = useCallback(async () => {
     setLoading(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...params,
-        sieve_sizes_mm: params.sieve_sizes_mm.split(',').map(s => parseFloat(s.trim())),
-        cumulative_passing_pct: params.cumulative_passing_pct.split(',').map(s => parseFloat(s.trim())),
+        sieve_sizes_mm: String(params.sieve_sizes_mm).split(',').map(s => parseFloat(s.trim())),
+        cumulative_passing_pct: String(params.cumulative_passing_pct).split(',').map(s => parseFloat(s.trim())),
       };
-      const url = wellId
-        ? `/wells/${wellId}/sand-control`
-        : `/calculate/sand-control`;
+      if (!params.casing_id_in || params.casing_id_in === '') delete payload.casing_id_in;
+      if (!params.productivity_index_stbd_psi || params.productivity_index_stbd_psi === '') delete payload.productivity_index_stbd_psi;
+
+      const url = wellId ? `/wells/${wellId}/sand-control` : `/calculate/sand-control`;
       const res = await api.post(url, payload);
       setResult(res.data);
       setActiveTab('results');
     } catch (e: unknown) {
-      addToast('Error: ' + (e as APIError).response?.data?.detail || (e as APIError).message, 'error');
+      addToast('Error: ' + ((e as APIError).response?.data?.detail || (e as APIError).message), 'error');
     }
     setLoading(false);
   }, [wellId, params, addToast]);
 
-  const handleRunAnalysis = () => {
-    runAnalysis(result || {}, params);
-  };
+  const handleRunAnalysis = () => runAnalysis(result || {}, params);
 
   const tabs = [
     { id: 'input', label: t('common.parameters') },
@@ -89,6 +95,17 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
     if (risk?.includes('Moderate')) return 'text-yellow-400 bg-yellow-500/10';
     return 'text-green-400 bg-green-500/10';
   };
+
+  const feColor = (cls: string) => {
+    if (cls === 'NORMAL') return 'text-green-400';
+    if (cls === 'CAUTION') return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const skinBarColor = (val: number) => val < 0 ? 'bg-blue-500' : 'bg-orange-500';
+
+  // Suppress unused warning — language used for future i18n consistency
+  void language;
 
   return (
     <div className="space-y-6">
@@ -116,14 +133,14 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
                 <h3 className="text-lg font-bold mb-3">{t('sandControl.sections.psd')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Tamaños Tamiz (mm, separados por coma)</label>
+                    <label className="text-xs text-gray-400">{t('sandControl.labelSieveSizes')}</label>
                     <input type="text" value={params.sieve_sizes_mm}
                       onChange={e => updateParam('sieve_sizes_mm', e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">% Pasante Acumulado (separados por coma)</label>
+                    <label className="text-xs text-gray-400">{t('sandControl.labelCumPassing')}</label>
                     <input type="text" value={params.cumulative_passing_pct}
                       onChange={e => updateParam('cumulative_passing_pct', e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
@@ -132,41 +149,66 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
                 </div>
               </div>
 
-              {/* Completion & Formation */}
+              {/* Formation & Completion */}
               <div>
                 <h3 className="text-lg font-bold mb-3">{t('sandControl.sections.formation')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { key: 'hole_id', label: 'Diámetro Hoyo (in)', step: '0.125' },
-                    { key: 'screen_od', label: 'OD Screen (in)', step: '0.125' },
-                    { key: 'interval_length', label: 'Intervalo (ft)', step: '10' },
-                    { key: 'ucs_psi', label: 'UCS (psi)', step: '50' },
-                    { key: 'friction_angle_deg', label: 'Ángulo Fricción (°)', step: '1' },
-                    { key: 'reservoir_pressure_psi', label: 'P Reservorio (psi)', step: '100' },
-                    { key: 'overburden_stress_psi', label: 'Esfuerzo Sobrecarga (psi)', step: '500' },
-                    { key: 'formation_permeability_md', label: 'Permeabilidad (mD)', step: '50' },
-                    { key: 'gravel_permeability_md', label: 'Perm. Grava (mD)', step: '10000' },
-                    { key: 'pack_factor', label: 'Factor Empaque', step: '0.1' },
-                    { key: 'washout_factor', label: 'Factor Lavado', step: '0.05' },
-                    { key: 'wellbore_radius_ft', label: 'Radio Pozo (ft)', step: '0.01' },
+                    { key: 'hole_id', label: t('sandControl.holeDiameter'), step: '0.125' },
+                    { key: 'screen_od', label: t('sandControl.screenOD'), step: '0.125' },
+                    { key: 'interval_length', label: 'Interval (ft)', step: '10' },
+                    { key: 'ucs_psi', label: t('sandControl.ucs'), step: '50' },
+                    { key: 'friction_angle_deg', label: 'Friction Angle (°)', step: '1' },
+                    { key: 'reservoir_pressure_psi', label: t('sandControl.reservoirPressure'), step: '100' },
+                    { key: 'overburden_stress_psi', label: 'Overburden Stress (psi)', step: '500' },
+                    { key: 'formation_permeability_md', label: t('sandControl.permeability'), step: '50' },
+                    { key: 'gravel_permeability_md', label: 'Gravel Perm. (mD)', step: '10000' },
+                    { key: 'pack_factor', label: 'Pack Factor', step: '0.1' },
+                    { key: 'washout_factor', label: 'Washout Factor', step: '0.05' },
+                    { key: 'wellbore_radius_ft', label: 'Wellbore Radius (ft)', step: '0.01' },
+                    { key: 'drainage_radius_ft', label: t('sandControl.drainageRadius'), step: '10' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
                       <input type="number" step={step}
-                        value={(params as Record<string, unknown>)[key]}
+                        value={(params as Record<string, unknown>)[key] as number}
                         onChange={e => updateParam(key, e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   ))}
+
+                  {/* Completion type */}
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Tipo Completación</label>
+                    <label className="text-xs text-gray-400">{t('sandControl.labelWellboreType')}</label>
                     <select value={params.wellbore_type}
                       onChange={e => setParams(prev => ({ ...prev, wellbore_type: e.target.value }))}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none">
-                      <option value="cased">Entubado</option>
-                      <option value="openhole">Hoyo Abierto</option>
+                      <option value="cased">{t('sandControl.optCased')}</option>
+                      <option value="openhole">{t('sandControl.optOpenhole')}</option>
                     </select>
+                  </div>
+
+                  {/* Casing ID — only for cased hole */}
+                  {params.wellbore_type === 'cased' && (
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">{t('sandControl.casingId')}</label>
+                      <input type="number" step="0.125" placeholder="e.g. 8.835"
+                        value={params.casing_id_in === '' ? '' : params.casing_id_in as number}
+                        onChange={e => updateParam('casing_id_in', e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Optional PI */}
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">{t('sandControl.pi')}</label>
+                    <input type="number" step="0.01" placeholder="e.g. 3.784"
+                      value={params.productivity_index_stbd_psi === '' ? '' : params.productivity_index_stbd_psi as number}
+                      onChange={e => updateParam('productivity_index_stbd_psi', e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                    />
                   </div>
                 </div>
               </div>
@@ -185,10 +227,10 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'D50', value: `${result.summary?.d50_mm} mm`, color: 'text-amber-400' },
-                { label: 'Riesgo Arena', value: result.summary?.sanding_risk, color: '' },
-                { label: 'Grava', value: result.summary?.recommended_gravel, color: 'text-cyan-400' },
-                { label: 'Skin Total', value: result.summary?.skin_total, color: result.summary?.skin_total < 5 ? 'text-green-400' : 'text-red-400' },
+                { label: 'D50', value: `${(result.summary as Record<string, unknown>)?.d50_mm} mm`, color: 'text-amber-400' },
+                { label: t('sandControl.labelRisk'), value: (result.summary as Record<string, unknown>)?.sanding_risk as string, color: '' },
+                { label: t('sandControl.gravelSelection'), value: (result.summary as Record<string, unknown>)?.recommended_gravel as string, color: 'text-cyan-400' },
+                { label: 'Skin Total', value: (result.summary as Record<string, unknown>)?.skin_total as number, color: ((result.summary as Record<string, unknown>)?.skin_total as number) < 5 ? 'text-green-400' : 'text-red-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
                   <div className="text-xs text-gray-500 mb-1">{item.label}</div>
@@ -201,11 +243,11 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-4">{t('sandControl.grainSize')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-gray-400">D10:</span> <span className="font-mono">{result.psd?.d10_mm} mm</span></div>
-                <div><span className="text-gray-400">D50:</span> <span className="font-mono">{result.psd?.d50_mm} mm</span></div>
-                <div><span className="text-gray-400">D90:</span> <span className="font-mono">{result.psd?.d90_mm} mm</span></div>
-                <div><span className="text-gray-400">Cu:</span> <span className="font-mono">{result.psd?.uniformity_coefficient}</span></div>
-                <div><span className="text-gray-400">Sorting:</span> <span className="font-mono">{result.psd?.sorting}</span></div>
+                <div><span className="text-gray-400">D10:</span> <span className="font-mono">{(result.psd as Record<string, unknown>)?.d10_mm} mm</span></div>
+                <div><span className="text-gray-400">D50:</span> <span className="font-mono">{(result.psd as Record<string, unknown>)?.d50_mm} mm</span></div>
+                <div><span className="text-gray-400">D90:</span> <span className="font-mono">{(result.psd as Record<string, unknown>)?.d90_mm} mm</span></div>
+                <div><span className="text-gray-400">Cu:</span> <span className="font-mono">{(result.psd as Record<string, unknown>)?.uniformity_coefficient}</span></div>
+                <div><span className="text-gray-400">Sorting:</span> <span className="font-mono">{(result.psd as Record<string, unknown>)?.sorting}</span></div>
               </div>
             </div>
 
@@ -214,37 +256,50 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('sandControl.gravelSelection')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">Pack Recomendado:</span> <span className="font-bold text-cyan-400">{result.gravel?.recommended_pack}</span></div>
-                  <div><span className="text-gray-400">Rango:</span> <span className="font-mono">{result.gravel?.gravel_min_mm}-{result.gravel?.gravel_max_mm} mm</span></div>
-                  <div><span className="text-gray-400">Volumen Grava:</span> <span className="font-mono">{result.volume?.gravel_volume_bbl} bbl</span></div>
-                  <div><span className="text-gray-400">Peso Grava:</span> <span className="font-mono">{result.volume?.gravel_weight_lb} lb</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelRecommendedPack')}:</span> <span className="font-bold text-cyan-400">{(result.gravel as Record<string, unknown>)?.recommended_pack}</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelGravelRange')}:</span> <span className="font-mono">{(result.gravel as Record<string, unknown>)?.gravel_min_mm}–{(result.gravel as Record<string, unknown>)?.gravel_max_mm} mm</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelGravelVol')}:</span> <span className="font-mono">{(result.volume as Record<string, unknown>)?.gravel_volume_bbl} bbl</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelGravelWeight')}:</span> <span className="font-mono">{(result.volume as Record<string, unknown>)?.gravel_weight_lb} lb</span></div>
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Screen Selection</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.screenSelection')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">Tipo:</span> <span className="font-mono">{result.screen?.screen_type}</span></div>
-                  <div><span className="text-gray-400">Slot Recomendado:</span> <span className="font-bold text-cyan-400">{result.screen?.recommended_standard_slot_in}"</span></div>
-                  <div><span className="text-gray-400">Retención Est.:</span> <span className="font-mono">{result.screen?.estimated_retention_pct}%</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelScreenType')}:</span> <span className="font-mono">{(result.screen as Record<string, unknown>)?.screen_type}</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelSlot')}:</span> <span className="font-bold text-cyan-400">{(result.screen as Record<string, unknown>)?.recommended_standard_slot_in}"</span></div>
+                  <div><span className="text-gray-400">{t('sandControl.labelRetention')}:</span> <span className="font-mono">{(result.screen as Record<string, unknown>)?.estimated_retention_pct}%</span></div>
                 </div>
               </div>
             </div>
 
-            {/* Drawdown & Completion */}
+            {/* FIX-SAND-001: Sanding Analysis with dry + wet drawdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
                 <h3 className="text-lg font-bold mb-3">{t('sandControl.sandingAnalysis')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">Drawdown Crítico:</span> <span className="font-mono">{result.drawdown?.critical_drawdown_psi} psi</span></div>
-                  <div><span className="text-gray-400">Riesgo:</span> <span className={`font-bold ${riskColor(result.drawdown?.sanding_risk)}`}>{result.drawdown?.sanding_risk}</span></div>
-                  <div><span className="text-gray-400">Recomendación:</span> <span className="text-xs">{result.drawdown?.recommendation}</span></div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span className="text-gray-400">{t('sandControl.labelCritDDDry')}:</span>
+                    <span className="font-mono font-bold">{(result.drawdown as Record<string, unknown>)?.critical_drawdown_dry_psi} psi</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span className="text-gray-400">{t('sandControl.labelCritDDWet')}:</span>
+                    <span className="font-mono font-bold text-yellow-300">{(result.drawdown as Record<string, unknown>)?.critical_drawdown_wet_psi} psi</span>
+                  </div>
+                  <div className="text-xs text-gray-500 italic pb-1">{t('sandControl.labelWaterWeakening')}</div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span className="text-gray-400">{t('sandControl.labelRisk')}:</span>
+                    <span className={`font-bold px-2 py-0.5 rounded text-xs ${riskColor((result.drawdown as Record<string, unknown>)?.sanding_risk as string)}`}>
+                      {(result.drawdown as Record<string, unknown>)?.sanding_risk}
+                    </span>
+                  </div>
+                  <div><span className="text-gray-400">{t('sandControl.labelRecommendation')}:</span> <span className="text-xs">{(result.drawdown as Record<string, unknown>)?.recommendation}</span></div>
                 </div>
               </div>
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-3">Completion Type</h3>
+                <h3 className="text-lg font-bold mb-3">{t('sandControl.completionType')}</h3>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-400">Recomendado:</span> <span className="font-bold text-green-400">{result.completion?.recommended}</span></div>
-                  {result.completion?.methods?.slice(0, 3).map((m: { method: string; score: number }, i: number) => (
+                  <div><span className="text-gray-400">{t('sandControl.labelRecommended')}:</span> <span className="font-bold text-green-400">{(result.completion as Record<string, unknown>)?.recommended}</span></div>
+                  {((result.completion as Record<string, unknown>)?.methods as Array<{ method: string; score: number }>)?.slice(0, 3).map((m, i) => (
                     <div key={i} className="flex justify-between items-center py-1 border-t border-white/5">
                       <span className="text-gray-300">{m.method}</span>
                       <span className="text-xs text-gray-500">Score: {m.score}</span>
@@ -254,12 +309,74 @@ const SandControlModule: React.FC<SandControlModuleProps> = ({ wellId, wellName 
               </div>
             </div>
 
+            {/* FIX-SAND-002: Skin Breakdown + FIX-SAND-003/004: FE + q_max */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-4">{t('sandControl.skinBreakdown')}</h3>
+                <div className="space-y-3 text-sm">
+                  {([
+                    { label: t('sandControl.labelSkinPerf'), val: (result.skin as Record<string, unknown>)?.skin_perforation as number },
+                    { label: t('sandControl.labelSkinGravel'), val: (result.skin as Record<string, unknown>)?.skin_gravel as number },
+                    { label: t('sandControl.labelSkinDamage'), val: (result.skin as Record<string, unknown>)?.skin_damage as number },
+                  ]).map(({ label, val }) => (
+                    <div key={label}>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-400">{label}</span>
+                        <span className={`font-mono font-bold ${val < 0 ? 'text-blue-400' : 'text-orange-400'}`}>{val?.toFixed(2)}</span>
+                      </div>
+                      <div className="w-full bg-white/10 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${skinBarColor(val)}`}
+                          style={{ width: `${Math.min(Math.abs(val ?? 0) * 8, 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-white/10 font-bold">
+                    <span className="text-gray-200">S_total</span>
+                    <span className={`font-mono ${((result.skin as Record<string, unknown>)?.skin_total as number) < 0 ? 'text-blue-400' : 'text-orange-400'}`}>
+                      {((result.skin as Record<string, unknown>)?.skin_total as number)?.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                <h3 className="text-lg font-bold mb-4">{t('sandControl.flowEfficiency')}</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="text-center py-2">
+                    <div className={`text-3xl font-bold ${feColor(result.flow_efficiency_class as string)}`}>
+                      {(((result.flow_efficiency as number) ?? 0) * 100).toFixed(1)}%
+                    </div>
+                    <div className={`text-xs mt-1 ${feColor(result.flow_efficiency_class as string)}`}>
+                      {result.flow_efficiency_class === 'NORMAL'
+                        ? t('sandControl.feNormal')
+                        : result.flow_efficiency_class === 'CAUTION'
+                        ? t('sandControl.feCaution')
+                        : t('sandControl.feCritical')}
+                    </div>
+                  </div>
+                  <div className="border-t border-white/10 pt-3">
+                    <div className="font-semibold text-gray-300 mb-2">{t('sandControl.qMaxSafe')}</div>
+                    {result.q_max_safe_stbd != null ? (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-cyan-400">
+                          {(result.q_max_safe_stbd as number).toLocaleString()}
+                        </span>
+                        <span className="text-gray-400">{t('sandControl.qMaxUnit')}</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 italic">{t('sandControl.qMaxNoPi')}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Alerts */}
-            {result.alerts?.length > 0 && (
+            {((result.alerts as string[])?.length ?? 0) > 0 && (
               <div className="glass-panel p-6 rounded-2xl border border-yellow-500/20">
                 <h3 className="text-lg font-bold text-yellow-400 mb-3">&#9888; {t('common.alerts')}</h3>
                 <ul className="space-y-2">
-                  {result.alerts.map((alert: string, i: number) => (
+                  {(result.alerts as string[]).map((alert, i) => (
                     <li key={i} className="text-sm text-yellow-300 flex items-start gap-2">
                       <span className="mt-1">&bull;</span>{alert}
                     </li>

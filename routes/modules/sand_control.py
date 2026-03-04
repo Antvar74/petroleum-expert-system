@@ -41,7 +41,10 @@ def calculate_sand_control(well_id: int, data: SandControlCalculateRequest, db: 
         wellbore_type=data.wellbore_type,
         gravel_permeability_md=data.gravel_permeability_md,
         pack_factor=data.pack_factor,
-        washout_factor=data.washout_factor
+        washout_factor=data.washout_factor,
+        casing_id_in=data.casing_id_in,
+        drainage_radius_ft=data.drainage_radius_ft,
+        productivity_index_stbd_psi=data.productivity_index_stbd_psi,
     )
 
     sc_result = SandControlResult(

@@ -33,3 +33,9 @@ class SandControlCalculateRequest(BaseModel):
     gravel_permeability_md: float = Field(default=80000, description="Gravel permeability (mD)")
     pack_factor: float = Field(default=1.4, description="Gravel pack factor")
     washout_factor: float = Field(default=1.1, description="Washout factor")
+    # FIX-SAND-000: cased hole geometry
+    casing_id_in: Optional[float] = Field(default=None, description="Casing ID (in) — used for gravel volume in cased hole")
+    # FIX-SAND-003: drainage radius for flow efficiency
+    drainage_radius_ft: float = Field(default=660.0, description="Drainage radius (ft)")
+    # FIX-SAND-004: optional PI for max safe rate
+    productivity_index_stbd_psi: Optional[float] = Field(default=None, description="Productivity index (STB/d/psi)")
