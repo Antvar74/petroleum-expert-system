@@ -102,7 +102,9 @@ def standalone_workover_hydraulics(data: WorkoverHydraulicsCalculateRequest):
         friction_factor=data.friction_factor,
         wellhead_pressure=data.wellhead_pressure,
         reservoir_pressure=data.reservoir_pressure,
-        yield_strength_psi=data.yield_strength_psi
+        yield_strength_psi=data.yield_strength_psi,
+        bht_f=data.bht_f,
+        t_surface_f=data.t_surface_f,
     )
     return result
 
