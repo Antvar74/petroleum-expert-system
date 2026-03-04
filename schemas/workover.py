@@ -50,3 +50,5 @@ class WorkoverHydraulicsCalculateRequest(BaseModel):
     wellhead_pressure: float = Field(default=0, description="Wellhead pressure (psi)")
     reservoir_pressure: float = Field(default=5200, description="Reservoir pressure (psi)")
     yield_strength_psi: float = Field(default=80000, description="Yield strength (psi)")
+    bht_f: float = Field(default=0, description="Bottom hole temperature (°F). 0 = not provided.")
+    t_surface_f: float = Field(default=80, description="Surface temperature (°F)")

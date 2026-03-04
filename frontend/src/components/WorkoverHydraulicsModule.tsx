@@ -37,6 +37,8 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
     wellhead_pressure: 0,
     reservoir_pressure: 5200,
     yield_strength_psi: 80000,
+    bht_f: 0,
+    t_surface_f: 80,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,11 +119,13 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
                   { key: 'wellhead_pressure', label: 'Wellhead Pressure (psi)', step: '100' },
                   { key: 'reservoir_pressure', label: 'Reservoir Pressure (psi)', step: '100' },
                   { key: 'yield_strength_psi', label: 'Yield CT (psi)', step: '5000' },
+                  { key: 'bht_f', label: 'BHT (°F) — 0 = not provided', step: '10' },
+                  { key: 't_surface_f', label: 'T Surface (°F)', step: '5' },
                 ].map(({ key, label, step }) => (
                   <div key={key} className="space-y-1">
                     <label className="text-xs text-gray-400">{label}</label>
                     <input type="number" step={step}
-                      value={(params as Record<string, unknown>)[key]}
+                      value={(params as Record<string, number>)[key]}
                       onChange={e => updateParam(key, e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
                     />

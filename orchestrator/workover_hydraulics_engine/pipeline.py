@@ -41,6 +41,8 @@ def calculate_full_workover(
     wellhead_pressure: float = 0.0,
     reservoir_pressure: float = 0.0,
     yield_strength_psi: float = 80000.0,
+    bht_f: float = 0.0,
+    t_surface_f: float = 80.0,
 ) -> Dict[str, Any]:
     """
     Complete workover hydraulics analysis combining all calculations.
@@ -82,7 +84,7 @@ def calculate_full_workover(
         ct_od=ct_od, ct_id=ct_id, ct_length=ct_length,
         weight_per_ft=weight_per_ft, mud_weight=mud_weight,
         delta_p_internal=hydraulics["pipe_loss_psi"],
-        delta_t=0.0,
+        delta_t=(bht_f - t_surface_f) if bht_f > 0 else 0.0,
         wellhead_pressure=wellhead_pressure,
         annular_pressure=0.0,
     )

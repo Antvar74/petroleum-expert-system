@@ -65,7 +65,9 @@ def calculate_workover_hydraulics(well_id: int, data: WorkoverHydraulicsCalculat
         friction_factor=data.friction_factor,
         wellhead_pressure=data.wellhead_pressure,
         reservoir_pressure=data.reservoir_pressure,
-        yield_strength_psi=data.yield_strength_psi
+        yield_strength_psi=data.yield_strength_psi,
+        bht_f=data.bht_f,
+        t_surface_f=data.t_surface_f,
     )
 
     wh_result = WorkoverHydraulicsResult(
