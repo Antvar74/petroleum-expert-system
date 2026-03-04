@@ -56,8 +56,10 @@ const ExecutiveReport = forwardRef<HTMLDivElement, ExecutiveReportProps>(
     const dateStr = now.toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
     const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
+    // Strip any XML blocks the AI may prepend before the Markdown report
+    const cleanedText = stripLeadingXml(analysisText || '');
     // Parse analysis text into sections (marker-based for casing, legacy fallback for others)
-    const sections = parseMarkerSections(analysisText || '');
+    const sections = parseMarkerSections(cleanedText);
 
     return (
       <div ref={ref} style={{ display: 'none' }} className="executive-report">
@@ -162,6 +164,12 @@ ExecutiveReport.displayName = 'ExecutiveReport';
 // ================================================================
 // Helpers
 // ================================================================
+
+/** Remove XML-tagged blocks the AI may prepend before the Markdown report. */
+function stripLeadingXml(text: string): string {
+  const stripped = text.replace(/^(<[a-z_]+>[\s\S]*?<\/[a-z_]+>\s*)+/i, '').trim();
+  return stripped || text;
+}
 
 function formatNumber(val: number, locale: string = 'en-US'): string {
   if (val === 0) return '0';

@@ -101,12 +101,13 @@ body {
 }
 
 .executive-kpi-value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #1e40af;
   overflow-wrap: break-word;
-  word-break: break-all;
-  line-height: 1.2;
+  word-break: normal;
+  hyphens: none;
+  line-height: 1.3;
 }
 
 .executive-kpi-label {
