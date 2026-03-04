@@ -114,7 +114,7 @@ def get_shot_efficiency(well_id: int, db: Session = Depends(get_db)):
 @router.post("/wells/{well_id}/shot-efficiency/analyze")
 @limiter.limit(LLM_LIMIT)
 async def analyze_shot_efficiency(request: Request, well_id: int, data: AIAnalysisRequest, db: Session = Depends(get_db)):
-    """AI executive analysis of Shot Efficiency results via geologist agent."""
+    """AI executive analysis of Shot Efficiency results via completion_engineer agent."""
     well = db.query(Well).filter(Well.id == well_id).first()
     if not well:
         raise HTTPException(status_code=404, detail="Well not found")
