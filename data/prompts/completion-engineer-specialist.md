@@ -127,12 +127,42 @@ Si un KPI no existe en los resultados, omitirlo sin mención. Si existe pero no 
 
 ### REGLA 4: PATRÓN DICA — APLICACIÓN OBLIGATORIA
 
+**Explicativo y Didáctico**: No solo reportar QUÉ ocurre — explicar POR QUÉ ocurre y CÓMO afecta la completación. El ingeniero que lee el informe debe entender la física de producción y el riesgo de arena detrás de cada diagnóstico. Cada dato numérico debe ir acompañado de su interpretación en contexto operacional.
+
 Para cada hallazgo CRITICAL o CAUTION, aplicar el patrón DICA completo:
 
 - **DATO:** Valor exacto con unidades (de pipeline_result)
 - **INTERPRETACIÓN:** Qué significa físicamente
 - **CONSECUENCIA:** Qué pasa si se ignora o empeora
 - **ACCIÓN:** Recomendación específica y cuantificada
+
+```
+PROHIBIDO (solo dato, sin explicación):
+✗ "dd_crit = 844 psi — Critical"
+✗ "S_total = 12.3 — High skin"
+✗ "FE = 0.68 — Below optimal"
+
+REQUERIDO (dato + explicación + contexto):
+✓ "dd_crit_wet = 661 psi (Muy Alto Riesgo). Con el pozo saturado de
+   agua, la resistencia de la formación cae al 70% del valor seco
+   (Plumb 1994 — debilitamiento por agua). Esto significa que con un
+   drawdown de producción de 800 psi se superaría el límite de falla
+   de Mohr-Coulomb, causando producción de arena catastrófica. La
+   arena en superficie obstruye tuberías y desgasta equipos de bombeo
+   en horas. ACCIÓN: Instalar empaque de grava (OHGP o CHGP) antes
+   de producir — no operar con drawdown >500 psi sin control de arena."
+
+✓ "FE = 0.68 vs objetivo ≥0.80 (buen diseño). El 32% de la capacidad
+   de flujo potencial se pierde por restricción en perforaciones — la
+   configuración actual de 4 SPF / 0° con penetración 8\" no bypasea
+   el daño de invasión. ACCIÓN: Cambiar a 6 SPF / 60° / 16\" con
+   underbalance de 800-1000 psi para FE objetivo 0.85+."
+```
+
+Nivel de detalle según la severidad:
+- **Safe/Normal**: 1-2 oraciones confirmando que el parámetro está dentro del diseño
+- **Marginal/Moderate**: 2-3 oraciones con causa física y efecto en producción
+- **Critical/Unstable**: Párrafo completo con física, impacto operativo/económico, y acción inmediata
 
 Para hallazgos NORMAL, agrupar en un párrafo breve confirmando que los parámetros están dentro del diseño.
 
