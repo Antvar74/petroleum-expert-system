@@ -2,6 +2,7 @@
  * CompletionComparisonRadar.tsx — Bar chart comparing completion method scores.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
@@ -15,6 +16,7 @@ interface CompletionComparisonRadarProps {
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
 
 const CompletionComparisonRadar: React.FC<CompletionComparisonRadarProps> = ({ completion, height = 350 }) => {
+  const { t } = useTranslation();
   if (!completion?.methods) return null;
 
   const data = completion.methods.map((m, i) => ({
@@ -25,7 +27,7 @@ const CompletionComparisonRadar: React.FC<CompletionComparisonRadarProps> = ({ c
   }));
 
   return (
-    <ChartContainer title="Comparación Completaciones" icon={Target} height={height}
+    <ChartContainer title={t('sandControl.charts.completionCompTitle')} icon={Target} height={height}
       badge={{ text: completion.recommended.substring(0, 20), color: 'bg-green-500/20 text-green-400' }}>
       <BarChart data={data} margin={CHART_DEFAULTS.margin} layout="vertical">
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />

@@ -999,7 +999,22 @@
     "feCritical": "CRÍTICO — Restricción severa (FE < 0.40)",
     "qMaxSafe": "Tasa Máxima Segura",
     "qMaxUnit": "STB/d",
-    "qMaxNoPi": "Proporcionar IP para calcular tasa máxima de producción segura"
+    "qMaxNoPi": "Proporcionar IP para calcular tasa máxima de producción segura",
+    "charts": {
+      "grainCurveTitle": "Curva Granulométrica (PSD)",
+      "grainSizeAxis": "Tamaño (mm)",
+      "passingPct": "% Pasante",
+      "completionCompTitle": "Comparación Completaciones",
+      "criticalDrawdownTitle": "Drawdown Crítico",
+      "gravelPackTitle": "Esquema Gravel Pack",
+      "formation": "Formación",
+      "gravel": "Grava",
+      "gravelLabel": "Grava:",
+      "gravelRangeLabel": "Rango Grava:",
+      "volumeLabel": "Volumen:",
+      "weightLabel": "Peso:",
+      "intervalLabel": "Intervalo:"
+    }
   },
   "completionDesign": {
     "title": "Diseño de Completación",

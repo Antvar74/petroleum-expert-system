@@ -2,6 +2,7 @@
  * DrawdownLimitGauge.tsx — Visual gauge for critical drawdown pressure.
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ChartContainer from '../ChartContainer';
 import { Gauge } from 'lucide-react';
 
@@ -11,6 +12,7 @@ interface DrawdownLimitGaugeProps {
 }
 
 const DrawdownLimitGauge: React.FC<DrawdownLimitGaugeProps> = ({ drawdown, height = 350 }) => {
+  const { t } = useTranslation();
   if (!drawdown) return null;
 
   const maxDrawdown = 3000;
@@ -26,7 +28,7 @@ const DrawdownLimitGauge: React.FC<DrawdownLimitGaugeProps> = ({ drawdown, heigh
   const colors = getColor();
 
   return (
-    <ChartContainer title="Drawdown Crítico" icon={Gauge} height={height} isFluid
+    <ChartContainer title={t('sandControl.charts.criticalDrawdownTitle')} icon={Gauge} height={height} isFluid
       badge={{ text: drawdown.sanding_risk, color: `${colors.bg} ${colors.text}` }}>
       <div className="flex flex-col items-center justify-center gap-6 p-6">
         {/* Semi-circular gauge */}

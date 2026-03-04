@@ -999,7 +999,22 @@
     "feCritical": "CRITICAL — Severe restriction (FE < 0.40)",
     "qMaxSafe": "Max Safe Rate",
     "qMaxUnit": "STB/d",
-    "qMaxNoPi": "Provide Productivity Index (PI) to calculate maximum safe production rate"
+    "qMaxNoPi": "Provide Productivity Index (PI) to calculate maximum safe production rate",
+    "charts": {
+      "grainCurveTitle": "Grain Size Distribution (PSD)",
+      "grainSizeAxis": "Size (mm)",
+      "passingPct": "% Passing",
+      "completionCompTitle": "Completion Comparison",
+      "criticalDrawdownTitle": "Critical Drawdown",
+      "gravelPackTitle": "Gravel Pack Schematic",
+      "formation": "Formation",
+      "gravel": "Gravel",
+      "gravelLabel": "Gravel:",
+      "gravelRangeLabel": "Gravel Range:",
+      "volumeLabel": "Volume:",
+      "weightLabel": "Weight:",
+      "intervalLabel": "Interval:"
+    }
   },
   "completionDesign": {
     "title": "Completion Design",
