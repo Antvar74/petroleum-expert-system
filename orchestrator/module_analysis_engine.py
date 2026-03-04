@@ -183,10 +183,10 @@ class ModuleAnalysisEngine:
         return self._package(analysis, module, result_data, well_name, language, provider)
 
     async def analyze_completion_design(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Completion Design results using completion_engineer agent."""
+        """Analyze Completion Design results using completion_design_engineer agent."""
         problem = self._build_cd_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("completion_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("completion_design_engineer", problem, context, provider=provider)
         return self._package(analysis, "completion_design", result_data, well_name, language, provider)
 
     async def analyze_shot_efficiency(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
@@ -523,12 +523,67 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
     def _build_cd_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
         summary = result_data.get("summary", {})
-        alerts = summary.get("alerts", [])
+        pen = result_data.get("penetration", {})
+        gun = result_data.get("gun_selection", {})
+        ub = result_data.get("underbalance", {})
+        frac_init = result_data.get("fracture_initiation", {})
+        frac_grad = result_data.get("fracture_gradient", {})
+        opt = result_data.get("optimization", {})
+        nodal = result_data.get("nodal", {})
+        ipr = result_data.get("ipr", {})
+        alerts = result_data.get("alerts", summary.get("alerts", []))
+
+        # Top 5 optimization configurations
+        opt_configs = opt.get("top_configurations", [])[:5] if opt else []
+        opt_lines = "\n".join(
+            f"  {i+1}. SPF={c.get('spf','?')} / {c.get('phasing_deg','?')}° → PR={c.get('productivity_ratio','?')} | Skin={c.get('skin_total','?')}"
+            for i, c in enumerate(opt_configs)
+        ) or "  N/A"
+
+        # Recommended gun
+        rec_gun = gun.get("recommended", {}) if gun else {}
+        gun_line = (
+            f"  Gun: {rec_gun.get('gun_size','N/A')} OD | SPF: {rec_gun.get('spf_available','N/A')} "
+            f"| Clearance: {rec_gun.get('clearance_in','N/A')} in"
+            f" | P_rating: {rec_gun.get('pressure_rating_psi','N/A')} psi vs BHP: {params.get('reservoir_pressure_psi','N/A')} psi"
+        ) if rec_gun else "  N/A"
+
+        # Skin breakdown from penetration sub-result
+        skin_perf = pen.get("skin_components", {}) if pen else {}
+
         return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Completion Design Module — Well: {well_name}
 
-PR: {summary.get('productivity_ratio', 'N/A')} | Quality: {summary.get('quality', 'N/A')}
-Pen Depth: {summary.get('corrected_depth_in', 'N/A')}" | SPF: {params.get('spf', 'N/A')} | Phasing: {params.get('phasing_deg', 'N/A')}°
-Fracture: P_init={summary.get('fracture_initiation_psi', 'N/A')} psi | FG={summary.get('fracture_gradient_ppg', 'N/A')} ppg
+=== PENETRATION & PRODUCTIVITY ===
+Corrected Penetration: {pen.get('penetration_corrected_in', summary.get('penetration_corrected_in','N/A'))}" | Efficiency: {pen.get('efficiency_pct', summary.get('penetration_efficiency_pct','N/A'))}%
+Correction Factors (API RP 19B): stress={pen.get('cf_stress','N/A')} | temp={pen.get('cf_temperature','N/A')} | fluid={pen.get('cf_fluid','N/A')} | cement={pen.get('cf_cement','N/A')} | casing={pen.get('cf_casing','N/A')}
+Skin Total: {summary.get('skin_total','N/A')} (S_p={skin_perf.get('s_perforation','N/A')} | S_v={skin_perf.get('s_vertical','N/A')} | S_wb={skin_perf.get('s_wellbore','N/A')} | S_d={skin_perf.get('s_damage','N/A')})
+Productivity Ratio: {summary.get('productivity_ratio','N/A')} | PI: {nodal.get('pi_actual','N/A')} STB/d/psi | AOF: {nodal.get('aof_stbd','N/A')} STB/d
+
+=== OPTIMIZATION (TOP 5 CONFIGURATIONS) ===
+{opt_lines}
+Optimal: SPF={summary.get('optimal_spf','N/A')} | Phasing={summary.get('optimal_phasing_deg','N/A')}°
+
+=== GUN SELECTION ===
+{gun_line}
+Total compatible guns found: {gun.get('total_compatible_guns','N/A')}
+
+=== UNDERBALANCE ===
+ΔP: {summary.get('underbalance_psi','N/A')} psi | Status: {summary.get('underbalance_status','N/A')}
+Mud weight window: {summary.get('mud_weight_window_ppg','N/A')} ppg
+Recommended range: {ub.get('recommended_range_psi','N/A')} psi
+
+=== FRACTURE INITIATION ===
+Fracture Gradient: {summary.get('fracture_gradient_ppg','N/A')} ppg | Method: {frac_grad.get('method','N/A')}
+Mud weight window: {summary.get('mud_weight_window_ppg','N/A')} ppg
+P_breakdown: {summary.get('breakdown_pressure_psi','N/A')} psi | P_reopen: {frac_init.get('reopening_pressure_psi','N/A')} psi
+P_closure: {frac_init.get('closure_pressure_psi','N/A')} psi | ISIP: {frac_init.get('isip_psi','N/A')} psi
+Stress ratio (σH/σh): {frac_init.get('stress_ratio','N/A')} | Stress regime: {frac_init.get('stress_regime','N/A')}
+
+=== NODAL ANALYSIS ===
+AOF: {nodal.get('aof_stbd','N/A')} STB/d | PI: {nodal.get('pi_actual','N/A')} STB/d/psi
+Operating point: q_op={nodal.get('q_operating_stbd','N/A')} STB/d | Pwf_op={nodal.get('pwf_operating_psi','N/A')} psi
+Drawdown: {nodal.get('drawdown_psi','N/A')} psi | %AOF used: {nodal.get('aof_utilization_pct','N/A')}%
+IPR model: {ipr.get('model','N/A')} | VLP model: Beggs & Brill
 
 ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
