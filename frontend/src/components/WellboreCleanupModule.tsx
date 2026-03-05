@@ -81,17 +81,22 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
   ];
 
   const qualityColor = (q: string) => {
-    if (q === 'Good') return 'text-green-400 bg-green-500/10';
-    if (q === 'Marginal') return 'text-yellow-400 bg-yellow-500/10';
+    if (q === 'Excellent') return 'text-green-400 bg-green-500/10';
+    if (q === 'Good') return 'text-emerald-400 bg-emerald-500/10';
+    if (q === 'Fair') return 'text-yellow-400 bg-yellow-500/10';
     return 'text-red-400 bg-red-500/10';
   };
 
-  // Sensitivity data for chart
+  // Sensitivity data for chart — Luo (1992) 4-factor HCI
   const sensitivityData = result ? Array.from({ length: 13 }, (_, i) => {
     const q = 200 + i * 50;
     const va = 24.51 * q / (params.hole_id ** 2 - params.pipe_od ** 2);
     const va_min = params.inclination > 60 ? 150 : params.inclination > 30 ? 130 : 120;
-    const hci = va / va_min;
+    const velRatio = Math.min(va / va_min, 1.5);
+    const rpmF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
+    const rheoF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
+    const densF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
+    const hci = velRatio * rpmF * rheoF * densF;
     const vs = result.summary?.slip_velocity_ftmin || 30;
     const ctr = va > 0 ? Math.max((va - vs) / va, 0) : 0;
     return { flow_rate: q, hci: Math.round(hci * 100) / 100, ctr: Math.round(ctr * 100) / 100 };
@@ -164,7 +169,7 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
               {[
                 { label: t('wellboreCleanup.annularVelocity'), value: `${result.summary?.annular_velocity_ftmin} ft/min`, color: 'text-blue-400' },
                 { label: t('wellboreCleanup.ctr'), value: result.summary?.cuttings_transport_ratio, color: (result.summary?.cuttings_transport_ratio >= 0.55) ? 'text-green-400' : 'text-red-400' },
-                { label: t('wellboreCleanup.hci'), value: result.summary?.hole_cleaning_index, color: (result.summary?.hole_cleaning_index >= 1.0) ? 'text-green-400' : 'text-yellow-400' },
+                { label: t('wellboreCleanup.hci'), value: result.summary?.hole_cleaning_index, color: (result.summary?.hole_cleaning_index >= 0.90) ? 'text-green-400' : (result.summary?.hole_cleaning_index >= 0.70) ? 'text-emerald-400' : (result.summary?.hole_cleaning_index >= 0.50) ? 'text-yellow-400' : 'text-red-400' },
                 { label: t('wellboreCleanup.quality'), value: result.summary?.cleaning_quality, color: '' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
@@ -183,6 +188,18 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
                 <div><span className="text-gray-400">{t('wellboreCleanup.minFlowRate')}:</span> <span className="font-mono">{result.summary?.minimum_flow_rate_gpm} gpm</span></div>
                 <div><span className="text-gray-400">{t('wellboreCleanup.cuttingsConcentration')}:</span> <span className="font-mono">{result.summary?.cuttings_concentration_pct}%</span></div>
                 <div><span className="text-gray-400">{t('wellboreCleanup.flowRateAdequate')}:</span> <span className={`font-bold ${result.summary?.flow_rate_adequate ? 'text-green-400' : 'text-red-400'}`}>{result.summary?.flow_rate_adequate ? t('common.yes') : t('common.no')}</span></div>
+                <div>
+                  <span className="text-gray-400">{t('wellboreCleanup.ecdCuttings')}:</span>{' '}
+                  <span className="font-mono">{result.summary?.effective_mud_weight_ppg} ppg</span>{' '}
+                  <span className={`text-xs font-bold ${(result.summary?.cuttings_ecd_ppg || 0) > 0.5 ? 'text-red-400' : (result.summary?.cuttings_ecd_ppg || 0) > 0.2 ? 'text-yellow-400' : 'text-green-400'}`}>
+                    (+{result.summary?.cuttings_ecd_ppg} ppg)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">{t('wellboreCleanup.bottomsUp')}:</span>{' '}
+                  <span className="font-mono">{result.summary?.bottoms_up_min} min</span>{' '}
+                  <span className="text-xs text-gray-500">({result.summary?.annular_volume_bbl} bbl)</span>
+                </div>
               </div>
             </div>
 
@@ -237,7 +254,11 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
                     const inc = i * 5; // 0° to 90°
                     // va_min increases with inclination
                     const va_min = inc > 60 ? 150 : inc > 30 ? 130 : 120;
-                    const hci = va / va_min;
+                    const velR = Math.min(va / va_min, 1.5);
+                    const rF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
+                    const rheF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
+                    const dF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
+                    const hci = velR * rF * rheF * dF;
                     // Slip velocity increases with inclination (bed formation effect)
                     const incRad = (inc * Math.PI) / 180;
                     const slipFactor = 1 + 2.5 * Math.sin(incRad) * Math.cos(incRad) + 1.5 * Math.pow(Math.sin(incRad), 2);
