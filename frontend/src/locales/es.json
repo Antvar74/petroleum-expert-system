@@ -903,7 +903,41 @@
     "pillWeight": "Peso Píldora",
     "pillLength": "Long. Píldora",
     "annularVolume": "Vol. Anular",
-    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el análisis."
+    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el análisis.",
+    "charts": {
+      "flowRate": {
+        "title": "Sensibilidad al Caudal",
+        "xAxis": "Caudal (gpm)",
+        "yAxis": "Índice",
+        "current": "Actual",
+        "hciGood": "HCI=1.0 (Bueno)",
+        "ctrMin": "CTR=0.55 (Mín)"
+      },
+      "annularVelocity": {
+        "title": "Análisis de Velocidad Anular",
+        "annular": "Anular",
+        "minimum": "Mínima",
+        "slip": "Deslizamiento",
+        "transport": "Transporte",
+        "adequate": "ADECUADA",
+        "low": "BAJA",
+        "yAxis": "ft/min",
+        "velocityLabel": "Velocidad (ft/min)"
+      },
+      "cuttingsConcentration": {
+        "title": "Desempeño de Limpieza",
+        "cuttingsVol": "Vol% Recortes",
+        "quality": "Calidad"
+      },
+      "efficiencyProfile": {
+        "title": "Eficiencia de Limpieza vs Inclinación",
+        "xAxis": "Inclinación (°)",
+        "yAxis": "Índice",
+        "excellent": "Excelente (0.90)",
+        "good": "Bueno (0.80)",
+        "minCtr": "CTR Mín (0.55)"
+      }
+    }
   },
   "packerForces": {
     "title": "Fuerzas en Packer",

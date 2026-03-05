@@ -5,6 +5,7 @@ import React from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import ChartContainer from '../ChartContainer';
 import { Activity } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CuttingsConcentrationGaugeProps {
   concentration: number;
@@ -17,6 +18,7 @@ interface CuttingsConcentrationGaugeProps {
 const CuttingsConcentrationGauge: React.FC<CuttingsConcentrationGaugeProps> = ({
   concentration, hci, ctr, cleaningQuality, height = 300
 }) => {
+  const { t } = useTranslation();
   const qualityColor = cleaningQuality === 'Good' ? '#10b981' : cleaningQuality === 'Marginal' ? '#f59e0b' : '#ef4444';
 
   // Gauge data for HCI (0 to 1.5 range)
@@ -28,7 +30,7 @@ const CuttingsConcentrationGauge: React.FC<CuttingsConcentrationGaugeProps> = ({
 
   return (
     <ChartContainer
-      title="Cleaning Performance"
+      title={t('wellboreCleanup.charts.cuttingsConcentration.title')}
       icon={Activity}
       height={height}
       isFluid
@@ -66,13 +68,13 @@ const CuttingsConcentrationGauge: React.FC<CuttingsConcentrationGaugeProps> = ({
             <div className="text-lg font-bold" style={{ color: concentration > 5 ? '#ef4444' : '#10b981' }}>
               {concentration.toFixed(1)}%
             </div>
-            <div className="text-xs text-gray-500">Cuttings Vol%</div>
+            <div className="text-xs text-gray-500">{t('wellboreCleanup.charts.cuttingsConcentration.cuttingsVol')}</div>
           </div>
           <div>
             <div className="text-lg font-bold" style={{ color: qualityColor }}>
               {cleaningQuality}
             </div>
-            <div className="text-xs text-gray-500">Quality</div>
+            <div className="text-xs text-gray-500">{t('wellboreCleanup.charts.cuttingsConcentration.quality')}</div>
           </div>
         </div>
       </div>

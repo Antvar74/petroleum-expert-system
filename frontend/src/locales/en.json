@@ -903,7 +903,41 @@
     "pillWeight": "Pill Weight",
     "pillLength": "Pill Length",
     "annularVolume": "Annular Volume",
-    "noResults": "No results. Go to \"Parameters\" and run the analysis."
+    "noResults": "No results. Go to \"Parameters\" and run the analysis.",
+    "charts": {
+      "flowRate": {
+        "title": "Flow Rate Sensitivity",
+        "xAxis": "Flow Rate (gpm)",
+        "yAxis": "Index",
+        "current": "Current",
+        "hciGood": "HCI=1.0 (Good)",
+        "ctrMin": "CTR=0.55 (Min)"
+      },
+      "annularVelocity": {
+        "title": "Annular Velocity Analysis",
+        "annular": "Annular",
+        "minimum": "Minimum",
+        "slip": "Slip",
+        "transport": "Transport",
+        "adequate": "ADEQUATE",
+        "low": "LOW",
+        "yAxis": "ft/min",
+        "velocityLabel": "Velocity (ft/min)"
+      },
+      "cuttingsConcentration": {
+        "title": "Cleaning Performance",
+        "cuttingsVol": "Cuttings Vol%",
+        "quality": "Quality"
+      },
+      "efficiencyProfile": {
+        "title": "Cleanup Efficiency vs Inclination",
+        "xAxis": "Inclination (°)",
+        "yAxis": "Index",
+        "excellent": "Excellent (0.90)",
+        "good": "Good (0.80)",
+        "minCtr": "Min CTR (0.55)"
+      }
+    }
   },
   "packerForces": {
     "title": "Packer Forces",
