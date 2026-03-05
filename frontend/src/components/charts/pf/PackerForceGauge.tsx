@@ -5,6 +5,7 @@ import React from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import ChartContainer from '../ChartContainer';
 import { Gauge } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface PackerForceGaugeProps {
   totalForce: number;
@@ -17,6 +18,7 @@ interface PackerForceGaugeProps {
 const PackerForceGaugeComponent: React.FC<PackerForceGaugeProps> = ({
   totalForce, bucklingCritical, bucklingStatus, forceDirection, height = 300
 }) => {
+  const { t } = useTranslation();
   const statusColor = bucklingStatus === 'OK' ? '#10b981' : bucklingStatus === 'Sinusoidal Buckling' ? '#f59e0b' : '#ef4444';
 
   // Normalize force for gauge (compression side)
@@ -31,7 +33,7 @@ const PackerForceGaugeComponent: React.FC<PackerForceGaugeProps> = ({
 
   return (
     <ChartContainer
-      title="Packer Force & Buckling"
+      title={t('packerForces.charts.packerGauge')}
       icon={Gauge}
       height={height}
       isFluid
@@ -63,11 +65,11 @@ const PackerForceGaugeComponent: React.FC<PackerForceGaugeProps> = ({
         <div className="grid grid-cols-2 gap-6 text-center">
           <div>
             <div className="text-lg font-bold text-blue-400">{bucklingCritical.toLocaleString()}</div>
-            <div className="text-xs text-gray-500">Critical Load (lbs)</div>
+            <div className="text-xs text-gray-500">{t('packerForces.charts.criticalLoad')}</div>
           </div>
           <div>
             <div className="text-lg font-bold" style={{ color: statusColor }}>{bucklingStatus}</div>
-            <div className="text-xs text-gray-500">Buckling Status</div>
+            <div className="text-xs text-gray-500">{t('packerForces.bucklingStatus')}</div>
           </div>
         </div>
       </div>

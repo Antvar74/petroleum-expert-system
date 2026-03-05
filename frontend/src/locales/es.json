@@ -904,6 +904,11 @@
     "tubingLength": "Longitud (ft)",
     "packerDepth": "Prof. Packer TVD (ft)",
     "tubingGrade": "Grado Tubería",
+    "sealBoreID": "ID Bore Sello (in)",
+    "mwTubing": "PM Tubería (ppg)",
+    "mwAnnulus": "PM Anular (ppg)",
+    "poissonRatio": "Coeficiente de Poisson",
+    "thermalCoeff": "Coef. Expansión Térm. (1/°F)",
     "tubingPressInit": "P Tubería Inicial",
     "tubingPressFinal": "P Tubería Final",
     "annPressInit": "P Anular Inicial",
@@ -915,8 +920,22 @@
     "totalForce": "Fuerza Total",
     "totalMovement": "Movimiento Total",
     "bucklingStatus": "Estado Pandeo",
+    "bucklingCritical": "Carga Crítica de Pandeo",
     "forceBreakdown": "Desglose de Fuerzas",
-    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el cálculo."
+    "noResults": "No hay resultados. Ve a \"Parámetros\" y ejecuta el cálculo.",
+    "charts": {
+      "forceComponents": "Componentes de Fuerza",
+      "tension": "TENSIÓN",
+      "compression": "COMPRESIÓN",
+      "forceLbs": "Fuerza (lbs)",
+      "tubingMovement": "Movimiento de Tubería",
+      "movementInches": "Movimiento (pulgadas)",
+      "movementIn": "Movimiento (in)",
+      "packerGauge": "Fuerza de Packer y Pandeo",
+      "criticalLoad": "Carga Crítica (lbs)",
+      "sensitivity": "Análisis de Sensibilidad",
+      "sensitivityFooter": "Valores en lbs (÷1000). Verde = Tensión, Rojo = Compresión"
+    }
   },
   "workoverHyd": {
     "title": "Hidráulica Workover",

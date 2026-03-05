@@ -133,10 +133,10 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
                     { key: 'tubing_id', label: t('packerForces.tubingID'), step: '0.125' },
                     { key: 'tubing_weight', label: t('packerForces.tubingWeight'), step: '0.1' },
                     { key: 'tubing_length', label: t('packerForces.tubingLength'), step: '100' },
-                    { key: 'seal_bore_id', label: 'ID Bore Seal (in)', step: '0.125' },
+                    { key: 'seal_bore_id', label: t('packerForces.sealBoreID'), step: '0.125' },
                     { key: 'packer_depth_tvd', label: t('packerForces.packerDepth'), step: '100' },
-                    { key: 'mud_weight_tubing', label: 'MW Tubing (ppg)', step: '0.1' },
-                    { key: 'mud_weight_annulus', label: 'MW Annulus (ppg)', step: '0.1' },
+                    { key: 'mud_weight_tubing', label: t('packerForces.mwTubing'), step: '0.1' },
+                    { key: 'mud_weight_annulus', label: t('packerForces.mwAnnulus'), step: '0.1' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -179,8 +179,8 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
                   {[
                     { key: 'initial_temperature', label: t('packerForces.tempSurfInit') },
                     { key: 'final_temperature', label: t('packerForces.tempBotFinal') },
-                    { key: 'poisson_ratio', label: 'Poisson Ratio', step: '0.01' },
-                    { key: 'thermal_expansion', label: 'Thermal Coeff. (1/°F)', step: '0.0000001' },
+                    { key: 'poisson_ratio', label: t('packerForces.poissonRatio'), step: '0.01' },
+                    { key: 'thermal_expansion', label: t('packerForces.thermalCoeff'), step: '0.0000001' },
                   ].map(({ key, label, step }) => (
                     <div key={key} className="space-y-1">
                       <label className="text-xs text-gray-400">{label}</label>
@@ -226,7 +226,7 @@ const PackerForcesModule: React.FC<PackerForcesModuleProps> = ({ wellId, wellNam
                 </div>
               </div>
               <div className="glass-panel p-4 rounded-xl border border-white/5 text-center">
-                <div className="text-xs text-gray-500 mb-1">{t('packerForces.forceBreakdown')}</div>
+                <div className="text-xs text-gray-500 mb-1">{t('packerForces.bucklingCritical')}</div>
                 <div className="text-xl font-bold text-amber-400">{(result.summary?.buckling_critical_load_lbs || 0).toLocaleString()} lbs</div>
               </div>
             </div>

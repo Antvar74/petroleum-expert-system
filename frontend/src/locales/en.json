@@ -904,6 +904,11 @@
     "tubingLength": "Length (ft)",
     "packerDepth": "Packer Depth TVD (ft)",
     "tubingGrade": "Tubing Grade",
+    "sealBoreID": "Seal Bore ID (in)",
+    "mwTubing": "MW Tubing (ppg)",
+    "mwAnnulus": "MW Annulus (ppg)",
+    "poissonRatio": "Poisson Ratio",
+    "thermalCoeff": "Thermal Coeff. (1/°F)",
     "tubingPressInit": "Tubing Pressure Initial",
     "tubingPressFinal": "Tubing Pressure Final",
     "annPressInit": "Annular Pressure Initial",
@@ -915,8 +920,22 @@
     "totalForce": "Total Force",
     "totalMovement": "Total Movement",
     "bucklingStatus": "Buckling Status",
+    "bucklingCritical": "Buckling Critical Load",
     "forceBreakdown": "Force Breakdown",
-    "noResults": "No results. Go to \"Parameters\" and run the calculation."
+    "noResults": "No results. Go to \"Parameters\" and run the calculation.",
+    "charts": {
+      "forceComponents": "Force Components",
+      "tension": "TENSION",
+      "compression": "COMPRESSION",
+      "forceLbs": "Force (lbs)",
+      "tubingMovement": "Tubing Movement",
+      "movementInches": "Movement (inches)",
+      "movementIn": "Movement (in)",
+      "packerGauge": "Packer Force & Buckling",
+      "criticalLoad": "Critical Load (lbs)",
+      "sensitivity": "Sensitivity Analysis",
+      "sensitivityFooter": "Values in lbs (÷1000). Green = Tension, Red = Compression"
+    }
   },
   "workoverHyd": {
     "title": "Workover Hydraulics",

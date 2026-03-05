@@ -4,6 +4,7 @@
 import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { Grid3X3 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface SensitivityHeatmapProps {
   data: { deltaP: number; deltaT: number; totalForce: number }[];
@@ -11,6 +12,7 @@ interface SensitivityHeatmapProps {
 }
 
 const SensitivityHeatmap: React.FC<SensitivityHeatmapProps> = ({ data, height = 350 }) => {
+  const { t } = useTranslation();
   if (!data?.length) return null;
 
   // Get unique deltaP and deltaT values
@@ -31,7 +33,7 @@ const SensitivityHeatmap: React.FC<SensitivityHeatmapProps> = ({ data, height = 
   };
 
   return (
-    <ChartContainer title="Sensitivity Analysis" icon={Grid3X3} height={height} isFluid>
+    <ChartContainer title={t('packerForces.charts.sensitivity')} icon={Grid3X3} height={height} isFluid>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -58,7 +60,7 @@ const SensitivityHeatmap: React.FC<SensitivityHeatmapProps> = ({ data, height = 
             ))}
           </tbody>
         </table>
-        <div className="text-xs text-gray-500 mt-2 text-center">Values in lbs (÷1000). Green = Tension, Red = Compression</div>
+        <div className="text-xs text-gray-500 mt-2 text-center">{t('packerForces.charts.sensitivityFooter')}</div>
       </div>
     </ChartContainer>
   );
