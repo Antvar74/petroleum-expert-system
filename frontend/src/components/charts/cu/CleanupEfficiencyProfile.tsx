@@ -41,8 +41,9 @@ const CleanupEfficiencyProfile: React.FC<CleanupEfficiencyProfileProps> = ({
         />
         <Tooltip content={<DarkTooltip />} />
         <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 24 }} />
-        {/* Minimum thresholds — same color as their curve, dashed & thinner */}
-        <ReferenceLine y={1.0} stroke={HCI_COLOR} strokeDasharray="6 4" strokeWidth={1} strokeOpacity={0.5} label={{ value: 'Min HCI (1.0)', fill: HCI_COLOR, position: 'insideTopRight', fontSize: 10 }} />
+        {/* HCI thresholds — Excellent ≥0.90 (near-vertical), Good ≥0.80 */}
+        <ReferenceLine y={0.90} stroke={HCI_COLOR} strokeDasharray="6 4" strokeWidth={1} strokeOpacity={0.5} label={{ value: 'Excellent (0.90)', fill: HCI_COLOR, position: 'insideTopRight', fontSize: 10 }} />
+        <ReferenceLine y={0.80} stroke={HCI_COLOR} strokeDasharray="4 4" strokeWidth={1} strokeOpacity={0.35} label={{ value: 'Good (0.80)', fill: HCI_COLOR, position: 'insideBottomRight', fontSize: 10 }} />
         <ReferenceLine y={0.55} stroke={CTR_COLOR} strokeDasharray="6 4" strokeWidth={1} strokeOpacity={0.5} label={{ value: 'Min CTR (0.55)', fill: CTR_COLOR, position: 'insideTopRight', fontSize: 10 }} />
         {currentInclination !== undefined && currentInclination > 0 && (
           <ReferenceLine x={currentInclination} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1} label={{ value: `${currentInclination}°`, fill: '#f59e0b', position: 'top', fontSize: 11 }} />

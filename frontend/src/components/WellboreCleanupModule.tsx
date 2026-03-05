@@ -288,17 +288,21 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
                   const rF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
                   const rheF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
                   const dF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
+                  // Base HCI at 0° (Luo with cap) — engine KPI anchor
+                  const hciBase = Math.min(va / 120, 1.5) * rF * rheF * dF;
                   return Array.from({ length: 19 }, (_, i) => {
                     const inc = i * 5; // 0° to 90°
-                    // va_min per API RP 13D thresholds
-                    const va_min = inc > 60 ? 150 : inc >= 30 ? 130 : 120;
-                    // Slip: Moore <30°, Larsen ≥30° (SPE 36383)
-                    const vs = inc < 30 ? vsMoore : larsenSlipVelocity(vsMoore, inc, params.rpm);
-                    // Velocity ratio — uncapped for chart: shows AV margin
-                    // declining at higher va_min thresholds (step at 30° & 60°)
-                    const velR = va_min > 0 ? va / va_min : 0;
-                    const hci = velR * rF * rheF * dF;
-                    const ctr = va > 0 ? Math.max((va - vs) / va, 0) : 0;
+                    const incRad = inc * Math.PI / 180;
+                    // V_min continuous: sin(θ) ramps 120→180; sin(2θ) adds avalanche penalty 40-65°
+                    const vaMinEff = 120 + 60 * Math.sin(incRad) + 25 * Math.sin(2 * incRad);
+                    // HCI: normalized to engine KPI at 0°, smooth curve via continuous V_min
+                    const hci = hciBase * 120 / vaMinEff;
+                    // Slip: Moore <30°, Larsen F_inc ≥30° (SPE 36383 simplified)
+                    const vsSlip = inc >= 30 ? vsMoore * (1 + 0.3 * Math.sin(incRad)) : vsMoore;
+                    // Bed formation factor: sin²(θ) — max 30% efficiency loss at 90°
+                    const bedFactor = 1.0 - 0.3 * Math.pow(Math.sin(incRad), 2);
+                    // CTR: slip + bed formation penalty, clamped to [0, 1]
+                    const ctr = Math.min(1.0, Math.max(0, (va - vsSlip) / va * bedFactor));
                     return {
                       inclination: inc,
                       hci: Math.round(hci * 1000) / 1000,
