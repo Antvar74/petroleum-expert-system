@@ -23,6 +23,7 @@ from agents.completion_engineer import CompletionEngineerAgent
 from agents.completion_design_engineer import CompletionDesignEngineerAgent
 from agents.ct_intervention_specialist import CTInterventionSpecialistAgent
 from agents.packer_forces_specialist import PackerForcesSpecialistAgent
+from agents.wellbore_cleanup_specialist import WellboreCleanupSpecialistAgent
 from models import OperationalProblem, AnalysisResult
 import json
 
@@ -50,6 +51,7 @@ class StuckPipeCoordinator:
             "completion_design_engineer": CompletionDesignEngineerAgent(),
             "ct_intervention_specialist": CTInterventionSpecialistAgent(),
             "packer_forces_specialist": PackerForcesSpecialistAgent(),
+            "wellbore_cleanup_specialist": WellboreCleanupSpecialistAgent(),
         }
 
         # Standard workflow for event investigation.

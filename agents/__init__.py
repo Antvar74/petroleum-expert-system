@@ -18,6 +18,7 @@ from .directional_engineer import DirectionalEngineerAgent
 from .completion_engineer import CompletionEngineerAgent
 from .ct_intervention_specialist import CTInterventionSpecialistAgent
 from .packer_forces_specialist import PackerForcesSpecialistAgent
+from .wellbore_cleanup_specialist import WellboreCleanupSpecialistAgent
 
 __all__ = [
     'BaseAgent',
@@ -35,4 +36,5 @@ __all__ = [
     'CompletionEngineerAgent',
     'CTInterventionSpecialistAgent',
     'PackerForcesSpecialistAgent',
+    'WellboreCleanupSpecialistAgent',
 ]

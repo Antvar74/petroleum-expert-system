@@ -117,10 +117,10 @@ class ModuleAnalysisEngine:
         return self._package(analysis, "well_control", result_data, well_name, language, provider)
 
     async def analyze_wellbore_cleanup(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Wellbore Cleanup results using mud_engineer agent."""
+        """Analyze Wellbore Cleanup results using wellbore_cleanup_specialist agent."""
         problem = self._build_cu_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("mud_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("wellbore_cleanup_specialist", problem, context, provider=provider)
         return self._package(analysis, "wellbore_cleanup", result_data, well_name, language, provider)
 
     async def analyze_packer_forces(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
