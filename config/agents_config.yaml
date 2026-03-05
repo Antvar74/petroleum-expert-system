@@ -26,7 +26,12 @@ agents:
     model: "claude-sonnet-4-20250514"
     max_tokens: 4000
     temperature: 0.3
-    
+
+  packer_forces_specialist:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 4000
+    temperature: 0.3
+
   hydrologist:
     model: "claude-sonnet-4-20250514"
     max_tokens: 3000

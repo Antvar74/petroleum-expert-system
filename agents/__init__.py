@@ -17,6 +17,7 @@ from .geomechanic_engineer import GeomechanicsEngineerAgent
 from .directional_engineer import DirectionalEngineerAgent
 from .completion_engineer import CompletionEngineerAgent
 from .ct_intervention_specialist import CTInterventionSpecialistAgent
+from .packer_forces_specialist import PackerForcesSpecialistAgent
 
 __all__ = [
     'BaseAgent',
@@ -32,5 +33,6 @@ __all__ = [
     'GeomechanicsEngineerAgent',
     'DirectionalEngineerAgent',
     'CompletionEngineerAgent',
-    'CTInterventionSpecialistAgent'
+    'CTInterventionSpecialistAgent',
+    'PackerForcesSpecialistAgent',
 ]
