@@ -13,6 +13,36 @@ import { useAIAnalysis } from '../hooks/useAIAnalysis';
 import { useToast } from './ui/Toast';
 import type { APIError } from '../types/api';
 
+// ── Slip velocity helpers (matching engine slip_velocity.py) ────────────
+/** Moore correlation — vertical wells (Stokes / Intermediate regimes) */
+const mooreSlipVelocity = (mw: number, pv: number, yp: number, cs: number, cd: number): number => {
+  if (cs <= 0 || mw <= 0) return 0;
+  const muA = Math.max(pv + 5.0 * yp, 1.0);
+  const dRho = cd - mw;
+  if (dRho <= 0) return 0;
+  const reP = 15.47 * mw * cs * Math.sqrt(dRho * cs / mw) / muA;
+  if (reP < 1) return 113.4 * cs * cs * dRho / muA;        // Stokes
+  return 175.0 * cs * Math.sqrt(dRho / mw);                 // Intermediate / Newton
+};
+
+/** Larsen (SPE 36383) — deviated wells, inc ≥ 30° */
+const larsenSlipVelocity = (vsVert: number, inc: number, rpm: number): number => {
+  const r = inc * Math.PI / 180;
+  // Inclination factor
+  const fInc = inc < 10 ? 1.0
+    : inc <= 60 ? 1.0 + 0.3 * Math.sin(2.0 * r)
+    : 1.0 + 0.2 * (1.0 - Math.cos(r));
+  // Vertical component corrected
+  let vsInc = vsVert * Math.abs(Math.cos(r)) * fInc;
+  if (inc > 80) vsInc = Math.max(vsInc, vsVert * 0.1);
+  // RPM factor
+  let fRpm = inc > 30
+    ? (inc >= 75 ? 1.0 - Math.min(rpm / 150, 0.5) : 1.0 - Math.min(rpm / 200, 0.4))
+    : 1.0;
+  fRpm = Math.max(fRpm, 0.3);
+  return vsInc * fRpm;
+};
+
 interface WellboreCleanupModuleProps {
   wellId?: number;
   wellName?: string;
@@ -87,20 +117,25 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
     return 'text-red-400 bg-red-500/10';
   };
 
-  // Sensitivity data for chart — Luo (1992) 4-factor HCI
-  const sensitivityData = result ? Array.from({ length: 13 }, (_, i) => {
-    const q = 200 + i * 50;
-    const va = 24.51 * q / (params.hole_id ** 2 - params.pipe_od ** 2);
-    const va_min = params.inclination > 60 ? 150 : params.inclination > 30 ? 130 : 120;
-    const velRatio = Math.min(va / va_min, 1.5);
+  // Sensitivity data for FlowRateSensitivity chart — Luo (1992) 4-factor HCI
+  const sensitivityData = result ? (() => {
+    const va_min = params.inclination > 60 ? 150 : params.inclination >= 30 ? 130 : 120;
     const rpmF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
     const rheoF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
     const densF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
-    const hci = velRatio * rpmF * rheoF * densF;
-    const vs = result.summary?.slip_velocity_ftmin || 30;
-    const ctr = va > 0 ? Math.max((va - vs) / va, 0) : 0;
-    return { flow_rate: q, hci: Math.round(hci * 100) / 100, ctr: Math.round(ctr * 100) / 100 };
-  }) : [];
+    const vsMoore = mooreSlipVelocity(params.mud_weight, params.pv, params.yp, params.cutting_size, params.cutting_density);
+    const vs = params.inclination >= 30
+      ? larsenSlipVelocity(vsMoore, params.inclination, params.rpm)
+      : vsMoore;
+    return Array.from({ length: 13 }, (_, i) => {
+      const q = 200 + i * 50;
+      const va = 24.51 * q / (params.hole_id ** 2 - params.pipe_od ** 2);
+      const velRatio = Math.min(va / va_min, 1.5);
+      const hci = velRatio * rpmF * rheoF * densF;
+      const ctr = va > 0 ? Math.max((va - vs) / va, 0) : 0;
+      return { flow_rate: q, hci: Math.round(hci * 100) / 100, ctr: Math.round(ctr * 100) / 100 };
+    });
+  })() : [];
 
   return (
     <div className="space-y-6">
@@ -249,24 +284,24 @@ const WellboreCleanupModule: React.FC<WellboreCleanupModuleProps> = ({ wellId, w
                 currentInclination={params.inclination}
                 data={(() => {
                   const va = 24.51 * params.flow_rate / (params.hole_id ** 2 - params.pipe_od ** 2);
-                  const vs_base = result.summary?.slip_velocity_ftmin || 1;
+                  const vsMoore = mooreSlipVelocity(params.mud_weight, params.pv, params.yp, params.cutting_size, params.cutting_density);
+                  const rF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
+                  const rheF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
+                  const dF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
                   return Array.from({ length: 19 }, (_, i) => {
                     const inc = i * 5; // 0° to 90°
-                    // va_min increases with inclination
-                    const va_min = inc > 60 ? 150 : inc > 30 ? 130 : 120;
-                    const velR = Math.min(va / va_min, 1.5);
-                    const rF = 0.7 + 0.3 * Math.min(params.rpm / 120, 1);
-                    const rheF = 0.6 + 0.4 * Math.min(params.yp / 15, 1);
-                    const dF = 0.8 + 0.2 * Math.min(params.mud_weight / 10, 1);
+                    // va_min per API RP 13D thresholds
+                    const va_min = inc > 60 ? 150 : inc >= 30 ? 130 : 120;
+                    // Slip: Moore <30°, Larsen ≥30° (SPE 36383)
+                    const vs = inc < 30 ? vsMoore : larsenSlipVelocity(vsMoore, inc, params.rpm);
+                    // Velocity ratio — uncapped for chart: shows AV margin
+                    // declining at higher va_min thresholds (step at 30° & 60°)
+                    const velR = va_min > 0 ? va / va_min : 0;
                     const hci = velR * rF * rheF * dF;
-                    // Slip velocity increases with inclination (bed formation effect)
-                    const incRad = (inc * Math.PI) / 180;
-                    const slipFactor = 1 + 2.5 * Math.sin(incRad) * Math.cos(incRad) + 1.5 * Math.pow(Math.sin(incRad), 2);
-                    const vs_eff = vs_base * slipFactor;
-                    const ctr = va > 0 ? Math.max((va - vs_eff) / va, 0) : 0;
+                    const ctr = va > 0 ? Math.max((va - vs) / va, 0) : 0;
                     return {
                       inclination: inc,
-                      hci: Math.round(hci * 100) / 100,
+                      hci: Math.round(hci * 1000) / 1000,
                       ctr: Math.round(ctr * 1000) / 1000,
                     };
                   });
