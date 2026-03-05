@@ -4,6 +4,7 @@
 import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { Target } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface MaxReachIndicatorProps {
   maxReach: { max_reach_ft: number; helical_buckling_load_lb: number; yield_load_lb: number; limiting_factor: string };
@@ -12,20 +13,21 @@ interface MaxReachIndicatorProps {
 }
 
 const MaxReachIndicator: React.FC<MaxReachIndicatorProps> = ({ maxReach, ctLength, height = 350 }) => {
+  const { t } = useTranslation();
   if (!maxReach) return null;
 
   const ratio = maxReach.max_reach_ft > 0 ? (ctLength / maxReach.max_reach_ft) * 100 : 100;
   const clampedRatio = Math.min(ratio, 100);
 
   const getColor = () => {
-    if (ratio > 90) return { bar: '#ef4444', text: 'text-red-400', label: 'CRÍTICO' };
-    if (ratio > 70) return { bar: '#f59e0b', text: 'text-yellow-400', label: 'PRECAUCIÓN' };
-    return { bar: '#22c55e', text: 'text-green-400', label: 'OK' };
+    if (ratio > 90) return { bar: '#ef4444', text: 'text-red-400', label: t('workoverHyd.charts.statusCritical') };
+    if (ratio > 70) return { bar: '#f59e0b', text: 'text-yellow-400', label: t('workoverHyd.charts.statusCaution') };
+    return { bar: '#22c55e', text: 'text-green-400', label: t('workoverHyd.charts.statusOk') };
   };
   const colors = getColor();
 
   return (
-    <ChartContainer title="Alcance Máximo CT" icon={Target} height={height} isFluid={true}
+    <ChartContainer title={t('workoverHyd.charts.maxReachTitle')} icon={Target} height={height} isFluid={true}
       badge={{ text: colors.label, color: ratio > 90 ? 'bg-red-500/20 text-red-400' : ratio > 70 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400' }}>
       <div className="flex flex-col items-center justify-center gap-6 p-6">
         {/* Circular gauge */}
@@ -38,26 +40,26 @@ const MaxReachIndicator: React.FC<MaxReachIndicatorProps> = ({ maxReach, ctLengt
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className={`text-3xl font-bold ${colors.text}`}>{Math.round(ratio)}%</span>
-            <span className="text-xs text-gray-500">Utilizado</span>
+            <span className="text-xs text-gray-500">{t('workoverHyd.charts.used')}</span>
           </div>
         </div>
 
         {/* Details */}
         <div className="grid grid-cols-2 gap-4 text-sm w-full">
           <div className="text-center">
-            <div className="text-gray-500 text-xs">Longitud CT</div>
+            <div className="text-gray-500 text-xs">{t('workoverHyd.charts.ctLength')}</div>
             <div className="font-bold text-white">{ctLength.toLocaleString()} ft</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 text-xs">Alcance Máximo</div>
+            <div className="text-gray-500 text-xs">{t('workoverHyd.charts.maxReach')}</div>
             <div className="font-bold text-teal-400">{maxReach.max_reach_ft.toLocaleString()} ft</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 text-xs">Carga Buckling</div>
+            <div className="text-gray-500 text-xs">{t('workoverHyd.charts.bucklingLoad')}</div>
             <div className="font-mono text-white">{maxReach.helical_buckling_load_lb.toLocaleString()} lb</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 text-xs">Factor Limitante</div>
+            <div className="text-gray-500 text-xs">{t('workoverHyd.charts.limitingFactor')}</div>
             <div className="font-mono text-white text-xs">{maxReach.limiting_factor}</div>
           </div>
         </div>

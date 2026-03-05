@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import ChartContainer, { DarkTooltip } from '../ChartContainer';
 import { CHART_DEFAULTS } from '../ChartTheme';
 import { BarChart3 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CTPressureProfileProps {
   hydraulics: { pipe_loss_psi: number; annular_loss_psi: number; total_loss_psi: number };
@@ -14,8 +15,10 @@ interface CTPressureProfileProps {
 }
 
 const CTPressureProfile: React.FC<CTPressureProfileProps> = ({ hydraulics, height = 350 }) => {
+  const { t } = useTranslation();
   if (!hydraulics) return null;
 
+  const pressureLabel = t('workoverHyd.charts.pressure');
   const data = [
     { name: 'Pipe (CT)', value: hydraulics.pipe_loss_psi, fill: '#14b8a6' },
     { name: 'Annular', value: hydraulics.annular_loss_psi, fill: '#06b6d4' },
@@ -23,15 +26,15 @@ const CTPressureProfile: React.FC<CTPressureProfileProps> = ({ hydraulics, heigh
   ];
 
   return (
-    <ChartContainer title="Perfil de Presión CT" icon={BarChart3} height={height}
+    <ChartContainer title={t('workoverHyd.charts.pressureProfile')} icon={BarChart3} height={height}
       badge={{ text: `${hydraulics.total_loss_psi} psi`, color: 'bg-teal-500/20 text-teal-400' }}>
       <BarChart data={data} margin={CHART_DEFAULTS.margin}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_DEFAULTS.gridColor} />
         <XAxis dataKey="name" stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 12 }} />
         <YAxis stroke={CHART_DEFAULTS.axisColor} tick={{ fill: CHART_DEFAULTS.axisColor, fontSize: 12 }}
-          label={{ value: 'Presión (psi)', angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
+          label={{ value: pressureLabel, angle: -90, position: 'insideLeft', fill: CHART_DEFAULTS.axisColor }} />
         <Tooltip content={<DarkTooltip />} />
-        <Bar dataKey="value" name="Presión (psi)" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="value" name={pressureLabel} radius={[4, 4, 0, 0]}>
           {data.map((entry, idx) => (
             <rect key={idx} fill={entry.fill} />
           ))}

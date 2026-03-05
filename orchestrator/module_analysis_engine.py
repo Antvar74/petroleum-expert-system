@@ -131,10 +131,10 @@ class ModuleAnalysisEngine:
         return self._package(analysis, "packer_forces", result_data, well_name, language, provider)
 
     async def analyze_workover_hydraulics(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
-        """Analyze Workover Hydraulics results using well_engineer agent."""
+        """Analyze Workover Hydraulics results using ct_intervention_specialist agent."""
         problem = self._build_wh_problem(result_data, well_name, params, language)
         context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
-        analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
+        analysis = await self.coordinator.run_automated_step("ct_intervention_specialist", problem, context, provider=provider)
         return self._package(analysis, "workover_hydraulics", result_data, well_name, language, provider)
 
     async def analyze_sand_control(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
@@ -453,6 +453,9 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
         snubbing = result_data.get("snubbing", {})
         reach = result_data.get("max_reach", {})
         kill_data = result_data.get("kill_data", {})
+        elongation = result_data.get("elongation", {})
+        fatigue = result_data.get("fatigue", {})
+        burst = result_data.get("burst_rating", {})
         alerts = summary.get("alerts", [])
 
         return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Workover Hydraulics Module — Well: {well_name}
@@ -460,24 +463,38 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 CT String: {params.get('ct_od', 'N/A')}" OD × {params.get('wall_thickness', 'N/A')}" wall, Length: {params.get('ct_length', 'N/A')} ft
 Wellbore: {params.get('hole_id', 'N/A')}" ID, TVD: {params.get('tvd', 'N/A')} ft, Inclination: {params.get('inclination', 'N/A')}°
 Fluid: {params.get('mud_weight', 'N/A')} ppg, PV: {params.get('pv', 'N/A')} cP, YP: {params.get('yp', 'N/A')} lb/100ft²
+Wellhead Pressure: {params.get('wellhead_pressure', 'N/A')} psi | Reservoir Pressure: {params.get('reservoir_pressure', 'N/A')} psi
 
 HYDRAULICS:
 - Total Pressure Loss: {summary.get('total_pressure_loss_psi', 'N/A')} psi (Pipe: {summary.get('pipe_loss_psi', 'N/A')} + Annular: {summary.get('annular_loss_psi', 'N/A')})
 - Pipe Regime: {hydraulics.get('pipe_regime', 'N/A')} | Annular Regime: {hydraulics.get('annular_regime', 'N/A')}
+- Pipe Velocity: {hydraulics.get('pipe_velocity_ftmin', 'N/A')} ft/min | Annular Velocity: {hydraulics.get('annular_velocity_ftmin', 'N/A')} ft/min
 
 FORCE ANALYSIS:
-- Buoyed Weight: {summary.get('buoyed_weight_lb', 'N/A')} lb
-- Drag Force: {summary.get('drag_force_lb', 'N/A')} lb
+- Buoyed Weight: {summary.get('buoyed_weight_lb', 'N/A')} lb | Drag Force: {summary.get('drag_force_lb', 'N/A')} lb
 - Snubbing Force: {snubbing.get('snubbing_force_lb', 'N/A')} lb | Pipe Light: {snubbing.get('pipe_light', 'N/A')}
 - Light/Heavy Point: {snubbing.get('light_heavy_depth_ft', 'N/A')} ft
 
 MAX REACH:
-- Estimated: {reach.get('max_reach_ft', 'N/A')} ft
-- Limiting Factor: {reach.get('limiting_factor', 'N/A')}
+- Estimated: {reach.get('max_reach_ft', 'N/A')} ft | Limiting Factor: {reach.get('limiting_factor', 'N/A')}
 - Helical Buckling Load: {reach.get('helical_buckling_load_lb', 'N/A')} lb
 
 KILL DATA:
 - Kill Weight: {kill_data.get('kill_weight_ppg', 'N/A')} ppg | Status: {kill_data.get('status', 'N/A')}
+- Current BHP: {kill_data.get('current_bhp_psi', 'N/A')} psi | Overbalance: {kill_data.get('overbalance_psi', 'N/A')} psi
+
+CT ELONGATION (Lubinski 4-Component):
+- Weight: {elongation.get('dL_weight_ft', 'N/A')} ft | Temperature: {elongation.get('dL_temperature_ft', 'N/A')} ft
+- Ballooning: {elongation.get('dL_ballooning_ft', 'N/A')} ft | Bourdon: {elongation.get('dL_bourdon_ft', 'N/A')} ft
+- TOTAL: {elongation.get('dL_total_ft', 'N/A')} ft | Depth Correction: {elongation.get('depth_correction_ft', 'N/A')} ft
+
+CT FATIGUE (API RP 5C7 / Miner's Rule):
+- Bending Strain: {fatigue.get('strain_bending_pct', 'N/A')}% | Pressure Strain: {fatigue.get('strain_pressure_pct', 'N/A')}% | Total: {fatigue.get('strain_total_pct', 'N/A')}%
+- Cycles to Failure: {fatigue.get('cycles_to_failure', 'N/A')} | Remaining Life: {fatigue.get('remaining_life_pct', 'N/A')}%
+- Damage Accumulated (Miner): {fatigue.get('damage_accumulated', 'N/A')} | Reel Diameter Assumed: {fatigue.get('reel_diameter_assumed', 'N/A')}" ({fatigue.get('reel_source', 'N/A')})
+
+CT BURST RATING (API 5C7):
+- Burst Rating: {burst.get('burst_rating_psi', 'N/A')} psi | Max Operating: {burst.get('max_operating_psi', 'N/A')} psi | Utilization: {burst.get('burst_utilization_pct', 'N/A')}%
 
 ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 

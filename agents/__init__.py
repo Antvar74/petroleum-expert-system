@@ -16,6 +16,7 @@ from .cementing_engineer import CementingEngineerAgent
 from .geomechanic_engineer import GeomechanicsEngineerAgent
 from .directional_engineer import DirectionalEngineerAgent
 from .completion_engineer import CompletionEngineerAgent
+from .ct_intervention_specialist import CTInterventionSpecialistAgent
 
 __all__ = [
     'BaseAgent',
@@ -30,5 +31,6 @@ __all__ = [
     'CementingEngineerAgent',
     'GeomechanicsEngineerAgent',
     'DirectionalEngineerAgent',
-    'CompletionEngineerAgent'
+    'CompletionEngineerAgent',
+    'CTInterventionSpecialistAgent'
 ]

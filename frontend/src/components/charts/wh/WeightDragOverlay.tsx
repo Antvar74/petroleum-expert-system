@@ -4,6 +4,7 @@
 import React from 'react';
 import ChartContainer from '../ChartContainer';
 import { Weight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface WeightDragOverlayProps {
   weightAnalysis: { air_weight_lb: number; buoyancy_factor: number; buoyed_weight_lb: number; axial_component_lb: number };
@@ -13,20 +14,21 @@ interface WeightDragOverlayProps {
 }
 
 const WeightDragOverlay: React.FC<WeightDragOverlayProps> = ({ weightAnalysis, dragAnalysis, params, height = 350 }) => {
+  const { t } = useTranslation();
   if (!weightAnalysis || !dragAnalysis) return null;
 
   const maxVal = Math.max(weightAnalysis.air_weight_lb, weightAnalysis.buoyed_weight_lb, dragAnalysis.drag_force_lb, 1);
 
   const bars = [
-    { label: 'Peso Aire', value: weightAnalysis.air_weight_lb, color: '#94a3b8' },
-    { label: 'Peso Flotado', value: weightAnalysis.buoyed_weight_lb, color: '#14b8a6' },
-    { label: 'Comp. Axial', value: weightAnalysis.axial_component_lb, color: '#3b82f6' },
-    { label: 'Fuerza Normal', value: dragAnalysis.normal_force_lb, color: '#f59e0b' },
-    { label: 'Drag', value: dragAnalysis.drag_force_lb, color: '#ef4444' },
+    { label: t('workoverHyd.charts.airWeight'), value: weightAnalysis.air_weight_lb, color: '#94a3b8' },
+    { label: t('workoverHyd.buoyedWeight'), value: weightAnalysis.buoyed_weight_lb, color: '#14b8a6' },
+    { label: t('workoverHyd.charts.axialComp'), value: weightAnalysis.axial_component_lb, color: '#3b82f6' },
+    { label: t('workoverHyd.charts.normalForce'), value: dragAnalysis.normal_force_lb, color: '#f59e0b' },
+    { label: t('workoverHyd.charts.drag'), value: dragAnalysis.drag_force_lb, color: '#ef4444' },
   ];
 
   return (
-    <ChartContainer title="Peso y Arrastre" icon={Weight} height={height} isFluid
+    <ChartContainer title={t('workoverHyd.charts.weightDrag')} icon={Weight} height={height} isFluid
       badge={{ text: `Incl: ${params.inclination}°`, color: 'bg-blue-500/20 text-blue-400' }}>
       <div className="flex flex-col gap-3 p-4">
         {bars.map((bar, i) => (

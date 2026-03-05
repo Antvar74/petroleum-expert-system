@@ -106,21 +106,21 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {[
                   { key: 'ct_od', label: t('workoverHyd.ctOD'), step: '0.125' },
-                  { key: 'wall_thickness', label: 'Wall Thickness (in)', step: '0.01' },
+                  { key: 'wall_thickness', label: t('workoverHyd.wallThickness'), step: '0.01' },
                   { key: 'ct_length', label: t('workoverHyd.ctLength'), step: '500' },
                   { key: 'hole_id', label: t('workoverHyd.casingID'), step: '0.125' },
                   { key: 'flow_rate', label: t('workoverHyd.flowRate'), step: '10' },
                   { key: 'mud_weight', label: t('workoverHyd.mudWeight'), step: '0.1' },
                   { key: 'pv', label: t('workoverHyd.pv'), step: '1' },
                   { key: 'yp', label: t('workoverHyd.yp'), step: '1' },
-                  { key: 'tvd', label: 'TVD (ft)', step: '500' },
+                  { key: 'tvd', label: t('workoverHyd.tvd'), step: '500' },
                   { key: 'inclination', label: t('workoverHyd.inclination'), step: '5' },
-                  { key: 'friction_factor', label: 'Friction Factor', step: '0.05' },
-                  { key: 'wellhead_pressure', label: 'Wellhead Pressure (psi)', step: '100' },
-                  { key: 'reservoir_pressure', label: 'Reservoir Pressure (psi)', step: '100' },
-                  { key: 'yield_strength_psi', label: 'Yield CT (psi)', step: '5000' },
-                  { key: 'bht_f', label: 'BHT (°F) — 0 = not provided', step: '10' },
-                  { key: 't_surface_f', label: 'T Surface (°F)', step: '5' },
+                  { key: 'friction_factor', label: t('workoverHyd.frictionFactor'), step: '0.05' },
+                  { key: 'wellhead_pressure', label: t('workoverHyd.wellheadPressure'), step: '100' },
+                  { key: 'reservoir_pressure', label: t('workoverHyd.reservoirPressure'), step: '100' },
+                  { key: 'yield_strength_psi', label: t('workoverHyd.yieldStrength'), step: '5000' },
+                  { key: 'bht_f', label: t('workoverHyd.bht'), step: '10' },
+                  { key: 't_surface_f', label: t('workoverHyd.tSurface'), step: '5' },
                 ].map(({ key, label, step }) => (
                   <div key={key} className="space-y-1">
                     <label className="text-xs text-gray-400">{label}</label>
@@ -148,7 +148,7 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
               {[
                 { label: t('workoverHyd.pressureLoss'), value: `${result.summary?.total_pressure_loss_psi} psi`, color: 'text-teal-400' },
                 { label: t('workoverHyd.buoyedWeight'), value: `${result.summary?.buoyed_weight_lb} lb`, color: 'text-cyan-400' },
-                { label: t('workoverHyd.snubbingForce'), value: `${Math.abs(result.summary?.snubbing_force_lb ?? 0)} lb ${result.summary?.pipe_light ? '(Push)' : '(Heavy)'}`, color: result.summary?.pipe_light ? 'text-red-400' : 'text-green-400' },
+                { label: t('workoverHyd.snubbingForce'), value: `${Math.abs(result.summary?.snubbing_force_lb ?? 0)} lb ${result.summary?.pipe_light ? t('workoverHyd.pipeLightBadge') : t('workoverHyd.pipeHeavyBadge')}`, color: result.summary?.pipe_light ? 'text-red-400' : 'text-green-400' },
                 { label: t('workoverHyd.maxReach'), value: `${result.summary?.max_reach_ft} ft`, color: 'text-purple-400' },
               ].map((item, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-white/5 text-center">
@@ -162,12 +162,12 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-4">{t('workoverHyd.ctHydraulics')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-gray-400">Pérd. Tubería:</span> <span className="font-mono">{result.hydraulics?.pipe_loss_psi} psi</span></div>
-                <div><span className="text-gray-400">Pérd. Anular:</span> <span className="font-mono">{result.hydraulics?.annular_loss_psi} psi</span></div>
-                <div><span className="text-gray-400">Vel. Tubería:</span> <span className="font-mono">{result.hydraulics?.pipe_velocity_ftmin} ft/min</span></div>
-                <div><span className="text-gray-400">Vel. Anular:</span> <span className="font-mono">{result.hydraulics?.annular_velocity_ftmin} ft/min</span></div>
-                <div><span className="text-gray-400">Régimen Pipe:</span> <span className="font-mono">{result.hydraulics?.pipe_regime}</span></div>
-                <div><span className="text-gray-400">Régimen Anular:</span> <span className="font-mono">{result.hydraulics?.annular_regime}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.pipeLoss')}</span> <span className="font-mono">{result.hydraulics?.pipe_loss_psi} psi</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.annularLoss')}</span> <span className="font-mono">{result.hydraulics?.annular_loss_psi} psi</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.pipeVelocity')}</span> <span className="font-mono">{result.hydraulics?.pipe_velocity_ftmin} ft/min</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.annularVelocity')}</span> <span className="font-mono">{result.hydraulics?.annular_velocity_ftmin} ft/min</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.pipeRegime')}</span> <span className="font-mono">{result.hydraulics?.pipe_regime}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.hydraulicsDetail.annularRegime')}</span> <span className="font-mono">{result.hydraulics?.annular_regime}</span></div>
               </div>
             </div>
 
@@ -175,12 +175,12 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-4">{t('workoverHyd.forceAnalysis')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-gray-400">Peso Aire:</span> <span className="font-mono">{result.weight_analysis?.air_weight_lb} lb</span></div>
-                <div><span className="text-gray-400">Factor Flotación:</span> <span className="font-mono">{result.weight_analysis?.buoyancy_factor}</span></div>
-                <div><span className="text-gray-400">Drag:</span> <span className="font-mono">{result.drag_analysis?.drag_force_lb} lb</span></div>
-                <div><span className="text-gray-400">Pipe Light:</span> <span className={`font-bold ${result.snubbing?.pipe_light ? 'text-red-400' : 'text-green-400'}`}>{result.snubbing?.pipe_light ? 'Sí' : 'No'}</span></div>
-                <div><span className="text-gray-400">Punto Light/Heavy:</span> <span className="font-mono">{result.snubbing?.light_heavy_depth_ft} ft</span></div>
-                <div><span className="text-gray-400">Factor Limitante:</span> <span className="font-mono">{result.max_reach?.limiting_factor}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.airWeight')}</span> <span className="font-mono">{result.weight_analysis?.air_weight_lb} lb</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.buoyancyFactor')}</span> <span className="font-mono">{result.weight_analysis?.buoyancy_factor}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.drag')}</span> <span className="font-mono">{result.drag_analysis?.drag_force_lb} lb</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.pipeLight')}</span> <span className={`font-bold ${result.snubbing?.pipe_light ? 'text-red-400' : 'text-green-400'}`}>{result.snubbing?.pipe_light ? t('workoverHyd.yes') : t('workoverHyd.no')}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.lightHeavyDepth')}</span> <span className="font-mono">{result.snubbing?.light_heavy_depth_ft} ft</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.forceDetail.limitingFactor')}</span> <span className="font-mono">{result.max_reach?.limiting_factor}</span></div>
               </div>
             </div>
 
@@ -188,11 +188,11 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             <div className="glass-panel p-6 rounded-2xl border border-white/5">
               <h3 className="text-lg font-bold mb-4">{t('workoverHyd.controlData')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-gray-400">Peso Control:</span> <span className="font-mono">{result.kill_data?.kill_weight_ppg} ppg</span></div>
-                <div><span className="text-gray-400">BHP Requerido:</span> <span className="font-mono">{result.kill_data?.required_bhp_psi} psi</span></div>
-                <div><span className="text-gray-400">BHP Actual:</span> <span className="font-mono">{result.kill_data?.current_bhp_psi} psi</span></div>
-                <div><span className="text-gray-400">Sobrebalance:</span> <span className="font-mono">{result.kill_data?.overbalance_psi} psi</span></div>
-                <div><span className="text-gray-400">Estado:</span> <span className={`font-bold ${result.kill_data?.status?.includes('UNDER') ? 'text-red-400' : 'text-green-400'}`}>{result.kill_data?.status}</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.killDetail.killWeight')}</span> <span className="font-mono">{result.kill_data?.kill_weight_ppg} ppg</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.killDetail.requiredBHP')}</span> <span className="font-mono">{result.kill_data?.required_bhp_psi} psi</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.killDetail.currentBHP')}</span> <span className="font-mono">{result.kill_data?.current_bhp_psi} psi</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.killDetail.overbalance')}</span> <span className="font-mono">{result.kill_data?.overbalance_psi} psi</span></div>
+                <div><span className="text-gray-400">{t('workoverHyd.killDetail.status')}</span> <span className={`font-bold ${result.kill_data?.status?.includes('UNDER') ? 'text-red-400' : 'text-green-400'}`}>{result.kill_data?.status}</span></div>
               </div>
             </div>
 
@@ -213,13 +213,13 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             {/* CT Elongation Breakdown — FIX-WH-003 */}
             {result.elongation && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-4">CT Elongation Breakdown</h3>
+                <h3 className="text-lg font-bold mb-4">{t('workoverHyd.elongation.title')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
                   {[
-                    { label: 'Peso (Weight)', value: result.elongation?.dL_weight_ft },
-                    { label: 'Temperatura', value: result.elongation?.dL_temperature_ft },
-                    { label: 'Ballooning', value: result.elongation?.dL_ballooning_ft },
-                    { label: 'Bourdon', value: result.elongation?.dL_bourdon_ft },
+                    { label: t('workoverHyd.elongation.weight'), value: result.elongation?.dL_weight_ft },
+                    { label: t('workoverHyd.elongation.temperature'), value: result.elongation?.dL_temperature_ft },
+                    { label: t('workoverHyd.elongation.ballooning'), value: result.elongation?.dL_ballooning_ft },
+                    { label: t('workoverHyd.elongation.bourdon'), value: result.elongation?.dL_bourdon_ft },
                   ].map(({ label, value }) => (
                     <div key={label} className="glass-card p-3 rounded-lg text-center">
                       <div className="text-xs text-gray-400 mb-1">{label}</div>
@@ -230,10 +230,10 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
                   ))}
                 </div>
                 <div className="flex gap-6 text-sm border-t border-white/10 pt-3">
-                  <div><span className="text-gray-400">Total: </span><span className="font-mono font-bold text-white">{Number(result.elongation?.dL_total_ft)?.toFixed(3)} ft</span></div>
-                  <div><span className="text-gray-400">Depth Correction: </span><span className="font-mono font-bold text-yellow-400">{Number(result.elongation?.depth_correction_ft)?.toFixed(3)} ft</span></div>
+                  <div><span className="text-gray-400">{t('workoverHyd.elongation.total')} </span><span className="font-mono font-bold text-white">{Number(result.elongation?.dL_total_ft)?.toFixed(3)} ft</span></div>
+                  <div><span className="text-gray-400">{t('workoverHyd.elongation.depthCorrection')} </span><span className="font-mono font-bold text-yellow-400">{Number(result.elongation?.depth_correction_ft)?.toFixed(3)} ft</span></div>
                   {result.elongation?.dL_temperature_ft === 0 && (
-                    <div className="text-xs text-gray-500 italic">* BHT not provided — thermal elongation = 0</div>
+                    <div className="text-xs text-gray-500 italic">{t('workoverHyd.elongation.noBHT')}</div>
                   )}
                 </div>
               </div>
@@ -242,29 +242,29 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             {/* CT Fatigue — FIX-WH-004 */}
             {result.fatigue && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-4">CT Fatigue Life</h3>
+                <h3 className="text-lg font-bold mb-4">{t('workoverHyd.fatigue.title')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
                   <div className="glass-card p-3 rounded-lg text-center">
-                    <div className="text-xs text-gray-400 mb-1">Cycles to Failure (N_f)</div>
+                    <div className="text-xs text-gray-400 mb-1">{t('workoverHyd.fatigue.cyclesToFailure')}</div>
                     <div className="text-base font-mono font-bold text-white">{Number(result.fatigue?.cycles_to_failure)?.toLocaleString()}</div>
                   </div>
                   <div className="glass-card p-3 rounded-lg text-center">
-                    <div className="text-xs text-gray-400 mb-1">Remaining Life</div>
+                    <div className="text-xs text-gray-400 mb-1">{t('workoverHyd.fatigue.remainingLife')}</div>
                     <div className={`text-base font-mono font-bold ${Number(result.fatigue?.remaining_life_pct) > 50 ? 'text-green-400' : Number(result.fatigue?.remaining_life_pct) > 20 ? 'text-yellow-400' : 'text-red-400'}`}>
                       {result.fatigue?.remaining_life_pct}%
                     </div>
                   </div>
                   <div className="glass-card p-3 rounded-lg text-center">
-                    <div className="text-xs text-gray-400 mb-1">Grade</div>
+                    <div className="text-xs text-gray-400 mb-1">{t('workoverHyd.fatigue.grade')}</div>
                     <div className="text-base font-mono font-bold text-purple-400">{result.fatigue?.sn_parameters?.grade_class}</div>
                   </div>
                   <div className="glass-card p-3 rounded-lg text-center">
-                    <div className="text-xs text-gray-400 mb-1">Total Strain</div>
+                    <div className="text-xs text-gray-400 mb-1">{t('workoverHyd.fatigue.totalStrain')}</div>
                     <div className="text-base font-mono font-bold text-teal-400">{Number(result.fatigue?.strain_total_pct)?.toFixed(3)}%</div>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">
-                  Reel diameter: {result.fatigue?.reel_diameter_in}" ({result.fatigue?.reel_source}) — No trip history provided (D = 0)
+                  {t('workoverHyd.fatigue.reelDiameter')}: {result.fatigue?.reel_diameter_in}" ({result.fatigue?.reel_source}) — {t('workoverHyd.fatigue.noTripHistory')}
                 </div>
               </div>
             )}
@@ -272,12 +272,12 @@ const WorkoverHydraulicsModule: React.FC<WorkoverHydraulicsModuleProps> = ({ wel
             {/* CT Burst Rating — FIX-WH-005 */}
             {result.burst_rating && (
               <div className="glass-panel p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-bold mb-4">CT Pressure Rating</h3>
+                <h3 className="text-lg font-bold mb-4">{t('workoverHyd.pressureRating.title')}</h3>
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div><span className="text-gray-400">Burst Rating (API 5C7):</span> <span className="font-mono font-bold text-green-400">{Number(result.burst_rating?.burst_rating_psi)?.toLocaleString()} psi</span></div>
-                  <div><span className="text-gray-400">Max Operating:</span> <span className="font-mono">{result.burst_rating?.max_operating_psi} psi</span></div>
+                  <div><span className="text-gray-400">{t('workoverHyd.pressureRating.burstRating')}</span> <span className="font-mono font-bold text-green-400">{Number(result.burst_rating?.burst_rating_psi)?.toLocaleString()} psi</span></div>
+                  <div><span className="text-gray-400">{t('workoverHyd.pressureRating.maxOperating')}</span> <span className="font-mono">{result.burst_rating?.max_operating_psi} psi</span></div>
                   <div>
-                    <span className="text-gray-400">Utilización:</span>{' '}
+                    <span className="text-gray-400">{t('workoverHyd.pressureRating.utilization')}</span>{' '}
                     <span className={`font-mono font-bold ${Number(result.burst_rating?.burst_utilization_pct) < 50 ? 'text-green-400' : Number(result.burst_rating?.burst_utilization_pct) < 80 ? 'text-yellow-400' : 'text-red-400'}`}>
                       {result.burst_rating?.burst_utilization_pct}%
                     </span>
