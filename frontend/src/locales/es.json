@@ -631,14 +631,8 @@
   },
   "hydraulics": {
     "title": "Análisis de Hidráulica y ECD",
-    "tabs": {
-      "circuit": "Configuración de Circuito",
-      "hydraulics": "Hidráulica Completa",
-      "bit": "Optimización de Barrena",
-      "surge": "Surge/Swab"
-    },
+    "noResults": "Ejecute el cálculo para ver resultados hidráulicos",
     "circuit": {
-      "title": "Secciones del Circuito Hidráulico",
       "type": "Tipo",
       "length": "Longitud (ft)",
       "od": "DE (in)",
@@ -656,8 +650,12 @@
       "sizes": "Tamaños de Boquilla (32avos, separados por coma)",
       "bitDiameter": "Diámetro de Barrena (in)"
     },
+    "sections": {
+      "circuit": "Secciones del Circuito",
+      "fluidParams": "Parámetros de Fluido e Hidráulica",
+      "surgeParams": "Parámetros de Surge/Swab"
+    },
     "params": {
-      "title": "Parámetros Hidráulicos",
       "flowRate": "Gasto (gpm)",
       "mudWeight": "Peso de Lodo (ppg)",
       "pv": "VP (cP)",
@@ -668,7 +666,13 @@
       "powerLaw": "Ley de Potencia",
       "flowIndex": "n (índice de flujo)",
       "consistency": "K (consistencia)",
-      "calculateCircuit": "Calcular Circuito Completo"
+      "calculateCircuit": "Calcular"
+    },
+    "summary": {
+      "totalSPP": "SPP Total",
+      "ecdAtTD": "ECD en TD",
+      "bitHSI": "HSI de Broca",
+      "surgeEMW": "EMW Surge"
     },
     "results": {
       "sectionResults": "Resultados por Sección",
@@ -678,20 +682,11 @@
       "flowRegime": "Régimen de Flujo",
       "re": "Re"
     },
-    "bit": {
-      "runFirst": "Ejecuta Hidráulica Completa primero para ver resultados de optimización de barrena."
-    },
     "surge": {
-      "title": "Análisis de Surge y Swab",
-      "mudWeight": "Peso de Lodo (ppg)",
-      "pv": "VP (cP)",
-      "yp": "PC (lb/100ft²)",
-      "tvd": "PVD (ft)",
       "pipeOD": "DE Tubería (in)",
       "holeID": "DI Hoyo (in)",
       "tripSpeed": "Vel. de Viaje (ft/min)",
       "openEnded": "Tubería Abierta",
-      "calculate": "Calcular Surge/Swab",
       "surgeECD": "ECD Surge",
       "swabECD": "ECD Swab",
       "effectiveVelocity": "Velocidad Efectiva",

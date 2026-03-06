@@ -21,6 +21,8 @@ export interface AIAnalysisResponse {
   analysis: string;
   confidence: string;
   query?: string;
+  agent_role?: string;
+  key_metrics?: Array<{ label: string; value: string | number; unit?: string }>;
 }
 
 /** Axios-compatible error shape for catch blocks. */

@@ -631,14 +631,8 @@
   },
   "hydraulics": {
     "title": "Hydraulics & ECD Analysis",
-    "tabs": {
-      "circuit": "Circuit Setup",
-      "hydraulics": "Full Hydraulics",
-      "bit": "Bit Optimization",
-      "surge": "Surge/Swab"
-    },
+    "noResults": "Run calculation to see hydraulics results",
     "circuit": {
-      "title": "Hydraulic Circuit Sections",
       "type": "Type",
       "length": "Length (ft)",
       "od": "OD (in)",
@@ -656,8 +650,12 @@
       "sizes": "Nozzle Sizes (32nds, comma-sep)",
       "bitDiameter": "Bit Diameter (in)"
     },
+    "sections": {
+      "circuit": "Circuit Sections",
+      "fluidParams": "Fluid & Hydraulic Parameters",
+      "surgeParams": "Surge/Swab Parameters"
+    },
     "params": {
-      "title": "Hydraulic Parameters",
       "flowRate": "Flow Rate (gpm)",
       "mudWeight": "Mud Weight (ppg)",
       "pv": "PV (cP)",
@@ -668,7 +666,13 @@
       "powerLaw": "Power Law",
       "flowIndex": "n (flow index)",
       "consistency": "K (consistency)",
-      "calculateCircuit": "Calculate Full Circuit"
+      "calculateCircuit": "Calculate"
+    },
+    "summary": {
+      "totalSPP": "Total SPP",
+      "ecdAtTD": "ECD at TD",
+      "bitHSI": "Bit HSI",
+      "surgeEMW": "Surge EMW"
     },
     "results": {
       "sectionResults": "Section Results",
@@ -678,20 +682,11 @@
       "flowRegime": "Flow Regime",
       "re": "Re"
     },
-    "bit": {
-      "runFirst": "Run Full Hydraulics first to see bit optimization results."
-    },
     "surge": {
-      "title": "Surge & Swab Analysis",
-      "mudWeight": "Mud Weight (ppg)",
-      "pv": "PV (cP)",
-      "yp": "YP (lb/100ft²)",
-      "tvd": "TVD (ft)",
       "pipeOD": "Pipe OD (in)",
       "holeID": "Hole ID (in)",
       "tripSpeed": "Trip Speed (ft/min)",
       "openEnded": "Open Ended Pipe",
-      "calculate": "Calculate Surge/Swab",
       "surgeECD": "Surge ECD",
       "swabECD": "Swab ECD",
       "effectiveVelocity": "Effective Velocity",
