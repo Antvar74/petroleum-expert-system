@@ -158,6 +158,13 @@ class ModuleAnalysisEngine:
         analysis = await self.coordinator.run_automated_step("well_engineer", problem, context, provider=provider)
         return self._package(analysis, "casing_design", result_data, well_name, language, provider)
 
+    async def analyze_petrophysics(self, result_data: Dict, well_name: str, params: Dict, language: str = "en", provider: str = "auto") -> Dict:
+        """Analyze Petrophysics results using geologist agent."""
+        problem = self._build_pet_problem(result_data, well_name, params, language)
+        context = {"module_results": result_data, "well_data": {"name": well_name, **params}}
+        analysis = await self.coordinator.run_automated_step("geologist", problem, context, provider=provider)
+        return self._package(analysis, "petrophysics", result_data, well_name, language, provider)
+
     # ================================================================
     # Generic dispatcher (for modules 9+)
     # ================================================================
@@ -170,6 +177,7 @@ class ModuleAnalysisEngine:
             "vibrations": self.analyze_vibrations,
             "cementing": self.analyze_cementing,
             "casing_design": self.analyze_casing_design,
+            "petrophysics": self.analyze_petrophysics,
             "daily_report": self.analyze_daily_report,
         }
         handler = method_map.get(module)
@@ -759,6 +767,48 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
 
 {self._get_instruction_block(language)}"""
 
+    def _build_pet_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
+        evaluation = result_data.get("evaluation", {})
+        summary = evaluation.get("summary", {})
+        intervals = evaluation.get("intervals", [])
+        pickett = result_data.get("pickett", {})
+        crossplot = result_data.get("crossplot", {})
+
+        # Build intervals summary
+        int_lines = ""
+        for i, iv in enumerate(intervals[:10], 1):
+            int_lines += (f"  Zone {i}: {iv.get('top_md', '?')}-{iv.get('base_md', '?')} ft "
+                          f"({iv.get('thickness_ft', 0)} ft) | "
+                          f"phi={iv.get('avg_phi', 'N/A')} | Sw={iv.get('avg_sw', 'N/A')} | "
+                          f"k={iv.get('avg_perm_md', 'N/A')} mD\n")
+
+        regression = pickett.get("regression", {})
+
+        return f"""{self._get_language_prefix(language)}EXECUTIVE ANALYSIS REQUIRED — Advanced Petrophysics Module — Well: {well_name}
+
+EVALUATION SUMMARY:
+Total Points: {summary.get('total_points', 'N/A')} | Pay Points: {summary.get('pay_points', 'N/A')}
+Net Pay: {summary.get('net_pay_ft', 'N/A')} ft
+Avg Porosity (pay): {summary.get('avg_phi_pay', 'N/A')} | Avg Sw (pay): {summary.get('avg_sw_pay', 'N/A')}
+Avg Permeability (pay): {summary.get('avg_perm_pay', 'N/A')} mD
+
+CUTOFFS APPLIED:
+Phi min: {params.get('phi_min', 'N/A')} | Sw max: {params.get('sw_max', 'N/A')} | Vsh max: {params.get('vsh_max', 'N/A')}
+
+NET PAY INTERVALS:
+{int_lines if int_lines else '  No intervals identified'}
+
+PICKETT PLOT:
+Points: {len(pickett.get('points', []))} | Regression m: {regression.get('estimated_m', 'N/A')}
+
+DENSITY-NEUTRON CROSSPLOT:
+Points: {crossplot.get('total_points', 'N/A')} | Gas flags: {crossplot.get('gas_count', 'N/A')}
+
+ARCHIE PARAMETERS:
+a={params.get('a', 1.0)} | m={params.get('m', 2.0)} | n={params.get('n', 2.0)} | Rw={params.get('rw', 'N/A')} ohm-m
+
+{self._get_instruction_block(language)}"""
+
     def _build_ddr_problem(self, result_data: Dict, well_name: str, params: Dict, language: str = "en") -> str:
         from orchestrator.ddr_engine import DDREngine
         summary = DDREngine.calculate_daily_summary(result_data) if result_data else {}
@@ -945,6 +995,19 @@ ALERTS: {json.dumps(alerts, ensure_ascii=False) if alerts else 'None'}
                 {"label": self._ml("Triaxial Status", language), "value": summary.get("triaxial_status", "N/A"), "unit": ""},
                 {"label": self._ml("Temp Derate", language), "value": summary.get("temp_derate_factor", 1.0), "unit": ""},
                 {"label": self._ml("Overall Status", language), "value": summary.get("overall_status", "N/A"), "unit": ""},
+            ]
+
+        elif module == "petrophysics":
+            evaluation = result_data.get("evaluation", {})
+            summary = evaluation.get("summary", {})
+            crossplot = result_data.get("crossplot", {})
+            return [
+                {"label": self._ml("Net Pay", language), "value": summary.get("net_pay_ft", 0), "unit": "ft"},
+                {"label": self._ml("Pay Points", language), "value": summary.get("pay_points", 0), "unit": ""},
+                {"label": self._ml("Avg Porosity", language), "value": summary.get("avg_phi_pay", 0), "unit": ""},
+                {"label": self._ml("Avg Sw", language), "value": summary.get("avg_sw_pay", 0), "unit": ""},
+                {"label": self._ml("Avg Perm", language), "value": summary.get("avg_perm_pay", 0), "unit": "mD"},
+                {"label": self._ml("Gas Flags", language), "value": crossplot.get("gas_count", 0), "unit": ""},
             ]
 
         elif module == "daily_report":

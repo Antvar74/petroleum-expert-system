@@ -489,6 +489,7 @@ async def standalone_analyze_module(data: StandaloneAnalysisRequest):
         "vibrations": module_analyzer.analyze_vibrations,
         "cementing": module_analyzer.analyze_cementing,
         "casing-design": module_analyzer.analyze_casing_design,
+        "petrophysics": module_analyzer.analyze_petrophysics,
     }
 
     fn = analyze_fn_map.get(module)

@@ -18,6 +18,7 @@ import {
     Vibrate,
     Cylinder,
     ShieldCheck,
+    Microscope,
     ClipboardList,
     Wifi,
     WifiOff,
@@ -102,6 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, selected
         { id: 'vibrations', label: t('sidebar.vibrations'), icon: Vibrate },
         { id: 'cementing', label: t('sidebar.cementing'), icon: Cylinder },
         { id: 'casing-design', label: t('sidebar.casingDesign'), icon: ShieldCheck },
+        { id: 'petrophysics', label: t('sidebar.petrophysics'), icon: Microscope },
     ];
 
     // Reporting — independent, manages its own well selection
