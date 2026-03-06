@@ -90,12 +90,19 @@ def run_full_evaluation(
     # Identify net pay intervals
     intervals = _identify_intervals(evaluated, co)
 
+    # Auto-detect sample spacing from data (default 0.5 ft if < 2 points)
+    if len(evaluated) >= 2:
+        spacing = abs(evaluated[1]["md"] - evaluated[0]["md"])
+        spacing = max(spacing, 0.1)  # guard against zero
+    else:
+        spacing = 0.5
+
     # Summary statistics
     pay_points = [e for e in evaluated if e["is_pay"]]
     summary = {
         "total_points": len(evaluated),
         "pay_points": len(pay_points),
-        "net_pay_ft": round(len(pay_points) * 0.5, 1) if pay_points else 0,
+        "net_pay_ft": round(len(pay_points) * spacing, 1) if pay_points else 0,
         "avg_phi_pay": round(sum(p["phi_effective"] for p in pay_points) / len(pay_points), 4) if pay_points else 0,
         "avg_sw_pay": round(sum(p["sw"] for p in pay_points) / len(pay_points), 4) if pay_points else 0,
         "avg_perm_pay": round(sum(p["k_md"] for p in pay_points) / len(pay_points), 2) if pay_points else 0,

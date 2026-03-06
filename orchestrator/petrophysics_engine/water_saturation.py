@@ -88,27 +88,30 @@ def _waxman_smits_sw(
 
     1/Rt = Sw^n * phi^m / (a*Rw) + B*Qv*Sw^(n-1) * phi^m / a
     where B ≈ 4.6 * (1 - 0.6*exp(-0.77/Rw)) — equivalent conductance
+
+    FIX-PET-004: Rsh modulates Qv — lower Rsh = more conductive shale = higher
+    CEC = higher Qv. Normalized at Rsh=2.0 (Gulf Coast default).
     """
-    qv = 0.6 * vsh / max(phi, 0.01)
+    # Qv modulated by Rsh: lower Rsh → higher CEC → higher Qv
+    rsh_factor = 2.0 / max(rsh, 0.1)  # normalized: factor=1.0 at rsh=2.0
+    qv = 0.6 * vsh / max(phi, 0.01) * rsh_factor
     b_coeff = 4.6 * (1.0 - 0.6 * math.exp(-0.77 / max(rw, 0.001)))
 
-    # Iterative solution: start with Archie as initial guess
+    # Iterative solution: start with Archie as initial guess, ratio-based Newton
     sw = _archie_sw(phi, rt, rw, a, m, n)
+    ct = 1.0 / max(rt, 0.1)
 
-    for _ in range(20):
-        # 1/Rt = Sw^n * phi^m/(a*Rw) + B*Qv*Sw^(n-1)*phi^m/a
+    for _ in range(30):
         term1 = (sw ** n) * (phi ** m) / (a * rw)
         term2 = b_coeff * qv * (sw ** max(n - 1, 0.1)) * (phi ** m) / a
-        rt_calc = 1.0 / max(term1 + term2, 1e-10)
+        ct_calc = term1 + term2
 
-        if abs(rt_calc - rt) < 0.01 * rt:
+        if abs(ct_calc - ct) < 0.005 * ct:
             break
 
-        # Adjust Sw
-        if rt_calc > rt:
-            sw *= 1.02
-        else:
-            sw *= 0.98
+        # Ratio-based Newton step: Sw_new ≈ Sw * (Ct/Ct_calc)^(1/n)
+        ratio = (ct / max(ct_calc, 1e-10)) ** (1.0 / n)
+        sw = sw * ratio
         sw = max(0.01, min(sw, 1.0))
 
     return round(sw, 4)
@@ -145,7 +148,8 @@ def _dual_water_sw(
         if swt < 0.01:
             swt = 0.01
         cw_eff = cw + (swb / max(swt, 0.01)) * (cwb - cw)
-        cw_eff = max(cw_eff, cw * 0.5)
+        # FIX-PET-005: relaxed floor so Rsh sensitivity is preserved
+        cw_eff = max(cw_eff, 0.01)
         ct_calc = (phi_t ** m / a) * (swt ** n) * cw_eff
 
         if abs(ct_calc - ct) < 0.005 * ct:

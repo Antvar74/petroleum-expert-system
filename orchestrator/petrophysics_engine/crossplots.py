@@ -41,6 +41,7 @@ def generate_pickett_plot(
                 "log_phi": round(math.log10(phi), 4),
                 "log_rt": round(math.log10(rt), 4),
                 "sw": entry.get("sw"),
+                "vsh": entry.get("vsh"),
             })
 
     # Generate iso-Sw lines
@@ -57,11 +58,19 @@ def generate_pickett_plot(
             })
         iso_sw_lines[f"Sw={sw:.0%}"] = line_points
 
-    # Simple linear regression on log-log for m estimation
+    # Linear regression on log-log for m estimation.
+    # FIX-PET-003: exclude shale points (vsh >= 0.30 or phi_e <= 0.05) from
+    # regression so that clay-bound conductivity doesn't bias the slope.
+    # All points still appear in the plot; only the regression line is filtered.
+    clean_points = [
+        p for p in points
+        if (p.get("vsh") or 0) < 0.30 and (p.get("phi") or 0) > 0.05
+    ]
     regression = {}
-    if len(points) >= 3:
-        x = [p["log_phi"] for p in points]
-        y = [p["log_rt"] for p in points]
+    reg_pts = clean_points if len(clean_points) >= 3 else points
+    if len(reg_pts) >= 3:
+        x = [p["log_phi"] for p in reg_pts]
+        y = [p["log_rt"] for p in reg_pts]
         n_pts = len(x)
         sum_x = sum(x)
         sum_y = sum(y)
@@ -71,11 +80,13 @@ def generate_pickett_plot(
         if abs(denom) > 1e-10:
             slope = (n_pts * sum_xy - sum_x * sum_y) / denom
             intercept = (sum_y - slope * sum_x) / n_pts
+            # FIX-PET-002: m = |slope| (always positive, typical 1.5–2.5)
             regression = {
                 "slope": round(slope, 3),
                 "intercept": round(intercept, 3),
-                "estimated_m": round(-slope, 3),
-                "note": "Slope of Pickett plot ≈ -m (cementation exponent)",
+                "estimated_m": round(abs(slope), 3),
+                "regression_points": len(reg_pts),
+                "note": "m = |slope| of Pickett plot (cementation exponent)",
             }
 
     return {
